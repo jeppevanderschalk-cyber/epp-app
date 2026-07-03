@@ -356,11 +356,15 @@ const STAGES = [
 ];
 const DEFAULT_SHOTS = {s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10};
 const KEY = "epp-data-v1";
+const SYNC_KEY = "epp-sync-v1";
+const DEFAULT_SYNC = {enabled:false,url:"",anonKey:"",space:"epp-app"};
 const PASTE_ROWS = 6000;
 const newId = () => window.crypto?.randomUUID?.() ?? `id_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 const avg = a => { const v=a.filter(x=>typeof x==="number"); return v.length?v.reduce((p,c)=>p+c,0)/v.length:null; };
 const kleur = i => LINES[i%LINES.length];
 const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"").slice(0,2).join("");
+const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
+const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
 const insidePoly = (p, poly) => {
   let inside=false;
   for(let i=0,j=poly.length-1;i<poly.length;j=i++){
@@ -1112,8 +1116,68 @@ const TabRanglijst = ({ranking, stageTotaal, getVal, maxOf, TOT_MAX}) =>
   );
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, exportCSV, resetAll, wisMonth}) =>
+const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, exportCSV, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Online synchronisatie")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+        h("p",{className:"hint"},"Gebruik dezelfde Supabase-gegevens en sync-code op mobiel en laptop. Dan delen alle apparaten dezelfde schutters en scores."),
+        h("label",{className:"set-row",style:{gap:10}},
+          h("div",{className:"set-lbl"},
+            h("div",null,"Sync actief"),
+            h("div",{className:"set-sub"},"Mobiel en laptop delen dezelfde online data")
+          ),
+          h("input",{type:"checkbox",checked:!!syncConfig.enabled,onChange:e=>setSyncConfig(p=>({...p,enabled:e.target.checked}))})
+        ),
+        h("input",{className:"txt-in",placeholder:"Supabase project URL",value:syncConfig.url,onChange:e=>setSyncConfig(p=>({...p,url:e.target.value}))}),
+        h("input",{className:"txt-in",placeholder:"Supabase anon public key",value:syncConfig.anonKey,onChange:e=>setSyncConfig(p=>({...p,anonKey:e.target.value}))}),
+        h("input",{className:"txt-in",placeholder:"Sync-code, bijvoorbeeld epp-app",value:syncConfig.space,onChange:e=>setSyncConfig(p=>({...p,space:e.target.value.trim()}))}),
+        h("button",{className:"btn btn-gold btn-full",onClick:syncNow},"Nu synchroniseren"),
+        h("p",{className:"hint"},"Status: ",syncStatus || "niet verbonden"),
+        h("details",null,
+          h("summary",{style:{fontSize:12,color:C.goldLt,cursor:"pointer"}},"Benodigde Supabase tabel"),
+          h("pre",{style:{whiteSpace:"pre-wrap",fontSize:11,lineHeight:1.45,color:C.muted,background:"rgba(0,0,0,.18)",border:`1px solid ${C.border}`,borderRadius:8,padding:10,overflowX:"auto"}},
+`create table if not exists public.epp_sync (
+  id text primary key,
+  payload jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end $$;
+
+drop trigger if exists epp_sync_updated_at on public.epp_sync;
+create trigger epp_sync_updated_at
+before update on public.epp_sync
+for each row execute function public.set_updated_at();
+
+alter table public.epp_sync enable row level security;
+
+drop policy if exists "EPP sync lezen" on public.epp_sync;
+create policy "EPP sync lezen"
+on public.epp_sync for select
+to anon
+using (true);
+
+drop policy if exists "EPP sync schrijven" on public.epp_sync;
+create policy "EPP sync schrijven"
+on public.epp_sync for insert
+to anon
+with check (true);
+
+drop policy if exists "EPP sync bijwerken" on public.epp_sync;
+create policy "EPP sync bijwerken"
+on public.epp_sync for update
+to anon
+using (true)
+with check (true);`)
+        )
+      )
+    ),
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schoten per stage")),
       h("div",{className:"card-body"},
@@ -1162,6 +1226,8 @@ function App() {
   const [stageShots, setStageShots] = React.useState(DEFAULT_SHOTS);
   const [loaded,     setLoaded]     = React.useState(false);
   const [saveState,  setSaveState]  = React.useState("idle");
+  const [syncConfig, setSyncConfig] = React.useState(()=>{try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}});
+  const [syncStatus, setSyncStatus] = React.useState("sync uit");
   const [tab,        setTab]        = React.useState("invoer");
   const [maand,      setMaand]      = React.useState(MONTHS[new Date().getMonth()]);
   const [onderdeel,  setOnderdeel]  = React.useState("stage");
@@ -1169,10 +1235,64 @@ function App() {
   const [nieuw,      setNieuw]      = React.useState("");
   const [toast,      setToast]      = React.useState("");
   const firstSave = React.useRef(true);
+  const applyingRemote = React.useRef(false);
+  const syncPushTimer = React.useRef(null);
+  const lastRemoteStamp = React.useRef("");
 
   const flash = m => { setToast(m); setTimeout(()=>setToast(""),2400); };
   const maxOf = k => (stageShots[k]||0)*5;
   const TOT_MAX = STAGES.reduce((a,s)=>a+maxOf(s.key),0);
+  const makePayload = () => ({schema:1,shooters,scores,cameraShots,stageShots});
+  const applyPayload = payload => {
+    if(!payload || typeof payload!=="object")return;
+    applyingRemote.current=true;
+    setShooters(payload.shooters||[]);
+    setScores(payload.scores||{});
+    setCameraShots(payload.cameraShots||[]);
+    setStageShots({...DEFAULT_SHOTS,...(payload.stageShots||{})});
+    setTimeout(()=>{applyingRemote.current=false;},1500);
+  };
+  const syncFetch = async (method,path,body) => {
+    const url=cleanUrl(syncConfig.url);
+    const key=String(syncConfig.anonKey||"").trim();
+    const res=await fetch(url+path,{method,headers:{
+      apikey:key,
+      Authorization:`Bearer ${key}`,
+      "Content-Type":"application/json",
+      Prefer:"resolution=merge-duplicates,return=representation"
+    },body:body?JSON.stringify(body):undefined});
+    if(!res.ok)throw new Error(await res.text() || res.statusText);
+    return res.status===204 ? null : res.json();
+  };
+  const pushRemote = async (label="online opgeslagen") => {
+    if(!syncReady(syncConfig))return;
+    try{
+      setSyncStatus("online opslaan...");
+      const id=String(syncConfig.space||"").trim();
+      const rows=await syncFetch("POST","/rest/v1/epp_sync?on_conflict=id",{id,payload:makePayload()});
+      lastRemoteStamp.current=rows?.[0]?.updated_at || new Date().toISOString();
+      setSyncStatus(label);
+    }catch(e){setSyncStatus("sync fout: controleer Supabase");console.warn("EPP sync push",e);}
+  };
+  const pullRemote = async ({createIfMissing=false}={}) => {
+    if(!syncReady(syncConfig)){setSyncStatus("sync uit");return;}
+    try{
+      setSyncStatus("online controleren...");
+      const id=encodeURIComponent(String(syncConfig.space||"").trim());
+      const rows=await syncFetch("GET",`/rest/v1/epp_sync?id=eq.${id}&select=id,payload,updated_at&limit=1`);
+      const row=Array.isArray(rows)?rows[0]:null;
+      if(!row){
+        if(createIfMissing) await pushRemote("online set aangemaakt");
+        else setSyncStatus("nog geen online data");
+        return;
+      }
+      if(row.updated_at && row.updated_at!==lastRemoteStamp.current){
+        lastRemoteStamp.current=row.updated_at;
+        applyPayload(row.payload);
+        setSyncStatus("online data geladen");
+      }else setSyncStatus("online up-to-date");
+    }catch(e){setSyncStatus("sync fout: controleer Supabase");console.warn("EPP sync pull",e);}
+  };
 
   // localStorage
   React.useEffect(()=>{
@@ -1181,9 +1301,31 @@ function App() {
   React.useEffect(()=>{
     if(!loaded)return;if(firstSave.current){firstSave.current=false;return;}
     setSaveState("saving");
-    const t=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots}));setSaveState("saved");}catch(e){setSaveState("error");}},500);
+    const t=setTimeout(()=>{
+      try{
+        localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots}));
+        setSaveState("saved");
+        if(syncReady(syncConfig) && !applyingRemote.current){
+          clearTimeout(syncPushTimer.current);
+          syncPushTimer.current=setTimeout(()=>pushRemote("online opgeslagen"),900);
+        }
+      }catch(e){setSaveState("error");}
+    },500);
     return()=>clearTimeout(t);
-  },[shooters,scores,cameraShots,stageShots,loaded]);
+  },[shooters,scores,cameraShots,stageShots,loaded,syncConfig]);
+
+  React.useEffect(()=>{
+    try{localStorage.setItem(SYNC_KEY,JSON.stringify(syncConfig));}catch(e){}
+    if(!loaded)return;
+    if(syncReady(syncConfig)) pullRemote({createIfMissing:true});
+    else setSyncStatus("sync uit");
+  },[syncConfig,loaded]);
+
+  React.useEffect(()=>{
+    if(!loaded || !syncReady(syncConfig))return;
+    const t=setInterval(()=>pullRemote(),7000);
+    return()=>clearInterval(t);
+  },[loaded,syncConfig]);
 
   // State helpers
   const getVal = (sid,k,mnd) => scores?.[sid]?.[k]?.[mnd];
@@ -1225,6 +1367,11 @@ function App() {
   };
 
   const saveLbl = {idle:"",saving:"●",saved:"Opgeslagen ✓",error:"Fout"}[saveState];
+  const syncNow = async () => {
+    if(!syncReady(syncConfig))return flash("Vul eerst Supabase URL, key en sync-code in");
+    await pullRemote({createIfMissing:true});
+    flash("Synchronisatie uitgevoerd");
+  };
 
   const sharedProps = {getVal,setVal,maxOf,copyForExcel,copyNamen,exportCSV};
 
@@ -1242,7 +1389,7 @@ function App() {
     : tab==="camera" ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash})
     : tab==="dash"   ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
     : tab==="rang"   ? h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
-    : tab==="instel" ? h(TabInstellingen,{stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth})
+    : tab==="instel" ? h(TabInstellingen,{stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow})
     : null;
 
   return h("div",{className:"app"},
