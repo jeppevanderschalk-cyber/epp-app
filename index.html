@@ -427,6 +427,8 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .card-body{padding:12px 16px 16px}
 .eyebrow{font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:10px;font-weight:700;color:${C.gold};margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .eyebrow::before{content:'';display:block;width:3px;height:12px;background:${C.gradGold};border-radius:2px}
+.beta-badge{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;letter-spacing:.12em;color:${C.blue};background:${C.gold};border-radius:4px;padding:2px 7px;margin-left:4px}
+.beta-note{margin:0 0 12px;color:${C.muted};font-size:12px;line-height:1.45;background:rgba(227,184,47,.1);border:1px solid rgba(227,184,47,.28);border-radius:8px;padding:9px 10px}
 .month-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .month-strip::-webkit-scrollbar{display:none}
 .mchip{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;border:1.5px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s;letter-spacing:.03em}
@@ -948,8 +950,11 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
   if(!shooters.length) return h(Empty,{msg:"Voeg eerst een schutter toe via Invoer."});
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Camera scoring")),
+      h("div",{className:"card-head"},
+        h("div",{className:"eyebrow"},"Camera scoring",h("span",{className:"beta-badge"},"BETA"))
+      ),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+        h("p",{className:"beta-note"},"Beta-functie: de camera kan helpen met schotherkenning, maar controleer de registratie altijd. Corrigeer gemiste of verkeerd herkende schoten handmatig."),
         h(MonthStrip,{maand,setMaand}),
         h("div",{className:"cam-stage-grid"},
           h("select",{className:"cam-select",value:sid,onChange:e=>setSid(e.target.value)},
