@@ -8,3 +8,6 @@
 *.jpg
 *.png
 !epp-logo.png
+!apple-touch-icon.png
+!app-icon-192.png
+!app-icon-512.png
