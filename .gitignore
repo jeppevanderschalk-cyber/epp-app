@@ -1,0 +1,10 @@
+.DS_Store
+*.pdf
+*.docx
+*.xlsx
+*.xlsm
+*.csv
+*.jpeg
+*.jpg
+*.png
+!epp-logo.png
