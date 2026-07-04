@@ -357,7 +357,14 @@ const STAGES = [
 const DEFAULT_SHOTS = {s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10};
 const KEY = "epp-data-v1";
 const SYNC_KEY = "epp-sync-v1";
-const DEFAULT_SYNC = {enabled:false,url:"",anonKey:"",space:"epp-app"};
+const CENTRAL_SYNC = {
+  enabled:false,
+  url:"",
+  anonKey:"",
+  space:"epp-app"
+};
+const DEFAULT_SYNC = CENTRAL_SYNC.enabled ? CENTRAL_SYNC : {enabled:false,url:"",anonKey:"",space:"epp-app"};
+const HAS_CENTRAL_SYNC = !!(CENTRAL_SYNC.enabled && CENTRAL_SYNC.url && CENTRAL_SYNC.anonKey);
 const PASTE_ROWS = 6000;
 const newId = () => window.crypto?.randomUUID?.() ?? `id_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 const avg = a => { const v=a.filter(x=>typeof x==="number"); return v.length?v.reduce((p,c)=>p+c,0)/v.length:null; };
@@ -1147,20 +1154,30 @@ const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, ex
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Online synchronisatie")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
-        h("p",{className:"hint"},"Gebruik dezelfde Supabase-gegevens en sync-code op mobiel en laptop. Dan delen alle apparaten dezelfde schutters en scores."),
-        h("label",{className:"set-row",style:{gap:10}},
-          h("div",{className:"set-lbl"},
-            h("div",null,"Sync actief"),
-            h("div",{className:"set-sub"},"Mobiel en laptop delen dezelfde online data")
+        HAS_CENTRAL_SYNC
+          ? h("p",{className:"hint"},"Live meekijken staat centraal aan. Iedere gebruiker van epp-app.nl ziet dezelfde schutters en scores zodra de app online is.")
+          : h("p",{className:"hint"},"Vul eenmalig de centrale Supabase-gegevens in de app-code in. Daarna hoeven gebruikers zelf niets meer in te stellen."),
+        HAS_CENTRAL_SYNC
+          ? h("div",{className:"set-row"},
+            h("div",{className:"set-lbl"},
+              h("div",null,"Live meekijken actief"),
+              h("div",{className:"set-sub"},"Alle apparaten gebruiken dezelfde online opslag")
+            ),
+            h("div",{className:"pill"},"AAN")
+          )
+          : h("label",{className:"set-row",style:{gap:10}},
+            h("div",{className:"set-lbl"},
+              h("div",null,"Sync actief"),
+              h("div",{className:"set-sub"},"Mobiel en laptop delen dezelfde online data")
+            ),
+            h("input",{type:"checkbox",checked:!!syncConfig.enabled,onChange:e=>setSyncConfig(p=>({...p,enabled:e.target.checked}))})
           ),
-          h("input",{type:"checkbox",checked:!!syncConfig.enabled,onChange:e=>setSyncConfig(p=>({...p,enabled:e.target.checked}))})
-        ),
-        h("input",{className:"txt-in",placeholder:"Supabase project URL",value:syncConfig.url,onChange:e=>setSyncConfig(p=>({...p,url:e.target.value}))}),
-        h("input",{className:"txt-in",placeholder:"Supabase anon public key",value:syncConfig.anonKey,onChange:e=>setSyncConfig(p=>({...p,anonKey:e.target.value}))}),
-        h("input",{className:"txt-in",placeholder:"Sync-code, bijvoorbeeld epp-app",value:syncConfig.space,onChange:e=>setSyncConfig(p=>({...p,space:e.target.value.trim()}))}),
+        !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Supabase project URL",value:syncConfig.url,onChange:e=>setSyncConfig(p=>({...p,url:e.target.value}))}),
+        !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Supabase anon public key",value:syncConfig.anonKey,onChange:e=>setSyncConfig(p=>({...p,anonKey:e.target.value}))}),
+        !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Sync-code, bijvoorbeeld epp-app",value:syncConfig.space,onChange:e=>setSyncConfig(p=>({...p,space:e.target.value.trim()}))}),
         h("button",{className:"btn btn-gold btn-full",onClick:syncNow},"Nu synchroniseren"),
         h("p",{className:"hint"},"Status: ",syncStatus || "niet verbonden"),
-        h("details",null,
+        !HAS_CENTRAL_SYNC && h("details",null,
           h("summary",{style:{fontSize:12,color:C.goldLt,cursor:"pointer"}},"Benodigde Supabase tabel"),
           h("pre",{style:{whiteSpace:"pre-wrap",fontSize:11,lineHeight:1.45,color:C.muted,background:"rgba(0,0,0,.18)",border:`1px solid ${C.border}`,borderRadius:8,padding:10,overflowX:"auto"}},
 `create table if not exists public.epp_sync (
@@ -1252,8 +1269,11 @@ function App() {
   const [stageShots, setStageShots] = React.useState(DEFAULT_SHOTS);
   const [loaded,     setLoaded]     = React.useState(false);
   const [saveState,  setSaveState]  = React.useState("idle");
-  const [syncConfig, setSyncConfig] = React.useState(()=>{try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}});
-  const [syncStatus, setSyncStatus] = React.useState("sync uit");
+  const [syncConfig, setSyncConfig] = React.useState(()=>{
+    if(HAS_CENTRAL_SYNC)return DEFAULT_SYNC;
+    try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
+  });
+  const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
   const [tab,        setTab]        = React.useState("invoer");
   const [maand,      setMaand]      = React.useState(MONTHS[new Date().getMonth()]);
   const [onderdeel,  setOnderdeel]  = React.useState("stage");
