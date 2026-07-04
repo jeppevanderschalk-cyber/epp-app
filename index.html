@@ -358,9 +358,9 @@ const DEFAULT_SHOTS = {s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10};
 const KEY = "epp-data-v1";
 const SYNC_KEY = "epp-sync-v1";
 const CENTRAL_SYNC = {
-  enabled:false,
-  url:"",
-  anonKey:"",
+  enabled:true,
+  url:"https://ktpngngrqwuqbdpxiihf.supabase.co",
+  anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0cG5nbmdycXducWJkcHhpawhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMDA0MjksImV4cCI6MjA5ODY3NjQyOX0.rnFGMaKGst8s3_f327It32vHOs4Dc66x_-7GbWxrC9c",
   space:"epp-app"
 };
 const DEFAULT_SYNC = CENTRAL_SYNC.enabled ? CENTRAL_SYNC : {enabled:false,url:"",anonKey:"",space:"epp-app"};
