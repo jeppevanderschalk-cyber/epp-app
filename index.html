@@ -1177,8 +1177,9 @@ const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, ex
         !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Sync-code, bijvoorbeeld epp-app",value:syncConfig.space,onChange:e=>setSyncConfig(p=>({...p,space:e.target.value.trim()}))}),
         h("button",{className:"btn btn-gold btn-full",onClick:syncNow},"Nu synchroniseren"),
         h("p",{className:"hint"},"Status: ",syncStatus || "niet verbonden"),
-        !HAS_CENTRAL_SYNC && h("details",null,
+        h("details",null,
           h("summary",{style:{fontSize:12,color:C.goldLt,cursor:"pointer"}},"Benodigde Supabase tabel"),
+          h("p",{className:"hint"},"Voer deze SQL eenmalig uit in Supabase via SQL Editor. Daarna kan iedereen live meekijken."),
           h("pre",{style:{whiteSpace:"pre-wrap",fontSize:11,lineHeight:1.45,color:C.muted,background:"rgba(0,0,0,.18)",border:`1px solid ${C.border}`,borderRadius:8,padding:10,overflowX:"auto"}},
 `create table if not exists public.epp_sync (
   id text primary key,
