@@ -365,6 +365,32 @@ const kleur = i => LINES[i%LINES.length];
 const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"").slice(0,2).join("");
 const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
 const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
+const mergeById = (remote=[], local=[]) => {
+  const map = new Map();
+  [...remote, ...local].forEach(item => {
+    if(item?.id) map.set(item.id, {...(map.get(item.id)||{}), ...item});
+  });
+  return Array.from(map.values());
+};
+const mergeScores = (remote={}, local={}) => {
+  const out = {...remote};
+  Object.entries(local||{}).forEach(([sid, onderdelen]) => {
+    out[sid] = {...(out[sid]||{})};
+    Object.entries(onderdelen||{}).forEach(([onderdeel, maanden]) => {
+      out[sid][onderdeel] = {...(out[sid][onderdeel]||{}), ...(maanden||{})};
+    });
+  });
+  return out;
+};
+const mergePayloads = (remote={}, local={}) => ({
+  schema:1,
+  shooters:mergeById(remote.shooters, local.shooters),
+  scores:mergeScores(remote.scores, local.scores),
+  cameraShots:[...(remote.cameraShots||[]), ...(local.cameraShots||[])].filter((shot, index, arr) =>
+    shot?.id ? arr.findIndex(x=>x?.id===shot.id)===index : index===arr.indexOf(shot)
+  ),
+  stageShots:{...DEFAULT_SHOTS, ...(remote.stageShots||{}), ...(local.stageShots||{})}
+});
 const insidePoly = (p, poly) => {
   let inside=false;
   for(let i=0,j=poly.length-1;i<poly.length;j=i++){
@@ -1269,8 +1295,13 @@ function App() {
     try{
       setSyncStatus("online opslaan...");
       const id=String(syncConfig.space||"").trim();
-      const rows=await syncFetch("POST","/rest/v1/epp_sync?on_conflict=id",{id,payload:makePayload()});
+      const safeId=encodeURIComponent(id);
+      const existing=await syncFetch("GET",`/rest/v1/epp_sync?id=eq.${safeId}&select=id,payload,updated_at&limit=1`);
+      const row=Array.isArray(existing)?existing[0]:null;
+      const payload=mergePayloads(row?.payload, makePayload());
+      const rows=await syncFetch("POST","/rest/v1/epp_sync?on_conflict=id",{id,payload});
       lastRemoteStamp.current=rows?.[0]?.updated_at || new Date().toISOString();
+      applyPayload(payload);
       setSyncStatus(label);
     }catch(e){setSyncStatus("sync fout: controleer Supabase");console.warn("EPP sync push",e);}
   };
@@ -1288,7 +1319,7 @@ function App() {
       }
       if(row.updated_at && row.updated_at!==lastRemoteStamp.current){
         lastRemoteStamp.current=row.updated_at;
-        applyPayload(row.payload);
+        applyPayload(mergePayloads(row.payload, makePayload()));
         setSyncStatus("online data geladen");
       }else setSyncStatus("online up-to-date");
     }catch(e){setSyncStatus("sync fout: controleer Supabase");console.warn("EPP sync pull",e);}
