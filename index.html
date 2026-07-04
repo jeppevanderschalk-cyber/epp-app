@@ -12,12 +12,74 @@
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
 <style>html,body{margin:0;padding:0;background:#F4F7FB}*{box-sizing:border-box}</style>
+<style>
+.login-gate{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(180deg,#0d1f6e 0%,#050e2e 100%)}
+.login-gate[hidden]{display:none}
+.login-card{width:min(100%,380px);display:grid;gap:16px;padding:28px 24px;border:1px solid #1e3470;border-radius:18px;background:linear-gradient(135deg,#0e1f4a 0%,#0a1838 100%);box-shadow:0 18px 40px rgba(0,0,0,.45);text-align:center;font-family:'Inter',system-ui,sans-serif;color:#f0f4ff}
+.login-logo{width:64px;height:64px;margin:0 auto;border-radius:14px;object-fit:contain}
+.login-card h2{margin:0}
+.login-card p{margin:0;color:#8da3cc;font-size:.9rem}
+.login-card label{display:grid;gap:8px;text-align:left}
+.login-card label span{color:#8da3cc;font-size:.85rem;font-weight:600}
+.login-card input{min-height:52px;border:1px solid #1e3470;border-radius:12px;padding:0 14px;background:#07122a;color:#f0f4ff;font-size:1rem;outline:none}
+.login-card input:focus{border-color:#c8a030;box-shadow:inset 0 0 0 2px rgba(200,160,48,.5)}
+.login-error{min-height:18px;color:#e02020;font-size:.85rem;font-weight:600}
+.login-submit{min-height:52px;border:0;border-radius:12px;background:linear-gradient(135deg,#e4bb4a 0%,#c8a030 50%,#8a6c1a 100%);color:#050e2e;font-size:1rem;font-weight:700;cursor:pointer}
+</style>
 </head>
 <body>
-<div id="root"></div>
+<div class="login-gate" id="loginGate">
+  <form class="login-card" id="loginForm">
+    <img src="epp-logo.png" alt="" class="login-logo" />
+    <h2>EPP Trainingsmonitor</h2>
+    <p>Log in om de app te gebruiken.</p>
+    <label>
+      <span>Wachtwoord</span>
+      <input type="password" id="loginPassword" autocomplete="current-password" required />
+    </label>
+    <p class="login-error" id="loginError" role="alert"></p>
+    <button class="login-submit" type="submit">Inloggen</button>
+  </form>
+</div>
+<div id="root" hidden></div>
 <script>
 window.__eppError=function(msg){var r=document.getElementById("root");if(r)r.innerHTML='<div style="font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:24px;color:#1F2A36"><h2 style="color:#063971">App kon niet laden</h2><pre style="white-space:pre-wrap;color:#E30613;font-size:13px">'+String(msg)+'</pre></div>';};
 window.addEventListener("error",function(e){window.__eppError((e.error&&e.error.stack)||e.message||"Onbekende fout");});
+</script>
+<script>
+var EPP_AUTH_STORAGE_KEY="epp-app-auth-v1";
+var EPP_AUTH_HASH="daeb81b8d50edaaa11bfbf22fa040e093ab5cdf82b592f764daa82d93bc155e9";
+function eppSha256Hex(text){
+  var bytes=new TextEncoder().encode(text);
+  return crypto.subtle.digest("SHA-256",bytes).then(function(digest){
+    return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+  });
+}
+function eppShowApp(){
+  document.getElementById("loginGate").setAttribute("hidden","");
+  document.getElementById("root").removeAttribute("hidden");
+}
+function eppShowLoginGate(){
+  document.getElementById("root").setAttribute("hidden","");
+  document.getElementById("loginGate").removeAttribute("hidden");
+  var pw=document.getElementById("loginPassword");
+  pw.value="";
+  document.getElementById("loginError").textContent="";
+  pw.focus();
+}
+document.getElementById("loginForm").addEventListener("submit",function(event){
+  event.preventDefault();
+  var entered=document.getElementById("loginPassword").value;
+  eppSha256Hex(entered).then(function(hash){
+    if(hash===EPP_AUTH_HASH){
+      localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
+      eppShowApp();
+    }else{
+      document.getElementById("loginError").textContent="Onjuist wachtwoord. Probeer het opnieuw.";
+    }
+  });
+});
+if(localStorage.getItem(EPP_AUTH_STORAGE_KEY)==="1"){eppShowApp();}else{eppShowLoginGate();}
 </script>
 <script>/* react */
 /**
@@ -1149,8 +1211,14 @@ const TabRanglijst = ({ranking, stageTotaal, getVal, maxOf, TOT_MAX}) =>
   );
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, exportCSV, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow}) =>
+const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, exportCSV, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
+      h("div",{className:"card-body"},
+        h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
+      )
+    ),
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Online synchronisatie")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
@@ -1418,6 +1486,8 @@ function App() {
     flash(`Scores van ${m.trim()} gewist`);
   };
 
+  const logout = () => {localStorage.removeItem("epp-app-auth-v1");location.reload();};
+
   const saveLbl = {idle:"",saving:"●",saved:"Opgeslagen ✓",error:"Fout"}[saveState];
   const syncNow = async () => {
     if(!syncReady(syncConfig))return flash("Vul eerst Supabase URL, key en sync-code in");
@@ -1441,7 +1511,7 @@ function App() {
     : tab==="camera" ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash})
     : tab==="dash"   ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
     : tab==="rang"   ? h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
-    : tab==="instel" ? h(TabInstellingen,{stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow})
+    : tab==="instel" ? h(TabInstellingen,{stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
     : null;
 
   return h("div",{className:"app"},
