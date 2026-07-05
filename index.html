@@ -51,7 +51,9 @@ window.addEventListener("error",function(e){window.__eppError((e.error&&e.error.
 </script>
 <script>
 var EPP_AUTH_STORAGE_KEY="epp-app-auth-v1";
-var EPP_AUTH_HASH="daeb81b8d50edaaa11bfbf22fa040e093ab5cdf82b592f764daa82d93bc155e9";
+var EPP_AUTH_ROLE_KEY="epp-app-role-v1";
+var EPP_AUTH_HASH_TRAINER="acc4000223bcdfa348e0f3524fdf5028d2944f713f122b9f57f7a86f036dacb5";
+var EPP_AUTH_HASH_SCHUTTER="daeb81b8d50edaaa11bfbf22fa040e093ab5cdf82b592f764daa82d93bc155e9";
 function eppSha256Hex(text){
   var bytes=new TextEncoder().encode(text);
   return crypto.subtle.digest("SHA-256",bytes).then(function(digest){
@@ -74,15 +76,21 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
   event.preventDefault();
   var entered=document.getElementById("loginPassword").value;
   eppSha256Hex(entered).then(function(hash){
-    if(hash===EPP_AUTH_HASH){
+    if(hash===EPP_AUTH_HASH_TRAINER){
       localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
+      localStorage.setItem(EPP_AUTH_ROLE_KEY,"trainer");
+      eppShowApp();
+    }else if(hash===EPP_AUTH_HASH_SCHUTTER){
+      localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
+      localStorage.setItem(EPP_AUTH_ROLE_KEY,"schutter");
       eppShowApp();
     }else{
       document.getElementById("loginError").textContent="Onjuist wachtwoord. Probeer het opnieuw.";
     }
   });
 });
-if(localStorage.getItem(EPP_AUTH_STORAGE_KEY)==="1"){eppShowApp();}else{eppShowLoginGate();}
+var eppStoredRole=localStorage.getItem(EPP_AUTH_ROLE_KEY);
+if(localStorage.getItem(EPP_AUTH_STORAGE_KEY)==="1" && (eppStoredRole==="trainer"||eppStoredRole==="schutter")){eppShowApp();}else{eppShowLoginGate();}
 </script>
 <script>/* react */
 /**
@@ -1090,11 +1098,12 @@ const TabRanglijst = ({ranking, stageTotaal, getVal, maxOf, TOT_MAX}) =>
   );
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, exportCSV, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, copyForExcel, copyNamen, exportCSV, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
       h("div",{className:"card-body"},
+        h("p",{className:"hint",style:{marginBottom:10}},"Ingelogd als ",isTrainer?"Trainer":"Schutter","."),
         h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
       )
     ),
@@ -1104,7 +1113,7 @@ const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, ex
         HAS_CENTRAL_SYNC
           ? h("p",{className:"hint"},"Live meekijken staat centraal aan. Iedere gebruiker van epp-app.nl ziet dezelfde schutters en scores zodra de app online is.")
           : h("p",{className:"hint"},"Vul eenmalig de centrale Supabase-gegevens in de app-code in. Daarna hoeven gebruikers zelf niets meer in te stellen."),
-        HAS_CENTRAL_SYNC
+        isTrainer && (HAS_CENTRAL_SYNC
           ? h("div",{className:"set-row"},
             h("div",{className:"set-lbl"},
               h("div",null,"Live meekijken actief"),
@@ -1118,13 +1127,13 @@ const TabInstellingen = ({stageShots, setStageShots, copyForExcel, copyNamen, ex
               h("div",{className:"set-sub"},"Mobiel en laptop delen dezelfde online data")
             ),
             h("input",{type:"checkbox",checked:!!syncConfig.enabled,onChange:e=>setSyncConfig(p=>({...p,enabled:e.target.checked}))})
-          ),
-        !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Supabase project URL",value:syncConfig.url,onChange:e=>setSyncConfig(p=>({...p,url:e.target.value}))}),
-        !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Supabase anon public key",value:syncConfig.anonKey,onChange:e=>setSyncConfig(p=>({...p,anonKey:e.target.value}))}),
-        !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Sync-code, bijvoorbeeld epp-app",value:syncConfig.space,onChange:e=>setSyncConfig(p=>({...p,space:e.target.value.trim()}))}),
-        h("button",{className:"btn btn-gold btn-full",onClick:syncNow},"Nu synchroniseren"),
+          )),
+        isTrainer && !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Supabase project URL",value:syncConfig.url,onChange:e=>setSyncConfig(p=>({...p,url:e.target.value}))}),
+        isTrainer && !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Supabase anon public key",value:syncConfig.anonKey,onChange:e=>setSyncConfig(p=>({...p,anonKey:e.target.value}))}),
+        isTrainer && !HAS_CENTRAL_SYNC && h("input",{className:"txt-in",placeholder:"Sync-code, bijvoorbeeld epp-app",value:syncConfig.space,onChange:e=>setSyncConfig(p=>({...p,space:e.target.value.trim()}))}),
+        isTrainer && h("button",{className:"btn btn-gold btn-full",onClick:syncNow},"Nu synchroniseren"),
         h("p",{className:"hint"},"Status: ",syncStatus || "niet verbonden"),
-        h("details",null,
+        isTrainer && h("details",null,
           h("summary",{style:{fontSize:12,color:C.goldLt,cursor:"pointer"}},"Benodigde Supabase tabel"),
           h("p",{className:"hint"},"Voer deze SQL eenmalig uit in Supabase via SQL Editor. Daarna kan iedereen live meekijken."),
           h("pre",{style:{whiteSpace:"pre-wrap",fontSize:11,lineHeight:1.45,color:C.muted,background:"rgba(0,0,0,.18)",border:`1px solid ${C.border}`,borderRadius:8,padding:10,overflowX:"auto"}},
@@ -1169,7 +1178,7 @@ with check (true);`)
         )
       )
     ),
-    h("div",{className:"card"},
+    isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schoten per stage")),
       h("div",{className:"card-body"},
         h("div",{style:{fontSize:12,color:C.muted,marginBottom:10}},"Max score = schoten × 5"),
@@ -1197,7 +1206,7 @@ with check (true);`)
         )
       )
     ),
-    h("div",{className:"card"},
+    isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Beheer")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
         h("button",{className:"btn btn-danger btn-full",onClick:wisMonth},"Maandscores wissen"),
@@ -1211,6 +1220,7 @@ with check (true);`)
 // APP — bevat alleen state en logica, geen geneste component-definities
 // ═══════════════════════════════════════════════════════════════════
 function App() {
+  const isTrainer = localStorage.getItem(EPP_AUTH_ROLE_KEY) !== "schutter";
   const [shooters,   setShooters]   = React.useState([]);
   const [scores,     setScores]     = React.useState({});
   const [cameraShots,setCameraShots]= React.useState([]);
@@ -1221,7 +1231,7 @@ function App() {
     try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
-  const [tab,        setTab]        = React.useState("invoer");
+  const [tab,        setTab]        = React.useState(isTrainer ? "invoer" : "dash");
   const [maand,      setMaand]      = React.useState(MONTHS[new Date().getMonth()]);
   const [onderdeel,  setOnderdeel]  = React.useState("stage");
   const [stage,      setStage]      = React.useState("s1");
@@ -1362,7 +1372,7 @@ function App() {
     flash(`Scores van ${m.trim()} gewist`);
   };
 
-  const logout = () => {localStorage.removeItem("epp-app-auth-v1");location.reload();};
+  const logout = () => {localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();};
 
   const syncNow = async () => {
     if(!syncReady(syncConfig))return flash("Vul eerst Supabase URL, key en sync-code in");
@@ -1372,22 +1382,26 @@ function App() {
 
   const sharedProps = {getVal,setVal,maxOf,copyForExcel,copyNamen,exportCSV};
 
-  const navItems = [
+  const navItems = (isTrainer ? [
     {key:"invoer",  label:"Invoer",    icon:Icon.pencil},
     {key:"camera",  label:"Camera",    icon:Icon.camera},
     {key:"dash",    label:"Overzicht", icon:Icon.chart},
     {key:"rang",    label:"Ranglijst", icon:Icon.trophy},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
-  ];
+  ] : [
+    {key:"dash",    label:"Overzicht", icon:Icon.chart},
+    {key:"rang",    label:"Ranglijst", icon:Icon.trophy},
+    {key:"instel",  label:"Meer",      icon:Icon.gear},
+  ]);
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="invoer" ? h(TabInvoer,{...sharedProps,shooters,nieuw,setNieuw,addShooter,removeShooter,maand,setMaand,onderdeel,setOnderdeel,stage,setStage})
-    : tab==="camera" ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash})
+    : tab==="invoer" && isTrainer ? h(TabInvoer,{...sharedProps,shooters,nieuw,setNieuw,addShooter,removeShooter,maand,setMaand,onderdeel,setOnderdeel,stage,setStage})
+    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash})
     : tab==="dash"   ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
     : tab==="rang"   ? h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
-    : tab==="instel" ? h(TabInstellingen,{stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
-    : null;
+    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
+    : h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX});
 
   return h("div",{className:"app"},
     h("style",null,CSS),
@@ -1403,7 +1417,7 @@ function App() {
       h("div",{className:"gold-stripe"})
     ),
     h("main",{className:"main"},activeContent),
-    h("nav",{className:"bottomnav"},
+    h("nav",{className:"bottomnav",style:{gridTemplateColumns:`repeat(${navItems.length},1fr)`}},
       navItems.map(n=>h("button",{key:n.key,className:"bnav-btn","data-on":tab===n.key?"1":"0",onClick:()=>setTab(n.key)},
         n.icon(),n.label
       ))
