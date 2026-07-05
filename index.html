@@ -408,7 +408,6 @@ const C = {
   gradGold:"linear-gradient(165deg,#f0cc60 0%,#c8a030 100%)",
   gradCard:"linear-gradient(170deg,#15224e 0%,#0d1737 100%)",
 };
-const LINES = ["#e4bb4a","#3a7bd5","#2d7a2d","#e02020","#c8a030","#7a4fa3","#00b4d8","#f4845f"];
 const MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
 const STAGES = [
   {key:"s1",sheet:"Gericht snelvuur 7m",  kort:"Gericht snelvuur",  afstand:"7 m · 2×5"},
@@ -433,7 +432,7 @@ const HAS_CENTRAL_SYNC = !!(CENTRAL_SYNC.enabled && CENTRAL_SYNC.url && CENTRAL_
 const PASTE_ROWS = 6000;
 const newId = () => window.crypto?.randomUUID?.() ?? `id_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 const avg = a => { const v=a.filter(x=>typeof x==="number"); return v.length?v.reduce((p,c)=>p+c,0)/v.length:null; };
-const kleur = i => LINES[i%LINES.length];
+const kleur = (i,n=1) => `hsl(${Math.round((360*i/Math.max(n,1))%360)} 68% 58%)`;
 const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"").slice(0,2).join("");
 const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
 const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
@@ -772,7 +771,7 @@ const TabInvoer = ({
           ? h("p",{style:{fontSize:13,color:C.muted,margin:0}},"Nog geen schutters toegevoegd.")
           : h("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
               shooters.map((s,i)=>h("span",{key:s.id,className:"shooter-chip"},
-                h("span",{className:"chip-dot",style:{background:kleur(i)}}),
+                h("span",{className:"chip-dot",style:{background:kleur(i,shooters.length)}}),
                 s.naam,
                 h("button",{className:"chip-rm",onClick:()=>removeShooter(s.id)},"×")
               ))
@@ -809,7 +808,7 @@ const TabInvoer = ({
           : shooters.map((s,i)=>{
               const prev=MONTHS.slice(0,MONTHS.indexOf(maand)).reverse().map(m=>getVal(s.id,stage,m)).find(x=>typeof x==="number");
               return h("div",{key:s.id,className:"score-row"},
-                h("div",{className:"score-avatar"},initial(s.naam)),
+                h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
                   prev!=null&&h("div",{className:"score-prev"},"vorige: ",prev)
@@ -830,7 +829,7 @@ const TabInvoer = ({
           : shooters.map((s,i)=>{
               const prev=MONTHS.slice(0,MONTHS.indexOf(maand)).reverse().map(m=>getVal(s.id,"parcours",m)).find(x=>typeof x==="number");
               return h("div",{key:s.id,className:"score-row"},
-                h("div",{className:"score-avatar"},initial(s.naam)),
+                h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
                   prev!=null&&h("div",{className:"score-prev"},"vorige: ",prev)
@@ -1177,7 +1176,7 @@ const TabDashboard = ({shooters, maand, setMaand, getVal, stageTotaal, TOT_MAX})
           const par=getVal(s.id,"parcours",maand);
           return h("div",{key:s.id,className:"shooter-score-card"},
             h("div",{className:"ssc-top"},
-              h("div",{className:"score-avatar",style:{width:36,height:36,fontSize:14}},initial(s.naam)),
+              h("div",{className:"score-avatar",style:{width:36,height:36,fontSize:14,boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
               h("span",{style:{flex:1,fontWeight:600,fontSize:14,color:C.ink}},s.naam),
               tot!=null&&h("div",{className:"ssc-total"},tot,h("sub",null,"/",TOT_MAX))
             ),
@@ -1461,7 +1460,7 @@ function App() {
   const addShooter = () => {const n=nieuw.trim();if(!n)return;setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
   const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});};
   const stageTotaal = (sid,mnd) => {const v=STAGES.map(st=>getVal(sid,st.key,mnd)).filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b,0):null;};
-  const ranking = (perMonth,max) => shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i),gem:avg(MONTHS.map(m=>perMonth(s.id,m))),max})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
+  const ranking = (perMonth,max) => shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:avg(MONTHS.map(m=>perMonth(s.id,m))),max})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
 
   // Export helpers
   const copyText = async text => {try{await navigator.clipboard.writeText(text);return true;}catch(e){try{const ta=document.createElement("textarea");ta.value=text;ta.style.cssText="position:fixed;opacity:0";document.body.appendChild(ta);ta.select();const ok=document.execCommand("copy");ta.remove();return ok;}catch(_){return false;}}};
