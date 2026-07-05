@@ -486,13 +486,6 @@ const EPP_ZONES = [
   {score:0, type:"poly", pts:[[.375,.848],[.618,.848],[.608,.912],[.501,.912],[.379,.912]]},
 ];
 const EPP_OUTLINE = [[.374,.228],[.619,.228],[.877,.453],[.859,.679],[.608,.912],[.379,.912],[.126,.679],[.126,.452]];
-const EPP_LABELS = [
-  {t:"4",x:.093,y:.122},{t:"5",x:.169,y:.122},{t:"4",x:.245,y:.122},
-  {t:"4",x:.755,y:.122},{t:"5",x:.831,y:.122},{t:"4",x:.907,y:.122},
-  {t:"2",x:.288,y:.367},{t:"4",x:.498,y:.309},{t:"2",x:.696,y:.367},
-  {t:"3",x:.224,y:.592},{t:"5",x:.498,y:.508},{t:"3",x:.758,y:.592},
-  {t:"4",x:.498,y:.704},{t:"0",x:.498,y:.883},
-];
 const scoreAtTargetPoint = p => {
   const hit = EPP_ZONES.find(z => z.type==="ellipse" ? (((p.x-z.cx)/z.rx)**2 + ((p.y-z.cy)/z.ry)**2 <= 1) : insidePoly(p,z.pts));
   return hit ? hit.score : 0;
@@ -523,7 +516,6 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .card-head{padding:16px 18px 0}
 .card-body{padding:14px 18px 18px}
 .eyebrow{font-family:'Archivo',sans-serif;text-transform:uppercase;letter-spacing:2.5px;font-size:.66rem;font-weight:800;color:${C.goldLt};margin-bottom:10px}
-.beta-badge{font-family:'Archivo',sans-serif;font-size:11px;font-weight:900;letter-spacing:.06em;color:${C.navy};background:${C.gradGold};border-radius:6px;padding:3px 8px;margin-left:6px}
 .beta-note{margin:0 0 12px;color:${C.muted};font-size:12px;font-weight:600;line-height:1.45;background:rgba(228,187,74,.08);border:1px solid rgba(228,187,74,.22);border-radius:12px;padding:10px 12px}
 .month-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .month-strip::-webkit-scrollbar{display:none}
@@ -613,7 +605,6 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .cam-zone{fill:rgba(228,187,74,.06);stroke:rgba(228,187,74,.72);stroke-width:.006;vector-effect:non-scaling-stroke}
 .cam-zone.mid{fill:rgba(58,123,213,.05);stroke:rgba(141,163,204,.75)}
 .cam-outline{fill:none;stroke:rgba(228,187,74,.95);stroke-width:.008;vector-effect:non-scaling-stroke}
-.cam-label{fill:rgba(255,255,255,.86);stroke:rgba(10,17,40,.85);stroke-width:.006;font-family:'Archivo',sans-serif;font-weight:900;text-anchor:middle;dominant-baseline:middle;paint-order:stroke fill;pointer-events:none}
 .cam-frame{position:absolute;border:2px dashed rgba(228,187,74,.95);box-shadow:0 0 0 999px rgba(2,6,23,.18);pointer-events:none}
 .cam-shot{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:999px;border:2px solid #fff;background:#e02020;box-shadow:0 0 0 2px rgba(224,32,32,.45),0 2px 8px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:'Archivo',sans-serif;font-weight:900;font-size:12px;color:#fff;pointer-events:none}
 .cam-cross{position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:1px solid rgba(255,255,255,.55);pointer-events:none}
@@ -637,14 +628,6 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .shot-rm{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,107,93,.3);background:rgba(255,107,93,.12);color:${C.red};font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center}
 .manual-row{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}
 .manual-score{font-family:'Archivo',sans-serif;font-size:18px;font-weight:900;padding:11px 0;border-radius:12px;border:1px solid rgba(228,187,74,.25);background:rgba(228,187,74,.1);color:${C.goldLt}}
-.sense-box{margin-top:10px;background:#081026;border:1px solid ${C.border};border-radius:14px;padding:12px 14px}
-.sense-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
-.sense-title strong{font-family:'Archivo',sans-serif;font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:${C.goldLt}}
-.sense-help{font-size:11px;font-weight:600;line-height:1.45;color:${C.muted};margin-bottom:8px}
-.sense-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
-.sense-row input{width:100%}
-.sense-val{font-family:'Archivo',sans-serif;font-weight:900;font-size:18px;color:${C.goldLt};min-width:34px;text-align:right}
-.sense-labels{display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:${C.muted};margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
 .hint{font-size:12px;font-weight:600;line-height:1.5;color:${C.muted};margin:0}
 .empty{text-align:center;padding:48px 20px;color:${C.muted}}
 .empty-icon{opacity:.3;margin-bottom:16px}
@@ -851,28 +834,21 @@ const TargetOverlay = ({frame}) => h("svg",{className:"cam-overlay",style:frameS
   EPP_ZONES.map((z,i)=>z.type==="ellipse"
     ? h("ellipse",{key:i,className:"cam-zone",cx:z.cx,cy:z.cy,rx:z.rx,ry:z.ry})
     : h("polygon",{key:i,className:`cam-zone ${z.score<4?"mid":""}`,points:z.pts.map(p=>p.join(",")).join(" ")})
-  ),
-  EPP_LABELS.map((l,i)=>h("text",{key:`l-${i}`,className:"cam-label",x:l.x,y:l.y,fontSize:.052},l.t))
+  )
 );
 
 const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getVal, setVal, maxOf, flash}) => {
   const [sid,setSid] = React.useState(shooters[0]?.id || "");
   const [stage,setStage] = React.useState("s1");
   const [camOn,setCamOn] = React.useState(false);
-  const [autoOn,setAutoOn] = React.useState(false);
   const [status,setStatus] = React.useState("Camera klaar");
   const [frame,setFrame] = React.useState(()=>{try{return {...DEFAULT_TARGET_FRAME,...JSON.parse(localStorage.getItem("epp-camera-frame")||"{}")};}catch(e){return DEFAULT_TARGET_FRAME;}});
-  const [sensitivity,setSensitivity] = React.useState(()=>Number(localStorage.getItem("epp-camera-sensitivity"))||22);
   const videoRef = React.useRef(null);
-  const canvasRef = React.useRef(null);
   const streamRef = React.useRef(null);
-  const baseRef = React.useRef(null);
-  const lastAutoRef = React.useRef(0);
 
   React.useEffect(()=>{ if(!sid && shooters[0]) setSid(shooters[0].id); },[shooters,sid]);
   React.useEffect(()=>()=>stopCamera(),[]);
   React.useEffect(()=>{try{localStorage.setItem("epp-camera-frame",JSON.stringify(frame));}catch(e){}},[frame]);
-  React.useEffect(()=>{try{localStorage.setItem("epp-camera-sensitivity",String(sensitivity));}catch(e){}},[sensitivity]);
 
   const stageObj = STAGES.find(s=>s.key===stage);
   const activeShots = cameraShots.filter(x=>x.sid===sid && x.stage===stage && x.maand===maand);
@@ -908,7 +884,6 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
       return next;
     });
     setStatus(`Schot ${activeShots.length+1}: ${score} punten`);
-    if(source==="auto") setTimeout(captureBaseline,450);
   };
   const addManualScore = score => {
     if(!sid) return flash("Kies eerst een schutter");
@@ -962,84 +937,7 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
     streamRef.current?.getTracks?.().forEach(t=>t.stop());
     streamRef.current=null;
     setCamOn(false);
-    setAutoOn(false);
   }
-  function frameData(){
-    const v=videoRef.current,c=canvasRef.current;
-    if(!v || !c || !v.videoWidth) return null;
-    c.width=240;c.height=320;
-    const ctx=c.getContext("2d",{willReadFrequently:true});
-    ctx.drawImage(v,0,0,c.width,c.height);
-    return ctx.getImageData(0,0,c.width,c.height);
-  }
-  function captureBaseline(){
-    const img=frameData();
-    if(!img) return flash("Start eerst de camera");
-    baseRef.current=img;
-    setStatus(autoOn ? "Nulmeting vastgelegd · Auto zoekt" : "Nulmeting vastgelegd");
-  }
-  function detectShot(){
-    const base=baseRef.current, img=frameData();
-    if(!base || !img) return setStatus("Auto aan · eerst nulmeting doen");
-    const w=img.width,h=img.height,d=img.data,b=base.data;
-    const buckets = new Map();
-    const step = 2;
-    const bucketSize = 10;
-    for(let y=Math.max(2,Math.floor(frame.y*h));y<Math.min(h-2,Math.ceil((frame.y+frame.h)*h));y+=step){
-      for(let x=Math.max(2,Math.floor(frame.x*w));x<Math.min(w-2,Math.ceil((frame.x+frame.w)*w));x+=step){
-        const viewPoint={x:x/w,y:y/h};
-        const p=viewToTarget(viewPoint);
-        if(!inTarget(p)) continue;
-        if(scoreAtTargetPoint(p)===0 && p.y<.9) continue;
-        const i=(y*w+x)*4;
-        const cur=(d[i]+d[i+1]+d[i+2])/3;
-        const old=(b[i]+b[i+1]+b[i+2])/3;
-        const rgbDiff=Math.abs(d[i]-b[i])+Math.abs(d[i+1]-b[i+1])+Math.abs(d[i+2]-b[i+2]);
-        const darker=old-cur>sensitivity && cur<185;
-        const textureChange=rgbDiff>sensitivity*4 && Math.abs(old-cur)>8 && cur<205;
-        if(darker || textureChange){
-          const bx=Math.floor(x/bucketSize), by=Math.floor(y/bucketSize), key=`${bx}:${by}`;
-          const v=buckets.get(key)||{sx:0,sy:0,count:0,energy:0,bx,by};
-          v.sx+=x;v.sy+=y;v.count++;v.energy+=rgbDiff+Math.max(0,old-cur)*2;
-          buckets.set(key,v);
-        }
-      }
-    }
-    let best=null;
-    buckets.forEach(v=>{
-      let total={...v};
-      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
-        if(dx===0 && dy===0) continue;
-        const n=buckets.get(`${v.bx+dx}:${v.by+dy}`);
-        if(n){total.sx+=n.sx;total.sy+=n.sy;total.count+=n.count;total.energy+=n.energy;}
-      }
-      if(!best || total.energy>best.energy) best=total;
-    });
-    if(!best || best.count<5) return;
-    if(best.count>420) return setStatus("Te veel beweging · nieuwe nulmeting");
-    const p={x:best.sx/best.count/w,y:best.sy/best.count/h};
-    if(activeShots.some(s=>dist(s,p)<.035)) return;
-    const now=Date.now();
-    if(now-lastAutoRef.current<1200) return;
-    lastAutoRef.current=now;
-    registerShot(p,"auto");
-  }
-  React.useEffect(()=>{
-    if(!autoOn) return;
-    const t=setInterval(detectShot,650);
-    return()=>clearInterval(t);
-  },[autoOn,activeShots,sid,stage,maand,frame,sensitivity]);
-
-  const toggleAuto = () => {
-    if(autoOn) return setAutoOn(false);
-    if(!baseRef.current){
-      const img=frameData();
-      if(!img) return flash("Start eerst de camera");
-      baseRef.current=img;
-    }
-    setAutoOn(true);
-    setStatus("Auto zoekt naar nieuwe inslagen");
-  };
 
   const handleTap = e => {
     const r=e.currentTarget.getBoundingClientRect();
@@ -1050,10 +948,10 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},
-        h("div",{className:"eyebrow"},"Camera scoring",h("span",{className:"beta-badge"},"BETA"))
+        h("div",{className:"eyebrow"},"Camera scoring")
       ),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
-        h("p",{className:"beta-note"},"Beta-functie: de camera kan helpen met schotherkenning, maar controleer de registratie altijd. Corrigeer gemiste of verkeerd herkende schoten handmatig."),
+        h("p",{className:"beta-note"},"Lijn het gele kader uit met de kaart en tik op de foto op de plek van elke inslag, of gebruik de handmatige score-knoppen hieronder."),
         h(MonthStrip,{maand,setMaand}),
         h("div",{className:"cam-stage-grid"},
           h("select",{className:"cam-select",value:sid,onChange:e=>setSid(e.target.value)},
@@ -1075,7 +973,6 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
       h("div",{className:"card-body"},
         h("div",{className:"cam-target",onClick:handleTap},
           h("video",{ref:videoRef,playsInline:true,muted:true}),
-          h("canvas",{ref:canvasRef}),
           h("div",{className:"cam-frame",style:frameStyle(frame)}),
           h(TargetOverlay,{frame}),
           h("div",{className:"cam-cross"}),
@@ -1083,24 +980,7 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
         ),
         h("div",{className:"cam-toolbar"},
           h("button",{className:"btn btn-gold",onClick:camOn?stopCamera:startCamera},camOn?"Stop camera":"Start camera"),
-          h("button",{className:"btn btn-ghost",onClick:captureBaseline},"Nulmeting"),
-          h("button",{className:"btn btn-ghost",onClick:toggleAuto,style:{color:autoOn?C.goldLt:C.muted}},autoOn?"Auto aan":"Auto uit"),
           h("button",{className:"btn btn-ghost",onClick:undoShot},"Ongedaan")
-        ),
-        h("div",{className:"sense-box"},
-          h("div",{className:"sense-title"},
-            h("strong",null,"Gevoeligheid schotherkenning"),
-            h("div",{className:"sense-val"},sensitivity)
-          ),
-          h("div",{className:"sense-help"},"Gebruik lager als de app schoten mist. Gebruik hoger als de app te snel iets als schot ziet."),
-          h("div",{className:"sense-row"},
-            h("input",{type:"range",min:10,max:45,value:sensitivity,onChange:e=>setSensitivity(Number(e.target.value))}),
-            h("div",null)
-          ),
-          h("div",{className:"sense-labels"},
-            h("span",null,"Meer gevoelig"),
-            h("span",null,"Rustiger")
-          )
         ),
         h("div",{className:"cal-grid"},
           h("button",{className:"cal-btn",onClick:()=>moveFrame(0,-.015)},"↑"),
@@ -1113,8 +993,7 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
           h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(.03,0)},"Breder"),
           h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(0,-.03)},"Korter"),
           h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(0,.03)},"Hoger"),
-          h("button",{className:"cal-btn",onClick:()=>setFrame(DEFAULT_TARGET_FRAME)},"Reset"),
-          h("button",{className:"cal-btn",onClick:captureBaseline},"Meet")
+          h("button",{className:"cal-btn",onClick:()=>setFrame(DEFAULT_TARGET_FRAME)},"Reset")
         ),
         h("div",{className:"manual-row"},
           [0,2,3,4,5].map(v=>h("button",{key:v,className:"manual-score",onClick:()=>addManualScore(v)},"+",v))
