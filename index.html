@@ -510,10 +510,7 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .topbar-title{flex:1;min-width:0}
 .topbar-title h1{font-family:'Archivo',sans-serif;font-size:1.28rem;font-weight:900;color:${C.navy};margin:0;line-height:1.1;overflow-wrap:break-word;word-break:break-word;-webkit-hyphens:auto;hyphens:auto}
 .topbar-sub{font-size:.62rem;font-weight:800;color:rgba(10,17,40,.55);letter-spacing:.1em;text-transform:uppercase;margin-top:3px}
-.save-pill{font-family:'Archivo',sans-serif;font-size:10px;font-weight:800;letter-spacing:.04em;padding:5px 10px;border-radius:999px;flex-shrink:0;background:rgba(10,17,40,.14);color:${C.navy};transition:all .3s;border:1px solid transparent}
-.save-pill.saving{color:${C.navy};border-color:rgba(10,17,40,.3)}
-.save-pill.saved{background:rgba(10,17,40,.85);color:#4ade80;border-color:transparent}
-.save-pill.error{background:rgba(10,17,40,.85);color:${C.red};border-color:transparent}
+.club-tag{font-family:'Archivo',sans-serif;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(10,17,40,.55);flex-shrink:0}
 .gold-stripe{display:none}
 .bottomnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,430px);display:grid;grid-template-columns:repeat(5,1fr);background:rgba(9,15,36,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid ${C.border};z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
 .bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px 10px;background:none;border:none;cursor:pointer;color:${C.muted};font-family:'Archivo',sans-serif;font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;transition:color .15s;min-width:0;position:relative}
@@ -1340,7 +1337,6 @@ function App() {
   const [cameraShots,setCameraShots]= React.useState([]);
   const [stageShots, setStageShots] = React.useState(DEFAULT_SHOTS);
   const [loaded,     setLoaded]     = React.useState(false);
-  const [saveState,  setSaveState]  = React.useState("idle");
   const [syncConfig, setSyncConfig] = React.useState(()=>{
     if(HAS_CENTRAL_SYNC)return DEFAULT_SYNC;
     try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
@@ -1423,16 +1419,14 @@ function App() {
   },[]);
   React.useEffect(()=>{
     if(!loaded)return;if(firstSave.current){firstSave.current=false;return;}
-    setSaveState("saving");
     const t=setTimeout(()=>{
       try{
         localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots}));
-        setSaveState("saved");
         if(syncReady(syncConfig) && !applyingRemote.current){
           clearTimeout(syncPushTimer.current);
           syncPushTimer.current=setTimeout(()=>pushRemote("online opgeslagen"),900);
         }
-      }catch(e){setSaveState("error");}
+      }catch(e){}
     },500);
     return()=>clearTimeout(t);
   },[shooters,scores,cameraShots,stageShots,loaded,syncConfig]);
@@ -1491,7 +1485,6 @@ function App() {
 
   const logout = () => {localStorage.removeItem("epp-app-auth-v1");location.reload();};
 
-  const saveLbl = {idle:"",saving:"●",saved:"Opgeslagen ✓",error:"Fout"}[saveState];
   const syncNow = async () => {
     if(!syncReady(syncConfig))return flash("Vul eerst Supabase URL, key en sync-code in");
     await pullRemote({createIfMissing:true});
@@ -1526,7 +1519,7 @@ function App() {
           h("h1",null,"EPP Trainingsmonitor"),
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
-        saveLbl && h("div",{className:`save-pill ${saveState}`},saveLbl)
+        h("div",{className:"club-tag"},"SVBB")
       ),
       h("div",{className:"gold-stripe"})
     ),
