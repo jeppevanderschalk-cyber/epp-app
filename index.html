@@ -461,15 +461,44 @@ const mergeScores = (remote={}, local={}) => {
   });
   return out;
 };
-const mergePayloads = (remote={}, local={}) => ({
-  schema:1,
-  shooters:mergeById(remote.shooters, local.shooters),
-  scores:mergeScores(remote.scores, local.scores),
-  cameraShots:[...(remote.cameraShots||[]), ...(local.cameraShots||[])].filter((shot, index, arr) =>
-    shot?.id ? arr.findIndex(x=>x?.id===shot.id)===index : index===arr.indexOf(shot)
-  ),
-  stageShots:{...DEFAULT_SHOTS, ...(remote.stageShots||{}), ...(local.stageShots||{})}
-});
+const MONTH_WIPE_GRACE_MS = 5*60*1000;
+const mergePayloads = (remote={}, local={}) => {
+  const now = Date.now();
+  const monthWipeKeys = new Set([...Object.keys(remote.tombstones?.monthWipes||{}), ...Object.keys(local.tombstones?.monthWipes||{})]);
+  const mergedMonthWipes = {};
+  monthWipeKeys.forEach(m=>{ mergedMonthWipes[m] = Math.max(remote.tombstones?.monthWipes?.[m]||0, local.tombstones?.monthWipes?.[m]||0); });
+  const activeMonthWipes = Object.fromEntries(Object.entries(mergedMonthWipes).filter(([,ts])=>now-ts<MONTH_WIPE_GRACE_MS));
+  const tombstones = {
+    shooters:{...(remote.tombstones?.shooters), ...(local.tombstones?.shooters)},
+    shots:{...(remote.tombstones?.shots), ...(local.tombstones?.shots)},
+    monthWipes:activeMonthWipes
+  };
+  const shooters = mergeById(remote.shooters, local.shooters).filter(s=>!tombstones.shooters[s.id]);
+  const cameraShots = [...(remote.cameraShots||[]), ...(local.cameraShots||[])]
+    .filter((shot, index, arr) => shot?.id ? arr.findIndex(x=>x?.id===shot.id)===index : index===arr.indexOf(shot))
+    .filter(shot=>!tombstones.shots[shot?.id]);
+  const shooterIds = new Set(shooters.map(s=>s.id));
+  const wipedMonths = Object.keys(activeMonthWipes);
+  const scores = Object.fromEntries(
+    Object.entries(mergeScores(remote.scores, local.scores))
+      .filter(([sid])=>shooterIds.has(sid))
+      .map(([sid,onderdelen])=>[sid, Object.fromEntries(
+        Object.entries(onderdelen).map(([onderdeel,maanden])=>{
+          const m2={...maanden};
+          wipedMonths.forEach(mo=>delete m2[mo]);
+          return [onderdeel,m2];
+        })
+      )])
+  );
+  return {
+    schema:1,
+    shooters,
+    scores,
+    cameraShots,
+    stageShots:{...DEFAULT_SHOTS, ...(remote.stageShots||{}), ...(local.stageShots||{})},
+    tombstones
+  };
+};
 const insidePoly = (p, poly) => {
   let inside=false;
   for(let i=0,j=poly.length-1;i<poly.length;j=i++){
@@ -845,7 +874,7 @@ const TargetOverlay = ({frame}) => h("svg",{className:"cam-overlay",style:frameS
   )
 );
 
-const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getVal, setVal, maxOf, flash}) => {
+const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getVal, setVal, maxOf, flash, markShotsDeleted}) => {
   const [sid,setSid] = React.useState(shooters[0]?.id || "");
   const [stage,setStage] = React.useState("s1");
   const [camOn,setCamOn] = React.useState(false);
@@ -906,6 +935,7 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
     setStatus(`Handmatig toegevoegd: ${score} punten`);
   };
   const removeShot = id => {
+    markShotsDeleted([id]);
     setCameraShots(prev=>{
       const next=prev.filter(s=>s.id!==id);
       setTimeout(()=>updateStoredTotal(next),0);
@@ -921,6 +951,7 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
   const resetStageShots = () => {
     if(!activeShots.length) return;
     if(!confirm("Schoten voor deze schutter/stage wissen?")) return;
+    markShotsDeleted(activeShots.map(s=>s.id));
     setCameraShots(prev=>{
       const next=prev.filter(s=>!(s.sid===sid && s.stage===stage && s.maand===maand));
       setTimeout(()=>setVal(sid,stage,maand,""),0);
@@ -1225,6 +1256,7 @@ function App() {
   const [scores,     setScores]     = React.useState({});
   const [cameraShots,setCameraShots]= React.useState([]);
   const [stageShots, setStageShots] = React.useState(DEFAULT_SHOTS);
+  const [tombstones, setTombstones] = React.useState({shooters:{},shots:{},monthWipes:{}});
   const [loaded,     setLoaded]     = React.useState(false);
   const [syncConfig, setSyncConfig] = React.useState(()=>{
     if(HAS_CENTRAL_SYNC)return DEFAULT_SYNC;
@@ -1245,7 +1277,7 @@ function App() {
   const flash = m => { setToast(m); setTimeout(()=>setToast(""),2400); };
   const maxOf = k => (stageShots[k]||0)*5;
   const TOT_MAX = STAGES.reduce((a,s)=>a+maxOf(s.key),0);
-  const makePayload = () => ({schema:1,shooters,scores,cameraShots,stageShots});
+  const makePayload = () => ({schema:1,shooters,scores,cameraShots,stageShots,tombstones});
   const applyPayload = payload => {
     if(!payload || typeof payload!=="object")return;
     applyingRemote.current=true;
@@ -1253,6 +1285,7 @@ function App() {
     setScores(payload.scores||{});
     setCameraShots(payload.cameraShots||[]);
     setStageShots({...DEFAULT_SHOTS,...(payload.stageShots||{})});
+    setTombstones({shooters:{...(payload.tombstones?.shooters)},shots:{...(payload.tombstones?.shots)},monthWipes:{...(payload.tombstones?.monthWipes)}});
     setTimeout(()=>{applyingRemote.current=false;},1500);
   };
   const syncFetch = async (method,path,body) => {
@@ -1304,13 +1337,13 @@ function App() {
 
   // localStorage
   React.useEffect(()=>{
-    try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);setShooters(p.shooters||[]);setScores(p.scores||{});setCameraShots(p.cameraShots||[]);setStageShots({...DEFAULT_SHOTS,...(p.stageShots||{})});}}catch(e){}finally{setLoaded(true);}
+    try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);setShooters(p.shooters||[]);setScores(p.scores||{});setCameraShots(p.cameraShots||[]);setStageShots({...DEFAULT_SHOTS,...(p.stageShots||{})});setTombstones({shooters:{...(p.tombstones?.shooters)},shots:{...(p.tombstones?.shots)},monthWipes:{...(p.tombstones?.monthWipes)}});}}catch(e){}finally{setLoaded(true);}
   },[]);
   React.useEffect(()=>{
     if(!loaded)return;if(firstSave.current){firstSave.current=false;return;}
     const t=setTimeout(()=>{
       try{
-        localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots}));
+        localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots,tombstones}));
         if(syncReady(syncConfig) && !applyingRemote.current){
           clearTimeout(syncPushTimer.current);
           syncPushTimer.current=setTimeout(()=>pushRemote("online opgeslagen"),900);
@@ -1318,7 +1351,7 @@ function App() {
       }catch(e){}
     },500);
     return()=>clearTimeout(t);
-  },[shooters,scores,cameraShots,stageShots,loaded,syncConfig]);
+  },[shooters,scores,cameraShots,stageShots,tombstones,loaded,syncConfig]);
 
   React.useEffect(()=>{
     try{localStorage.setItem(SYNC_KEY,JSON.stringify(syncConfig));}catch(e){}
@@ -1341,7 +1374,8 @@ function App() {
     s[k]=o;next[sid]=s;return next;
   });
   const addShooter = () => {const n=nieuw.trim();if(!n)return;setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
-  const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});};
+  const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
+  const markShotsDeleted = ids => setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));
   const stageTotaal = (sid,mnd) => {const v=STAGES.map(st=>getVal(sid,st.key,mnd)).filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b,0):null;};
   const ranking = (perMonth,max) => shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:avg(MONTHS.map(m=>perMonth(s.id,m))),max})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
 
@@ -1363,13 +1397,26 @@ function App() {
     const a=Object.assign(document.createElement("a"),{href:URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"})),download:`epp-scores-${new Date().toISOString().slice(0,10)}.csv`});
     document.body.appendChild(a);a.click();a.remove();
   };
-  const resetAll = () => {if(confirm("Alles wissen? Kan niet ongedaan worden.")){{setShooters([]);setScores({});setCameraShots([]);setStageShots(DEFAULT_SHOTS);flash("Alles gewist");}}};
+  const resetAll = () => {if(confirm("Alles wissen? Kan niet ongedaan worden.")){
+    const now=Date.now();
+    setTombstones(p=>({
+      shooters:{...p.shooters, ...Object.fromEntries(shooters.map(s=>[s.id,now]))},
+      shots:{...p.shots, ...Object.fromEntries(cameraShots.map(s=>[s.id,now]))}
+    }));
+    setShooters([]);setScores({});setCameraShots([]);setStageShots(DEFAULT_SHOTS);flash("Alles gewist");
+  }};
   const wisMonth = () => {
     const m=prompt("Maandscores wissen? Typ de maand (bijv. jun):");
     if(!m||!MONTHS.includes(m.trim()))return m&&flash("Ongeldige maand");
-    setScores(prev=>{const n={};for(const sid in prev){const sj={};for(const k in prev[sid]){const o={...prev[sid][k]};delete o[m.trim()];if(Object.keys(o).length)sj[k]=o;}n[sid]=sj;}return n;});
-    setCameraShots(prev=>prev.filter(s=>s.maand!==m.trim()));
-    flash(`Scores van ${m.trim()} gewist`);
+    const monthKey=m.trim();
+    setScores(prev=>{const n={};for(const sid in prev){const sj={};for(const k in prev[sid]){const o={...prev[sid][k]};delete o[monthKey];if(Object.keys(o).length)sj[k]=o;}n[sid]=sj;}return n;});
+    setTombstones(p=>({
+      ...p,
+      shots:{...p.shots, ...Object.fromEntries(cameraShots.filter(s=>s.maand===monthKey).map(s=>[s.id,Date.now()]))},
+      monthWipes:{...p.monthWipes, [monthKey]:Date.now()}
+    }));
+    setCameraShots(prev=>prev.filter(s=>s.maand!==monthKey));
+    flash(`Scores van ${monthKey} gewist`);
   };
 
   const logout = () => {localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();};
@@ -1397,7 +1444,7 @@ function App() {
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
     : tab==="invoer" && isTrainer ? h(TabInvoer,{...sharedProps,shooters,nieuw,setNieuw,addShooter,removeShooter,maand,setMaand,onderdeel,setOnderdeel,stage,setStage})
-    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash})
+    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash,markShotsDeleted})
     : tab==="dash"   ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
     : tab==="rang"   ? h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
