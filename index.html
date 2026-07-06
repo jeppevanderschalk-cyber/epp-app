@@ -1161,6 +1161,49 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, copyForExcel, co
         h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
       )
     ),
+    isTrainer && h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schoten per stage")),
+      h("div",{className:"card-body"},
+        h("div",{style:{fontSize:12,color:C.muted,marginBottom:10}},"Max score = schoten × 5"),
+        STAGES.map((s,i)=>h("div",{key:s.key,className:"set-row"},
+          h("div",{className:"set-lbl"},
+            h("div",null,h("strong",{style:{color:C.muted,fontFamily:"'Archivo',sans-serif",fontSize:11,marginRight:6}},i+1+"."),s.kort),
+            h("div",{className:"set-sub"},s.afstand)
+          ),
+          h("input",{
+            className:"set-in",type:"number",min:1,
+            value:stageShots[s.key],
+            onChange:e=>setStageShots(p=>({...p,[s.key]:Math.max(1,Math.round(Number(e.target.value)||1))}))
+          }),
+          h("div",{className:"set-max"},stageShots[s.key]*5)
+        ))
+      )
+    ),
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Exporteren")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+        h(ExcelStrip,{onClick:copyForExcel}),
+        h("div",{style:{display:"flex",gap:8}},
+          h("button",{className:"btn btn-ghost",style:{flex:1},onClick:copyNamen},"Kopieer namen"),
+          h("button",{className:"btn btn-ghost",style:{flex:1},onClick:exportCSV},"Download CSV")
+        )
+      )
+    ),
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Steun dit project")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+        h("a",{className:"btn btn-gold btn-full",href:"https://www.ing.nl/payreq/m/?trxid=WHUfzGumUOrs0LK419CNQYuHLT9dGwQt",target:"_blank",rel:"noopener noreferrer"},"Doneer via iDEAL"),
+        h("p",{className:"hint",style:{textAlign:"center"}},"Donatie voor hosting en ontwikkeling"),
+        h("p",{className:"hint",style:{textAlign:"center",opacity:.6}},"Of maak zelf over naar NL89 INGB 0796 2022 57")
+      )
+    ),
+    isTrainer && h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Beheer")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+        h("button",{className:"btn btn-danger btn-full",onClick:wisMonth},"Maandscores wissen"),
+        h("button",{className:"btn btn-danger btn-full",onClick:resetAll},"Alles wissen")
+      )
+    ),
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Online synchronisatie")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
@@ -1230,49 +1273,6 @@ to anon
 using (true)
 with check (true);`)
         )
-      )
-    ),
-    isTrainer && h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schoten per stage")),
-      h("div",{className:"card-body"},
-        h("div",{style:{fontSize:12,color:C.muted,marginBottom:10}},"Max score = schoten × 5"),
-        STAGES.map((s,i)=>h("div",{key:s.key,className:"set-row"},
-          h("div",{className:"set-lbl"},
-            h("div",null,h("strong",{style:{color:C.muted,fontFamily:"'Archivo',sans-serif",fontSize:11,marginRight:6}},i+1+"."),s.kort),
-            h("div",{className:"set-sub"},s.afstand)
-          ),
-          h("input",{
-            className:"set-in",type:"number",min:1,
-            value:stageShots[s.key],
-            onChange:e=>setStageShots(p=>({...p,[s.key]:Math.max(1,Math.round(Number(e.target.value)||1))}))
-          }),
-          h("div",{className:"set-max"},stageShots[s.key]*5)
-        ))
-      )
-    ),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Exporteren")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h(ExcelStrip,{onClick:copyForExcel}),
-        h("div",{style:{display:"flex",gap:8}},
-          h("button",{className:"btn btn-ghost",style:{flex:1},onClick:copyNamen},"Kopieer namen"),
-          h("button",{className:"btn btn-ghost",style:{flex:1},onClick:exportCSV},"Download CSV")
-        )
-      )
-    ),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Steun dit project")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h("a",{className:"btn btn-gold btn-full",href:"https://www.ing.nl/payreq/m/?trxid=WHUfzGumUOrs0LK419CNQYuHLT9dGwQt",target:"_blank",rel:"noopener noreferrer"},"Doneer via iDEAL"),
-        h("p",{className:"hint",style:{textAlign:"center"}},"Donatie voor hosting en ontwikkeling"),
-        h("p",{className:"hint",style:{textAlign:"center",opacity:.6}},"Of maak zelf over naar NL89 INGB 0796 2022 57")
-      )
-    ),
-    isTrainer && h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Beheer")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h("button",{className:"btn btn-danger btn-full",onClick:wisMonth},"Maandscores wissen"),
-        h("button",{className:"btn btn-danger btn-full",onClick:resetAll},"Alles wissen")
       )
     ),
     h("p",{style:{fontSize:11,color:C.muted,textAlign:"center",padding:"4px 0 8px"}},"Scores worden automatisch opgeslagen in de browser.")
