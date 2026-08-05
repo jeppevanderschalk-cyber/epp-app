@@ -661,7 +661,8 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .stage-strip::-webkit-scrollbar{display:none}
 .spill{font-family:'Archivo',sans-serif;font-weight:800;font-size:12px;border:1px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};border-radius:999px;min-height:38px;padding:0 14px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .spill[data-on="1"]{background:rgba(228,187,74,.12);color:${C.goldLt};border-color:rgba(228,187,74,.4)}
-.score-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${C.border}}
+.score-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${C.border};border-radius:14px;transition:background .15s,box-shadow .15s}
+.score-row[data-active="1"]{background:rgba(228,187,74,.07);box-shadow:inset 0 0 0 1px rgba(228,187,74,.18);padding-left:10px;padding-right:10px}
 .score-row:last-child{border-bottom:none}
 .score-avatar{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-family:'Archivo',sans-serif;font-weight:900;font-size:16px;color:${C.navy};flex-shrink:0;background:${C.gradGold};box-shadow:0 8px 20px rgba(200,160,48,.3)}
 .score-name{flex:1;min-width:0}
@@ -673,8 +674,13 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .num-in::-webkit-inner-spin-button,.num-in::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .maxbadge{font-family:'Archivo',sans-serif;font-size:13px;font-weight:900;color:${C.muted};letter-spacing:.04em;background:transparent;border:0;cursor:pointer;padding:2px 10px;line-height:1}
 .maxbadge:hover{color:${C.goldLt}}
-.score-save{font-family:'Archivo',sans-serif;font-weight:900;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:${C.navy};background:${C.gradGold};border:0;border-radius:10px;min-height:28px;padding:0 10px;cursor:pointer;box-shadow:0 6px 14px rgba(200,160,48,.2)}
+.score-save{font-family:'Archivo',sans-serif;font-weight:900;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:${C.navy};background:${C.gradGold};border:0;border-radius:10px;min-height:30px;padding:0 10px;cursor:pointer;box-shadow:0 6px 14px rgba(200,160,48,.2);white-space:nowrap}
 .score-save:active{transform:scale(.97)}
+.entry-status{display:inline-flex;align-items:center;gap:6px;margin-top:5px;font-size:11px;font-weight:800;font-family:'Archivo',sans-serif;color:${C.muted}}
+.entry-status::before{content:'';width:8px;height:8px;border-radius:999px;background:${C.red};box-shadow:0 0 0 3px rgba(255,107,93,.12)}
+.entry-status.done{color:#86efac}
+.entry-status.done::before{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.12)}
+.training-action{margin-top:18px;padding-top:18px;border-top:1px solid ${C.border};display:flex;flex-direction:column;gap:10px}
 .btn{font-family:'Archivo',sans-serif;font-weight:900;font-size:15px;border-radius:18px;min-height:58px;padding:0 18px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:8px;justify-content:center;transition:all .15s;text-decoration:none}
 .btn:hover{transform:translateY(-2px)}
 .btn:active{transform:scale(.96);opacity:.9}
@@ -799,8 +805,10 @@ const Empty = ({msg}) => h("div",{className:"empty"},
   h("p",null,msg)
 );
 
-const RoundInput = ({maxV, onAdd}) => {
+const RoundInput = ({maxV, onAdd, autoFocus=false}) => {
   const [value,setValue] = React.useState("");
+  const inputRef = React.useRef(null);
+  React.useEffect(()=>{if(autoFocus) setTimeout(()=>inputRef.current?.focus(),60);},[autoFocus]);
   const save = () => {
     const n=Math.round(Number(value));
     if(Number.isNaN(n))return;
@@ -809,7 +817,7 @@ const RoundInput = ({maxV, onAdd}) => {
   };
   return h("div",{className:"num-wrap"},
     h("input",{
-      className:"num-in",type:"number",min:0,max:maxV,inputMode:"numeric",
+      ref:inputRef,className:"num-in",type:"number",min:0,max:maxV,inputMode:"numeric",
       value,placeholder:"0",
       onChange:e=>setValue(e.target.value),
       onKeyDown:e=>{
@@ -817,7 +825,7 @@ const RoundInput = ({maxV, onAdd}) => {
         save();
       }
     }),
-    h("button",{className:"score-save",type:"button",onClick:save},"Opslaan")
+    h("button",{className:"score-save",type:"button",onClick:save},"Ronde opslaan")
   );
 };
 
@@ -854,15 +862,26 @@ const RankList = ({items, max}) => {
 const TabInvoer = ({
   shooters, nieuw, setNieuw, addShooter, removeShooter,
   currentTraining, setTrainingMode, setTrainingStage, addRound,
-  finishTraining, maxOf
+  setTab, maxOf
 }) => {
   const mode = currentTraining.mode;
   const stage = currentTraining.stage;
   const stageObj = STAGES.find(s=>s.key===stage);
   const trainingRounds = currentTraining.rounds || [];
+  const [activeSid,setActiveSid] = React.useState(shooters[0]?.id || "");
+  React.useEffect(()=>{
+    if(!shooters.length)setActiveSid("");
+    else if(!shooters.some(s=>s.id===activeSid))setActiveSid(shooters[0].id);
+  },[shooters,activeSid]);
   const roundGroups = sid => trainingRounds.filter(r=>r.sid===sid && r.type===mode && (mode==="parcours" || r.stage===stage));
+  const saveFor = (sid,data) => {
+    addRound(data);
+    const idx=shooters.findIndex(s=>s.id===sid);
+    const next=shooters[idx+1] || shooters[0];
+    if(next)setActiveSid(next.id);
+  };
+  const missingCount = shooters.filter(s=>roundGroups(s.id).length===0).length;
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
-    // Schutters
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schutters")),
       h("div",{className:"card-body"},
@@ -886,7 +905,6 @@ const TabInvoer = ({
             )
       )
     ),
-    // Scores
     h("div",{className:"card"},
       h("div",{className:"card-body",style:{paddingBottom:0}},
         h("div",{className:"sub-tab-row"},
@@ -909,14 +927,16 @@ const TabInvoer = ({
           : shooters.map((s,i)=>{
               const rounds = roundGroups(s.id);
               const average = avg(rounds.map(r=>r.score));
-              return h("div",{key:s.id,className:"score-row"},
+              const done = rounds.length>0;
+              return h("div",{key:s.id,className:"score-row","data-active":activeSid===s.id?"1":"0",onClick:()=>setActiveSid(s.id)},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
                   h("div",{className:"score-prev"},"Gemiddelde: ",average==null?"–":average.toFixed(1)),
+                  h("div",{className:`entry-status ${done?"done":""}`},done?"Opgeslagen":"Nog invullen"),
                   h(ShooterRounds,{rounds})
                 ),
-                h(RoundInput,{maxV:maxOf(stage),onAdd:score=>addRound({sid:s.id,type:"stage",stage,score})})
+                h(RoundInput,{maxV:maxOf(stage),autoFocus:activeSid===s.id,onAdd:score=>saveFor(s.id,{sid:s.id,type:"stage",stage,score})})
               );
             })
       ),
@@ -932,20 +952,24 @@ const TabInvoer = ({
           : shooters.map((s,i)=>{
               const rounds = roundGroups(s.id);
               const best = rounds.reduce((m,r)=>Math.max(m,r.score),0) || null;
-              return h("div",{key:s.id,className:"score-row"},
+              const done = rounds.length>0;
+              return h("div",{key:s.id,className:"score-row","data-active":activeSid===s.id?"1":"0",onClick:()=>setActiveSid(s.id)},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
                   h("div",{className:"score-prev"},"Beste deze training: ",best==null?"–":best),
+                  h("div",{className:`entry-status ${done?"done":""}`},done?"Opgeslagen":"Nog invullen"),
                   h(ShooterRounds,{rounds})
                 ),
-                h(RoundInput,{maxV:250,onAdd:score=>addRound({sid:s.id,type:"parcours",score})})
+                h(RoundInput,{maxV:250,autoFocus:activeSid===s.id,onAdd:score=>saveFor(s.id,{sid:s.id,type:"parcours",score})})
               );
             })
       ),
-      h("div",{className:"card-body",style:{paddingTop:34,marginTop:34,borderTop:`1px solid ${C.border}`}},
-        h("p",{className:"hint"},"Rondes in deze training: ",trainingRounds.length,". Klaar met deze training? Dan worden de beste resultaten in de stand bewaard."),
-        h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Training opslaan en nieuwe starten")
+      h("div",{className:"card-body"},
+        h("div",{className:"training-action"},
+          h("p",{className:"hint"},"Rondes nu: ",trainingRounds.length,". Nog zonder ronde: ",missingCount,". Controleer en sluit af via de tab Training."),
+          h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("training")},"Naar huidige training")
+        )
       )
     )
   );
@@ -1156,17 +1180,18 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markSho
   );
 };
 
-// ── TabDashboard ──────────────────────────────────────────────────
-const TabDashboard = ({shooters, currentTraining}) => {
+// ── TabTraining ───────────────────────────────────────────────────
+const TabTraining = ({shooters, currentTraining, finishTraining, setTab}) => {
   if(!shooters.length) return h(Empty,{msg:"Voeg schutters en scores toe via Invoer."});
   const mode = currentTraining.mode;
   const stageObj = STAGES.find(s=>s.key===currentTraining.stage);
   const trainingRounds = currentTraining.rounds || [];
   const roundsFor = sid => trainingRounds.filter(r=>r.sid===sid && r.type===mode && (mode==="parcours" || r.stage===currentTraining.stage));
+  const missing = shooters.filter(s=>roundsFor(s.id).length===0);
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"stat-grid"},
-      h("div",{className:"stat-card"},h("div",{className:"stat-val"},shooters.length),h("div",{className:"stat-lbl"},"Schutters")),
-      h("div",{className:"stat-card"},h("div",{className:"stat-val"},trainingRounds.length),h("div",{className:"stat-lbl"},"Rondes nu"))
+      h("div",{className:"stat-card"},h("div",{className:"stat-val"},trainingRounds.length),h("div",{className:"stat-lbl"},"Rondes nu")),
+      h("div",{className:"stat-card"},h("div",{className:"stat-val"},missing.length),h("div",{className:"stat-lbl"},"Nog invullen"))
     ),
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Huidige training")),
@@ -1174,9 +1199,10 @@ const TabDashboard = ({shooters, currentTraining}) => {
         h("div",{className:"stage-hdr"},
           h("div",null,
             h("div",{className:"stage-hdr-name"},mode==="parcours"?"Parcours training":stageObj.kort),
-            h("div",{className:"stage-hdr-sub"},mode==="parcours"?"Hoogste ronde telt bij afronden":"Gemiddelde van deze stage telt bij afronden")
+            h("div",{className:"stage-hdr-sub"},mode==="parcours"?"Hoogste ronde telt bij afsluiten":"Gemiddelde van deze stage telt bij afsluiten")
           )
         ),
+        missing.length>0 && h("p",{className:"beta-note"},"Nog zonder opgeslagen ronde: ",missing.map(s=>s.naam).join(", ")),
         shooters.map((s,i)=>{
           const rounds = roundsFor(s.id);
           const value = mode==="parcours" ? (rounds.reduce((m,r)=>Math.max(m,r.score),0) || null) : avg(rounds.map(r=>r.score));
@@ -1184,11 +1210,16 @@ const TabDashboard = ({shooters, currentTraining}) => {
             h("div",{className:"ssc-top"},
               h("div",{className:"score-avatar",style:{width:36,height:36,fontSize:14,boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
               h("span",{style:{flex:1,fontWeight:600,fontSize:14,color:C.ink}},s.naam),
+              h("div",{className:`entry-status ${rounds.length?"done":""}`},rounds.length?"Opgeslagen":"Nog invullen"),
               value!=null&&h("div",{className:"ssc-total"},mode==="parcours"?value:value.toFixed(1))
             ),
             h(ShooterRounds,{rounds})
           );
-        })
+        }),
+        h("div",{className:"training-action"},
+          h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("invoer")},"Terug naar invoer"),
+          h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Training afsluiten en nieuwe starten")
+        )
       )
     )
   );
@@ -1224,25 +1255,10 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
 };
 
 // ── TabStand ──────────────────────────────────────────────────────
-const TabStand = ({shooters, currentTraining, bestParcours, bestStageAverages, maxOf}) => {
-  const [view,setView] = React.useState("overzicht");
-  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
-    h("div",{className:"card"},
-      h("div",{className:"card-body",style:{paddingBottom:0}},
-        h("div",{className:"sub-tab-row"},
-          h("button",{className:"sub-tab","data-on":view==="overzicht"?"1":"0",onClick:()=>setView("overzicht")},"Overzicht"),
-          h("button",{className:"sub-tab","data-on":view==="ranglijst"?"1":"0",onClick:()=>setView("ranglijst")},"Ranglijst")
-        )
-      )
-    ),
-    view==="overzicht"
-      ? h(TabDashboard,{shooters,currentTraining})
-      : h(TabRanglijst,{shooters,bestParcours,bestStageAverages,maxOf})
-  );
-};
+const TabStand = ({shooters, bestParcours, bestStageAverages, maxOf}) => h(TabRanglijst,{shooters,bestParcours,bestStageAverages,maxOf});
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
@@ -1254,8 +1270,9 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
     isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Training")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h("p",{className:"hint"},"Bewaart alleen de beste parcours-score of het beste stagegemiddelde in de stand en wist daarna de losse rondes."),
-        h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Nieuwe training starten")
+        h("p",{className:"hint"},"Gebruik Training afsluiten voor bewaren in de stand. Nieuwe trainingsdag starten wist alleen de tijdelijke rondes en behoudt de stand."),
+        h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Training afsluiten en nieuwe starten"),
+        h("button",{className:"btn btn-ghost btn-full",onClick:clearCurrentTraining},"Nieuwe trainingsdag starten")
       )
     ),
     isTrainer && h("div",{className:"card"},
@@ -1512,12 +1529,18 @@ function App() {
     const rounds = replaceKey ? (t.rounds||[]).filter(r=>r.replaceKey!==replaceKey) : (t.rounds||[]);
     return {...t,rounds:[...rounds,round],updatedAt:Date.now()};
   });
-  const addRoundAndFlash = data => {addRound(data);flash("Score opgeslagen");};
+  const addRoundAndFlash = data => {addRound(data);flash("Ronde opgeslagen");};
   const removeRoundByReplaceKey = replaceKey => {markLocalEdit();setCurrentTraining(t=>({...t,rounds:(t.rounds||[]).filter(r=>r.replaceKey!==replaceKey),updatedAt:Date.now()}));};
   const finishTraining = () => {
     const t = ensureTraining(currentTraining);
     if(!t.rounds.length) return flash("Nog geen rondes in deze training");
-    if(!confirm("Nieuwe training starten? De beste resultaten worden bewaard in de stand en de losse rondes worden gewist.")) return;
+    const lines = shooters.map(s=>{
+      const rounds = t.rounds.filter(r=>r.sid===s.id && r.type===t.mode && (t.mode==="parcours" || r.stage===t.stage));
+      if(!rounds.length) return `${s.naam}: nog geen ronde`;
+      const value = t.mode==="parcours" ? Math.max(...rounds.map(r=>r.score)) : avg(rounds.map(r=>r.score)).toFixed(1);
+      return `${s.naam}: ${value} (${rounds.length} ronde${rounds.length===1?"":"s"})`;
+    });
+    if(!confirm(`Training afsluiten en nieuwe starten?\n\nDit wordt in de stand verwerkt:\n${lines.join("\n")}\n\nLosse rondes worden daarna gewist.`)) return;
     const now = Date.now();
     const bestByShooter = {};
     t.rounds.filter(r=>r.type==="parcours").forEach(r=>{
@@ -1537,6 +1560,15 @@ function App() {
     markLocalEdit();
     setCurrentTraining(newTraining(t.mode,t.stage));
     flash("Nieuwe training gestart");
+  };
+
+  const clearCurrentTraining = () => {
+    const t = ensureTraining(currentTraining);
+    if(!(t.rounds||[]).length) return flash("Geen tijdelijke rondes om te wissen");
+    if(!confirm("Nieuwe trainingsdag starten? De stand blijft bewaard, alleen de huidige losse rondes worden gewist.")) return;
+    markLocalEdit();
+    setCurrentTraining(newTraining(t.mode,t.stage));
+    flash("Nieuwe trainingsdag gestart");
   };
 
   const resetAll = () => {if(confirm("Alles wissen? Kan niet ongedaan worden.")){
@@ -1560,21 +1592,24 @@ function App() {
 
   const navItems = (isTrainer ? [
     {key:"invoer",  label:"Invoer",    icon:Icon.pencil},
+    {key:"training",label:"Training",  icon:Icon.chart},
     {key:"camera",  label:"Camera",    icon:Icon.camera},
     {key:"stand",   label:"Stand",     icon:Icon.trophy},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
   ] : [
+    {key:"training",label:"Training",  icon:Icon.chart},
     {key:"stand",   label:"Stand",     icon:Icon.trophy},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
   ]);
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="invoer" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,maxOf})
+    : tab==="invoer" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf})
+    : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,markShotsDeleted,addRound,removeRoundByReplaceKey})
-    : tab==="stand"  ? h(TabStand,{shooters,currentTraining,bestParcours,bestStageAverages,maxOf})
-    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
-    : h(TabStand,{shooters,currentTraining,bestParcours,bestStageAverages,maxOf});
+    : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
+    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
+    : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
 
   return h("div",{className:"app"},
     h("style",null,CSS),
