@@ -460,7 +460,6 @@ const CENTRAL_SYNC = {
 };
 const DEFAULT_SYNC = CENTRAL_SYNC.enabled ? CENTRAL_SYNC : {enabled:false,url:"",anonKey:"",space:CLUB.space};
 const HAS_CENTRAL_SYNC = !!(CENTRAL_SYNC.enabled && CENTRAL_SYNC.url && CENTRAL_SYNC.anonKey);
-const PASTE_ROWS = 6000;
 const newId = () => window.crypto?.randomUUID?.() ?? `id_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
 const avg = a => { const v=a.filter(x=>typeof x==="number"); return v.length?v.reduce((p,c)=>p+c,0)/v.length:null; };
 const kleur = (i,n=1) => `hsl(${Math.round((360*i/Math.max(n,1))%360)} 68% 58%)`;
@@ -633,13 +632,6 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .stage-hdr{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:6px;background:rgba(228,187,74,.08);border-radius:14px;border-left:3px solid ${C.gold}}
 .stage-hdr-name{font-family:'Archivo',sans-serif;font-weight:900;font-size:16px;color:${C.goldLt}}
 .stage-hdr-sub{font-size:11px;font-weight:600;color:${C.muted};margin-top:1px}
-.excel-strip{background:${C.gradGold};border:none;border-radius:22px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;width:100%;box-shadow:0 12px 28px rgba(200,160,48,.28);transition:all .15s}
-.excel-strip:hover{transform:translateY(-2px)}
-.excel-strip:active{transform:scale(.98);opacity:.9}
-.excel-icon{width:44px;height:44px;background:rgba(10,17,40,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.excel-txt strong{display:block;color:${C.navy};font-family:'Archivo',sans-serif;font-size:17px;font-weight:900}
-.excel-txt span{color:rgba(10,17,40,.65);font-size:12px;font-weight:600}
-.excel-arrow{margin-left:auto;flex-shrink:0}
 .set-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid ${C.border}}
 .set-row:last-child{border-bottom:none}
 .set-lbl{flex:1;font-size:14px;font-weight:700;color:${C.ink}}
@@ -706,7 +698,6 @@ const Icon = {
   chart:(s=24)=>h("svg",{width:s,height:s,viewBox:"0 0 24 24",fill:"none"},h("polyline",{points:"22 12 18 12 15 21 9 3 6 12 2 12",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"})),
   trophy:(s=24)=>h("svg",{width:s,height:s,viewBox:"0 0 24 24",fill:"none"},h("path",{d:"M8 21h8M12 17v4M7 4H5a2 2 0 0 0 0 4h2M17 4h2a2 2 0 0 1 0 4h-2",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round"}),h("path",{d:"M7 4h10v8a5 5 0 0 1-10 0V4z",stroke:"currentColor",strokeWidth:2})),
   gear:(s=24)=>h("svg",{width:s,height:s,viewBox:"0 0 24 24",fill:"none"},h("circle",{cx:12,cy:12,r:3,stroke:"currentColor",strokeWidth:2}),h("path",{d:"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",stroke:"currentColor",strokeWidth:2})),
-  excel:()=>h("svg",{width:22,height:22,viewBox:"0 0 24 24",fill:"none"},h("rect",{x:3,y:3,width:18,height:18,rx:3,stroke:C.navy,strokeWidth:2}),h("path",{d:"M8 8l8 8M16 8l-8 8",stroke:C.navy,strokeWidth:2.5,strokeLinecap:"round"})),
 };
 
 // ─── EPP Logo ────────────────────────────────────────────────────────
@@ -774,23 +765,11 @@ const RankList = ({items, max}) => {
   );
 };
 
-// ── ExcelStrip (knop) ─────────────────────────────────────────────
-const ExcelStrip = ({onClick}) =>
-  h("button",{className:"excel-strip",onClick},
-    h("div",{className:"excel-icon"},Icon.excel()),
-    h("div",{className:"excel-txt"},
-      h("strong",null,"Kopieer voor Excel"),
-      h("span",null,"Plak in Invoer-tab (A3)")
-    ),
-    h("svg",{className:"excel-arrow",width:18,height:18,viewBox:"0 0 24 24",fill:"none"},
-      h("polyline",{points:"9 18 15 12 9 6",stroke:C.muted,strokeWidth:2,strokeLinecap:"round"}))
-  );
-
 // ── TabInvoer ─────────────────────────────────────────────────────
 const TabInvoer = ({
   shooters, nieuw, setNieuw, addShooter, removeShooter,
   maand, setMaand, onderdeel, setOnderdeel, stage, setStage,
-  getVal, setVal, maxOf, copyForExcel, copyNamen, exportCSV
+  getVal, setVal, maxOf
 }) => {
   const stageObj = STAGES.find(s=>s.key===stage);
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
@@ -878,11 +857,6 @@ const TabInvoer = ({
               );
             })
       )
-    ),
-    h(ExcelStrip,{onClick:copyForExcel}),
-    h("div",{style:{display:"flex",gap:8}},
-      h("button",{className:"btn btn-ghost",style:{flex:1},onClick:copyNamen},"Kopieer namen"),
-      h("button",{className:"btn btn-ghost",style:{flex:1},onClick:exportCSV},"Download CSV")
     )
   );
 };
@@ -1152,7 +1126,7 @@ const TabRanglijst = ({ranking, stageTotaal, getVal, maxOf, TOT_MAX}) =>
   );
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({isTrainer, stageShots, setStageShots, copyForExcel, copyNamen, exportCSV, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
@@ -1177,16 +1151,6 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, copyForExcel, co
           }),
           h("div",{className:"set-max"},stageShots[s.key]*5)
         ))
-      )
-    ),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Exporteren")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h(ExcelStrip,{onClick:copyForExcel}),
-        h("div",{style:{display:"flex",gap:8}},
-          h("button",{className:"btn btn-ghost",style:{flex:1},onClick:copyNamen},"Kopieer namen"),
-          h("button",{className:"btn btn-ghost",style:{flex:1},onClick:exportCSV},"Download CSV")
-        )
       )
     ),
     h("div",{className:"card"},
@@ -1410,24 +1374,6 @@ function App() {
   const stageTotaal = (sid,mnd) => {const v=STAGES.map(st=>getVal(sid,st.key,mnd)).filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b,0):null;};
   const ranking = (perMonth,max) => shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:avg(MONTHS.map(m=>perMonth(s.id,m))),max})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
 
-  // Export helpers
-  const copyText = async text => {try{await navigator.clipboard.writeText(text);return true;}catch(e){try{const ta=document.createElement("textarea");ta.value=text;ta.style.cssText="position:fixed;opacity:0";document.body.appendChild(ta);ta.select();const ok=document.execCommand("copy");ta.remove();return ok;}catch(_){return false;}}};
-  const copyForExcel = async () => {
-    const lines=[];
-    shooters.forEach(s=>{STAGES.forEach(st=>MONTHS.forEach(m=>{const v=getVal(s.id,st.key,m);if(typeof v==="number")lines.push([s.naam,st.sheet,m,v].join("\t"));}));MONTHS.forEach(m=>{const v=getVal(s.id,"parcours",m);if(typeof v==="number")lines.push([s.naam,"Parcours",m,v].join("\t"));});});
-    if(!lines.length)return flash("Nog geen scores om te kopiëren");
-    const echt=lines.length;while(lines.length<PASTE_ROWS)lines.push("\t\t\t");
-    const ok=await copyText(lines.join("\n"));
-    flash(ok?`${echt} scores gekopieerd — plak in Invoer-tab (A3)`:"Kopiëren mislukt");
-  };
-  const copyNamen = async () => {if(!shooters.length)return flash("Nog geen schutters");const ok=await copyText(shooters.map(s=>s.naam).join("\n"));flash(ok?"Namen gekopieerd — plak in Deelnemers-tab (A5)":"Kopiëren mislukt");};
-  const exportCSV = () => {
-    const rows=[["Deelnemer","Onderdeel","Maand","Score"]];
-    shooters.forEach(s=>{STAGES.forEach(st=>MONTHS.forEach(m=>{const v=getVal(s.id,st.key,m);if(typeof v==="number")rows.push([s.naam,st.sheet,m,v]);}));MONTHS.forEach(m=>{const v=getVal(s.id,"parcours",m);if(typeof v==="number")rows.push([s.naam,"Parcours",m,v]);});});
-    const csv="\uFEFF"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\r\n");
-    const a=Object.assign(document.createElement("a"),{href:URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"})),download:`epp-scores-${new Date().toISOString().slice(0,10)}.csv`});
-    document.body.appendChild(a);a.click();a.remove();
-  };
   const resetAll = () => {if(confirm("Alles wissen? Kan niet ongedaan worden.")){
     const now=Date.now();
     setTombstones(p=>({
@@ -1458,7 +1404,7 @@ function App() {
     flash("Synchronisatie uitgevoerd");
   };
 
-  const sharedProps = {getVal,setVal,maxOf,copyForExcel,copyNamen,exportCSV};
+  const sharedProps = {getVal,setVal,maxOf};
 
   const navItems = (isTrainer ? [
     {key:"invoer",  label:"Invoer",    icon:Icon.pencil},
@@ -1478,7 +1424,7 @@ function App() {
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash,markShotsDeleted})
     : tab==="dash"   ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
     : tab==="rang"   ? h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
-    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,copyForExcel,copyNamen,exportCSV,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
+    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
     : h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX});
 
   return h("div",{className:"app"},
