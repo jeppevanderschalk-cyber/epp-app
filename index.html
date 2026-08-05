@@ -467,6 +467,7 @@ const kleur = (i,n=1) => `hsl(${Math.round((360*i/Math.max(n,1))%360)} 68% 58%)`
 const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"").slice(0,2).join("");
 const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
 const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
+const newTraining = (mode="parcours", stage="s1") => ({id:newId(),mode,stage,rounds:[],startedAt:Date.now(),updatedAt:Date.now()});
 const periodScore = bucket => {
   if(typeof bucket==="number")return bucket;
   if(!bucket || typeof bucket!=="object")return undefined;
@@ -481,6 +482,60 @@ const normalizeScores = scores => Object.fromEntries(
     })
   )])
 );
+const bestFromLegacyScores = scores => {
+  const normalized = normalizeScores(scores);
+  const bestParcours = {};
+  const bestStageAverages = {};
+  Object.entries(normalized).forEach(([sid, onderdelen]) => {
+    const parcours = periodScore(onderdelen.parcours);
+    if(typeof parcours==="number") bestParcours[sid] = {score:parcours, ts:Date.now(), source:"legacy"};
+    STAGES.forEach(st => {
+      const score = periodScore(onderdelen[st.key]);
+      if(typeof score!=="number")return;
+      bestStageAverages[st.key] = {...(bestStageAverages[st.key]||{}), [sid]:{avg:score, rounds:1, best:score, ts:Date.now(), source:"legacy"}};
+    });
+  });
+  return {bestParcours,bestStageAverages};
+};
+const normalizeTraining = t => t && typeof t==="object"
+  ? {id:t.id||newId(),mode:t.mode==="stage"?"stage":"parcours",stage:t.stage||"s1",rounds:Array.isArray(t.rounds)?t.rounds:[],startedAt:Number(t.startedAt)||Date.now(),updatedAt:Number(t.updatedAt)||Date.now()}
+  : null;
+const ensureTraining = t => normalizeTraining(t) || newTraining();
+const mergeBestParcours = (remote={}, local={}) => {
+  const out = {...remote};
+  Object.entries(local||{}).forEach(([sid,item]) => {
+    if(!item)return;
+    if(!out[sid] || Number(item.score) > Number(out[sid].score)) out[sid] = item;
+  });
+  return out;
+};
+const mergeBestStageAverages = (remote={}, local={}) => {
+  const out = {...remote};
+  STAGES.forEach(st => {
+    const rs = remote?.[st.key] || {};
+    const ls = local?.[st.key] || {};
+    out[st.key] = {...rs};
+    Object.entries(ls).forEach(([sid,item]) => {
+      if(!item)return;
+      if(!out[st.key][sid] || Number(item.avg) > Number(out[st.key][sid].avg)) out[st.key][sid] = item;
+    });
+  });
+  return out;
+};
+const mergeTraining = (remote, local) => {
+  const r = normalizeTraining(remote);
+  const l = normalizeTraining(local);
+  if(!r && !l) return newTraining();
+  if(!r) return l;
+  if(!l) return r;
+  const base = (l.startedAt||0) >= (r.startedAt||0) ? l : r;
+  if(r.id !== l.id) return base;
+  const map = new Map();
+  [...(r.rounds||[]), ...(l.rounds||[])].forEach(round => {
+    if(round?.id) map.set(round.id, {...(map.get(round.id)||{}), ...round});
+  });
+  return {...base, rounds:Array.from(map.values()).sort((a,b)=>(a.ts||0)-(b.ts||0)), updatedAt:Math.max(r.updatedAt||0,l.updatedAt||0)};
+};
 const mergeById = (remote=[], local=[]) => {
   const map = new Map();
   [...remote, ...local].forEach(item => {
@@ -501,6 +556,7 @@ const mergeScores = (remote={}, local={}) => {
 const MONTH_WIPE_GRACE_MS = 5*60*1000;
 const mergePayloads = (remote={}, local={}) => {
   const now = Date.now();
+  const resetAt = Math.max(remote.tombstones?.resetAt||0, local.tombstones?.resetAt||0);
   const monthWipeKeys = new Set([...Object.keys(remote.tombstones?.monthWipes||{}), ...Object.keys(local.tombstones?.monthWipes||{})]);
   const mergedMonthWipes = {};
   monthWipeKeys.forEach(m=>{ mergedMonthWipes[m] = Math.max(remote.tombstones?.monthWipes?.[m]||0, local.tombstones?.monthWipes?.[m]||0); });
@@ -508,12 +564,14 @@ const mergePayloads = (remote={}, local={}) => {
   const tombstones = {
     shooters:{...(remote.tombstones?.shooters), ...(local.tombstones?.shooters)},
     shots:{...(remote.tombstones?.shots), ...(local.tombstones?.shots)},
-    monthWipes:activeMonthWipes
+    monthWipes:activeMonthWipes,
+    resetAt
   };
   const shooters = mergeById(remote.shooters, local.shooters).filter(s=>!tombstones.shooters[s.id]);
   const cameraShots = [...(remote.cameraShots||[]), ...(local.cameraShots||[])]
     .filter((shot, index, arr) => shot?.id ? arr.findIndex(x=>x?.id===shot.id)===index : index===arr.indexOf(shot))
-    .filter(shot=>!tombstones.shots[shot?.id]);
+    .filter(shot=>!tombstones.shots[shot?.id])
+    .filter(shot=>!resetAt || (shot?.ts||0)>resetAt);
   const shooterIds = new Set(shooters.map(s=>s.id));
   const wipedMonths = Object.keys(activeMonthWipes);
   const scores = normalizeScores(Object.fromEntries(
@@ -527,13 +585,21 @@ const mergePayloads = (remote={}, local={}) => {
         })
       )])
   ));
+  const filterParcours = obj => Object.fromEntries(Object.entries(obj||{}).filter(([,item])=>!resetAt || (item?.ts||0)>resetAt));
+  const filterStageAverages = obj => Object.fromEntries(Object.entries(obj||{}).map(([stage,items])=>[
+    stage,
+    Object.fromEntries(Object.entries(items||{}).filter(([,item])=>!resetAt || (item?.ts||0)>resetAt))
+  ]));
   return {
-    schema:1,
+    schema:2,
     shooters,
-    scores,
+    scores:resetAt?{}:scores,
     cameraShots,
     stageShots:{...DEFAULT_SHOTS, ...(remote.stageShots||{}), ...(local.stageShots||{})},
-    tombstones
+    tombstones,
+    currentTraining:mergeTraining(remote.currentTraining, local.currentTraining),
+    bestParcours:mergeBestParcours(filterParcours(remote.bestParcours), filterParcours(local.bestParcours)),
+    bestStageAverages:mergeBestStageAverages(filterStageAverages(remote.bestStageAverages), filterStageAverages(local.bestStageAverages))
   };
 };
 const insidePoly = (p, poly) => {
@@ -605,7 +671,8 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .num-in{width:78px;height:54px;font-family:'Archivo',sans-serif;font-weight:900;font-size:1.35rem;text-align:center;background:#081026;border:1px solid ${C.border};border-radius:16px;color:${C.ink};outline:none;-webkit-appearance:none;appearance:none;transition:border-color .15s,box-shadow .15s}
 .num-in:focus{border-color:${C.goldLt};box-shadow:inset 0 0 0 2px ${C.goldLt};color:${C.goldLt}}
 .num-in::-webkit-inner-spin-button,.num-in::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-.maxbadge{font-family:'Archivo',sans-serif;font-size:11px;font-weight:700;color:${C.muted};letter-spacing:.04em}
+.maxbadge{font-family:'Archivo',sans-serif;font-size:13px;font-weight:900;color:${C.muted};letter-spacing:.04em;background:transparent;border:0;cursor:pointer;padding:2px 10px;line-height:1}
+.maxbadge:hover{color:${C.goldLt}}
 .btn{font-family:'Archivo',sans-serif;font-weight:900;font-size:15px;border-radius:18px;min-height:58px;padding:0 18px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:8px;justify-content:center;transition:all .15s;text-decoration:none}
 .btn:hover{transform:translateY(-2px)}
 .btn:active{transform:scale(.96);opacity:.9}
@@ -730,23 +797,35 @@ const Empty = ({msg}) => h("div",{className:"empty"},
   h("p",null,msg)
 );
 
-const NumInput = ({sid, k, maxV, getVal, setVal}) => {
-  const v = getVal(sid,k);
+const RoundInput = ({maxV, onAdd}) => {
+  const [value,setValue] = React.useState("");
   return h("div",{className:"num-wrap"},
     h("input",{
       className:"num-in",type:"number",min:0,max:maxV,inputMode:"numeric",
-      value:typeof v==="number"?v:"",placeholder:"–",
-      onChange:e=>{
-        const raw=e.target.value;
-        if(raw==="")return setVal(sid,k,"");
-        let n=Math.round(Number(raw));
+      value,placeholder:"0",
+      onChange:e=>setValue(e.target.value),
+      onKeyDown:e=>{
+        if(e.key!=="Enter")return;
+        const n=Math.round(Number(value));
         if(Number.isNaN(n))return;
-        setVal(sid,k,Math.max(0,Math.min(maxV,n)));
+        onAdd(Math.max(0,Math.min(maxV,n)));
+        setValue("");
       }
     }),
-    h("div",{className:"maxbadge"},"/",maxV)
+    h("button",{className:"maxbadge",type:"button",onClick:()=>{
+      const n=Math.round(Number(value));
+      if(Number.isNaN(n))return;
+      onAdd(Math.max(0,Math.min(maxV,n)));
+      setValue("");
+    }},"＋")
   );
 };
+
+const ShooterRounds = ({rounds}) => rounds?.length
+  ? h("div",{className:"stage-badges",style:{marginTop:7}},
+      rounds.map((r,i)=>h("div",{key:r.id,className:"sbadge has-score"},"R",i+1,": ",r.score))
+    )
+  : h("div",{className:"score-prev"},"Nog geen rondes");
 
 const RankList = ({items, max}) => {
   if(!items.length) return h(Empty,{msg:"Nog geen schutters."});
@@ -774,10 +853,14 @@ const RankList = ({items, max}) => {
 // ── TabInvoer ─────────────────────────────────────────────────────
 const TabInvoer = ({
   shooters, nieuw, setNieuw, addShooter, removeShooter,
-  onderdeel, setOnderdeel, stage, setStage,
-  getVal, setVal, maxOf
+  currentTraining, setTrainingMode, setTrainingStage, addRound,
+  maxOf
 }) => {
+  const mode = currentTraining.mode;
+  const stage = currentTraining.stage;
   const stageObj = STAGES.find(s=>s.key===stage);
+  const trainingRounds = currentTraining.rounds || [];
+  const roundGroups = sid => trainingRounds.filter(r=>r.sid===sid && r.type===mode && (mode==="parcours" || r.stage===stage));
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     // Schutters
     h("div",{className:"card"},
@@ -807,13 +890,13 @@ const TabInvoer = ({
     h("div",{className:"card"},
       h("div",{className:"card-body",style:{paddingBottom:0}},
         h("div",{className:"sub-tab-row"},
-          h("button",{className:"sub-tab","data-on":onderdeel==="stage"?"1":"0",onClick:()=>setOnderdeel("stage")},"Stages"),
-          h("button",{className:"sub-tab","data-on":onderdeel==="parcours"?"1":"0",onClick:()=>setOnderdeel("parcours")},"Parcours")
+          h("button",{className:"sub-tab","data-on":mode==="stage"?"1":"0",onClick:()=>setTrainingMode("stage")},"Stage training"),
+          h("button",{className:"sub-tab","data-on":mode==="parcours"?"1":"0",onClick:()=>setTrainingMode("parcours")},"Parcours training")
         )
       ),
-      onderdeel==="stage" && h("div",{className:"card-body",style:{paddingTop:0}},
+      mode==="stage" && h("div",{className:"card-body",style:{paddingTop:0}},
         h("div",{className:"stage-strip"},
-          STAGES.map(s=>h("button",{key:s.key,className:"spill","data-on":stage===s.key?"1":"0",onClick:()=>setStage(s.key)},s.kort))
+          STAGES.map(s=>h("button",{key:s.key,className:"spill","data-on":stage===s.key?"1":"0",onClick:()=>setTrainingStage(s.key)},s.kort))
         ),
         h("div",{className:"stage-hdr"},
           h("div",null,
@@ -824,16 +907,20 @@ const TabInvoer = ({
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Voeg eerst schutters toe.")
           : shooters.map((s,i)=>{
+              const rounds = roundGroups(s.id);
+              const average = avg(rounds.map(r=>r.score));
               return h("div",{key:s.id,className:"score-row"},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
-                  h("div",{className:"score-name-txt"},s.naam)
+                  h("div",{className:"score-name-txt"},s.naam),
+                  h("div",{className:"score-prev"},"Gemiddelde: ",average==null?"–":average.toFixed(1)),
+                  h(ShooterRounds,{rounds})
                 ),
-                h(NumInput,{sid:s.id,k:stage,maxV:maxOf(stage),getVal,setVal})
+                h(RoundInput,{maxV:maxOf(stage),onAdd:score=>addRound({sid:s.id,type:"stage",stage,score})})
               );
             })
       ),
-      onderdeel==="parcours" && h("div",{className:"card-body",style:{paddingTop:0}},
+      mode==="parcours" && h("div",{className:"card-body",style:{paddingTop:0}},
         h("div",{className:"stage-hdr"},
           h("div",null,
             h("div",{className:"stage-hdr-name"},"Volledig Parcours"),
@@ -843,12 +930,16 @@ const TabInvoer = ({
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Voeg eerst schutters toe.")
           : shooters.map((s,i)=>{
+              const rounds = roundGroups(s.id);
+              const best = rounds.reduce((m,r)=>Math.max(m,r.score),0) || null;
               return h("div",{key:s.id,className:"score-row"},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
-                  h("div",{className:"score-name-txt"},s.naam)
+                  h("div",{className:"score-name-txt"},s.naam),
+                  h("div",{className:"score-prev"},"Beste deze training: ",best==null?"–":best),
+                  h(ShooterRounds,{rounds})
                 ),
-                h(NumInput,{sid:s.id,k:"parcours",maxV:250,getVal,setVal})
+                h(RoundInput,{maxV:250,onAdd:score=>addRound({sid:s.id,type:"parcours",score})})
               );
             })
       )
@@ -866,7 +957,7 @@ const TargetOverlay = ({frame}) => h("svg",{className:"cam-overlay",style:frameS
   )
 );
 
-const TabCamera = ({shooters, cameraShots, setCameraShots, getVal, setVal, maxOf, flash, markShotsDeleted}) => {
+const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markShotsDeleted, addRound, removeRoundByReplaceKey}) => {
   const [sid,setSid] = React.useState(shooters[0]?.id || "");
   const [stage,setStage] = React.useState("s1");
   const [camOn,setCamOn] = React.useState(false);
@@ -888,7 +979,7 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, getVal, setVal, maxOf
 
   const updateStoredTotal = nextShots => {
     const sum = nextShots.filter(isCurrentShot).reduce((a,s)=>a+s.score,0);
-    setVal(sid,stage,sum);
+    addRound({sid,type:"stage",stage,score:sum,source:"camera",replaceKey:`camera-${sid}-${stage}`});
   };
   const viewToTarget = p => ({x:(p.x-frame.x)/frame.w,y:(p.y-frame.y)/frame.h});
   const inTarget = p => p.x>=0 && p.x<=1 && p.y>=0 && p.y<=1;
@@ -947,7 +1038,7 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, getVal, setVal, maxOf
     markShotsDeleted(activeShots.map(s=>s.id));
     setCameraShots(prev=>{
       const next=prev.filter(s=>!isCurrentShot(s));
-      setTimeout(()=>setVal(sid,stage,""),0);
+      setTimeout(()=>removeRoundByReplaceKey(`camera-${sid}-${stage}`),0);
       return next;
     });
     setStatus("Stage gewist");
@@ -1062,34 +1153,36 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, getVal, setVal, maxOf
 };
 
 // ── TabDashboard ──────────────────────────────────────────────────
-const TabDashboard = ({shooters, getVal, stageTotaal, TOT_MAX}) => {
+const TabDashboard = ({shooters, currentTraining}) => {
   if(!shooters.length) return h(Empty,{msg:"Voeg schutters en scores toe via Invoer."});
+  const mode = currentTraining.mode;
+  const stageObj = STAGES.find(s=>s.key===currentTraining.stage);
+  const trainingRounds = currentTraining.rounds || [];
+  const roundsFor = sid => trainingRounds.filter(r=>r.sid===sid && r.type===mode && (mode==="parcours" || r.stage===currentTraining.stage));
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"stat-grid"},
       h("div",{className:"stat-card"},h("div",{className:"stat-val"},shooters.length),h("div",{className:"stat-lbl"},"Schutters")),
-      h("div",{className:"stat-card"},h("div",{className:"stat-val"},TOT_MAX),h("div",{className:"stat-lbl"},"Max stage-totaal"))
+      h("div",{className:"stat-card"},h("div",{className:"stat-val"},trainingRounds.length),h("div",{className:"stat-lbl"},"Rondes nu"))
     ),
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Doorlopende scores")),
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Huidige training")),
       h("div",{className:"card-body"},
+        h("div",{className:"stage-hdr"},
+          h("div",null,
+            h("div",{className:"stage-hdr-name"},mode==="parcours"?"Parcours training":stageObj.kort),
+            h("div",{className:"stage-hdr-sub"},mode==="parcours"?"Hoogste ronde telt bij afronden":"Gemiddelde van deze stage telt bij afronden")
+          )
+        ),
         shooters.map((s,i)=>{
-          const tot=stageTotaal(s.id);
-          const par=getVal(s.id,"parcours");
+          const rounds = roundsFor(s.id);
+          const value = mode==="parcours" ? (rounds.reduce((m,r)=>Math.max(m,r.score),0) || null) : avg(rounds.map(r=>r.score));
           return h("div",{key:s.id,className:"shooter-score-card"},
             h("div",{className:"ssc-top"},
               h("div",{className:"score-avatar",style:{width:36,height:36,fontSize:14,boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
               h("span",{style:{flex:1,fontWeight:600,fontSize:14,color:C.ink}},s.naam),
-              tot!=null&&h("div",{className:"ssc-total"},tot,h("sub",null,"/",TOT_MAX))
+              value!=null&&h("div",{className:"ssc-total"},mode==="parcours"?value:value.toFixed(1))
             ),
-            h("div",{className:"stage-badges"},
-              STAGES.map(st=>{
-                const v=getVal(s.id,st.key);
-                return h("div",{key:st.key,className:`sbadge${typeof v==="number"?" has-score":""}`},
-                  st.kort.split(" ")[0],": ",typeof v==="number"?v:"–"
-                );
-              }),
-              h("div",{className:`sbadge${par!=null?" parcours":""}`},"Parc: ",par!=null?par:"–")
-            )
+            h(ShooterRounds,{rounds})
           );
         })
       )
@@ -1098,24 +1191,36 @@ const TabDashboard = ({shooters, getVal, stageTotaal, TOT_MAX}) => {
 };
 
 // ── TabRanglijst ──────────────────────────────────────────────────
-const TabRanglijst = ({ranking, stageTotaal, getVal, maxOf, TOT_MAX}) =>
-  h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
+  const [stage,setStage] = React.useState("s1");
+  const stageObj = STAGES.find(s=>s.key===stage);
+  const parcoursItems = shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:bestParcours?.[s.id]?.score,max:250})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
+  const stageItems = shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:bestStageAverages?.[stage]?.[s.id]?.avg,max:maxOf(stage)})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
+  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Stage-totaal · doorlopende stand")),
-      h("div",{className:"card-body"},h(RankList,{items:ranking(stageTotaal,TOT_MAX),max:TOT_MAX}))
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Parcours stand · hoogste score")),
+      h("div",{className:"card-body"},h(RankList,{items:parcoursItems,max:250}))
     ),
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Parcours · doorlopende stand")),
-      h("div",{className:"card-body"},h(RankList,{items:ranking(sid=>getVal(sid,"parcours"),250),max:250}))
-    ),
-    ...STAGES.map(st=>h("div",{key:st.key,className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},st.kort," · ",st.afstand)),
-      h("div",{className:"card-body"},h(RankList,{items:ranking(sid=>getVal(sid,st.key),maxOf(st.key)),max:maxOf(st.key)}))
-    ))
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Stage stand · hoogste gemiddelde")),
+      h("div",{className:"card-body"},
+        h("div",{className:"stage-strip"},
+          STAGES.map(s=>h("button",{key:s.key,className:"spill","data-on":stage===s.key?"1":"0",onClick:()=>setStage(s.key)},s.kort))
+        ),
+        h("div",{className:"stage-hdr"},
+          h("div",null,
+            h("div",{className:"stage-hdr-name"},stageObj.kort),
+            h("div",{className:"stage-hdr-sub"},stageObj.afstand," · max ",maxOf(stage))
+          )
+        ),
+        h(RankList,{items:stageItems,max:maxOf(stage)})
+      )
+    )
   );
+};
 
 // ── TabStand ──────────────────────────────────────────────────────
-const TabStand = ({shooters, getVal, stageTotaal, TOT_MAX, ranking, maxOf}) => {
+const TabStand = ({shooters, currentTraining, bestParcours, bestStageAverages, maxOf}) => {
   const [view,setView] = React.useState("overzicht");
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
@@ -1127,19 +1232,26 @@ const TabStand = ({shooters, getVal, stageTotaal, TOT_MAX, ranking, maxOf}) => {
       )
     ),
     view==="overzicht"
-      ? h(TabDashboard,{shooters,getVal,stageTotaal,TOT_MAX})
-      : h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
+      ? h(TabDashboard,{shooters,currentTraining})
+      : h(TabRanglijst,{shooters,bestParcours,bestStageAverages,maxOf})
   );
 };
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({isTrainer, stageShots, setStageShots, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
       h("div",{className:"card-body"},
         h("p",{className:"hint",style:{marginBottom:10}},"Ingelogd als ",isTrainer?"Trainer":"Schutter"," — ",CLUB.label,"."),
         h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
+      )
+    ),
+    isTrainer && h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Training")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+        h("p",{className:"hint"},"Bewaart alleen de beste parcours-score of het beste stagegemiddelde in de stand en wist daarna de losse rondes."),
+        h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Nieuwe training starten")
       )
     ),
     isTrainer && h("div",{className:"card"},
@@ -1256,8 +1368,11 @@ function App() {
   const [shooters,   setShooters]   = React.useState([]);
   const [scores,     setScores]     = React.useState({});
   const [cameraShots,setCameraShots]= React.useState([]);
+  const [currentTraining,setCurrentTraining] = React.useState(()=>newTraining());
+  const [bestParcours,setBestParcours] = React.useState({});
+  const [bestStageAverages,setBestStageAverages] = React.useState({});
   const [stageShots, setStageShots] = React.useState(DEFAULT_SHOTS);
-  const [tombstones, setTombstones] = React.useState({shooters:{},shots:{},monthWipes:{}});
+  const [tombstones, setTombstones] = React.useState({shooters:{},shots:{},monthWipes:{},resetAt:0});
   const [loaded,     setLoaded]     = React.useState(false);
   const [syncConfig, setSyncConfig] = React.useState(()=>{
     if(HAS_CENTRAL_SYNC)return DEFAULT_SYNC;
@@ -1265,8 +1380,6 @@ function App() {
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
   const [tab,        setTab]        = React.useState(isTrainer ? "invoer" : "stand");
-  const [onderdeel,  setOnderdeel]  = React.useState("stage");
-  const [stage,      setStage]      = React.useState("s1");
   const [nieuw,      setNieuw]      = React.useState("");
   const [toast,      setToast]      = React.useState("");
   const firstSave = React.useRef(true);
@@ -1276,16 +1389,20 @@ function App() {
 
   const flash = m => { setToast(m); setTimeout(()=>setToast(""),2400); };
   const maxOf = k => (stageShots[k]||0)*5;
-  const TOT_MAX = STAGES.reduce((a,s)=>a+maxOf(s.key),0);
-  const makePayload = () => ({schema:1,shooters,scores,cameraShots,stageShots,tombstones});
+  const makePayload = () => ({schema:2,shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages});
   const applyPayload = payload => {
     if(!payload || typeof payload!=="object")return;
     applyingRemote.current=true;
     setShooters(payload.shooters||[]);
-    setScores(normalizeScores(payload.scores||{}));
+    const normalizedScores = normalizeScores(payload.scores||{});
+    const legacyBests = bestFromLegacyScores(normalizedScores);
+    setScores(normalizedScores);
     setCameraShots(payload.cameraShots||[]);
+    setCurrentTraining(ensureTraining(payload.currentTraining));
+    setBestParcours(mergeBestParcours(legacyBests.bestParcours,payload.bestParcours||{}));
+    setBestStageAverages(mergeBestStageAverages(legacyBests.bestStageAverages,payload.bestStageAverages||{}));
     setStageShots({...DEFAULT_SHOTS,...(payload.stageShots||{})});
-    setTombstones({shooters:{...(payload.tombstones?.shooters)},shots:{...(payload.tombstones?.shots)},monthWipes:{...(payload.tombstones?.monthWipes)}});
+    setTombstones({shooters:{...(payload.tombstones?.shooters)},shots:{...(payload.tombstones?.shots)},monthWipes:{...(payload.tombstones?.monthWipes)},resetAt:payload.tombstones?.resetAt||0});
     setTimeout(()=>{applyingRemote.current=false;},1500);
   };
   const syncFetch = async (method,path,body) => {
@@ -1337,13 +1454,13 @@ function App() {
 
   // localStorage
   React.useEffect(()=>{
-    try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);setShooters(p.shooters||[]);setScores(normalizeScores(p.scores||{}));setCameraShots(p.cameraShots||[]);setStageShots({...DEFAULT_SHOTS,...(p.stageShots||{})});setTombstones({shooters:{...(p.tombstones?.shooters)},shots:{...(p.tombstones?.shots)},monthWipes:{...(p.tombstones?.monthWipes)}});}}catch(e){}finally{setLoaded(true);}
+    try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);const normalizedScores=normalizeScores(p.scores||{});const legacyBests=bestFromLegacyScores(normalizedScores);setShooters(p.shooters||[]);setScores(normalizedScores);setCameraShots(p.cameraShots||[]);setCurrentTraining(ensureTraining(p.currentTraining));setBestParcours(mergeBestParcours(legacyBests.bestParcours,p.bestParcours||{}));setBestStageAverages(mergeBestStageAverages(legacyBests.bestStageAverages,p.bestStageAverages||{}));setStageShots({...DEFAULT_SHOTS,...(p.stageShots||{})});setTombstones({shooters:{...(p.tombstones?.shooters)},shots:{...(p.tombstones?.shots)},monthWipes:{...(p.tombstones?.monthWipes)},resetAt:p.tombstones?.resetAt||0});}}catch(e){}finally{setLoaded(true);}
   },[]);
   React.useEffect(()=>{
     if(!loaded)return;if(firstSave.current){firstSave.current=false;return;}
     const t=setTimeout(()=>{
       try{
-        localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots,tombstones}));
+        localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages}));
         if(syncReady(syncConfig) && !applyingRemote.current){
           clearTimeout(syncPushTimer.current);
           syncPushTimer.current=setTimeout(()=>pushRemote("online opgeslagen"),900);
@@ -1351,7 +1468,7 @@ function App() {
       }catch(e){}
     },500);
     return()=>clearTimeout(t);
-  },[shooters,scores,cameraShots,stageShots,tombstones,loaded,syncConfig]);
+  },[shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages,loaded,syncConfig]);
 
   React.useEffect(()=>{
     try{localStorage.setItem(SYNC_KEY,JSON.stringify(syncConfig));}catch(e){}
@@ -1367,25 +1484,50 @@ function App() {
   },[loaded,syncConfig]);
 
   // State helpers
-  const getVal = (sid,k) => periodScore(scores?.[sid]?.[k]);
-  const setVal = (sid,k,val) => setScores(prev=>{
-    const next={...prev},s={...(next[sid]||{})},o={...(s[k]||{})};
-    if(val===""||val==null||Number.isNaN(val))delete o[SCORE_PERIOD];else o[SCORE_PERIOD]=val;
-    s[k]=o;next[sid]=s;return next;
-  });
   const addShooter = () => {const n=nieuw.trim();if(!n)return;setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
   const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
   const markShotsDeleted = ids => setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));
-  const stageTotaal = sid => {const v=STAGES.map(st=>getVal(sid,st.key)).filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b,0):null;};
-  const ranking = (getter,max) => shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:getter(s.id),max})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
+  const setTrainingMode = mode => setCurrentTraining(t=>({...t,mode,updatedAt:Date.now()}));
+  const setTrainingStage = stageKey => setCurrentTraining(t=>({...t,stage:stageKey,updatedAt:Date.now()}));
+  const addRound = ({sid,type,stage:stageKey,score,source="handmatig",replaceKey=""}) => setCurrentTraining(t=>{
+    const round = {id:newId(),trainingId:t.id,sid,type,stage:stageKey||t.stage,score,source,replaceKey,ts:Date.now()};
+    const rounds = replaceKey ? (t.rounds||[]).filter(r=>r.replaceKey!==replaceKey) : (t.rounds||[]);
+    return {...t,rounds:[...rounds,round],updatedAt:Date.now()};
+  });
+  const removeRoundByReplaceKey = replaceKey => setCurrentTraining(t=>({...t,rounds:(t.rounds||[]).filter(r=>r.replaceKey!==replaceKey),updatedAt:Date.now()}));
+  const finishTraining = () => {
+    const t = ensureTraining(currentTraining);
+    if(!t.rounds.length) return flash("Nog geen rondes in deze training");
+    if(!confirm("Nieuwe training starten? De beste resultaten worden bewaard in de stand en de losse rondes worden gewist.")) return;
+    const now = Date.now();
+    const bestByShooter = {};
+    t.rounds.filter(r=>r.type==="parcours").forEach(r=>{
+      if(!bestByShooter[r.sid] || r.score>bestByShooter[r.sid].score) bestByShooter[r.sid] = {score:r.score, rounds:t.rounds.filter(x=>x.sid===r.sid&&x.type==="parcours").length, ts:now, trainingId:t.id};
+    });
+    setBestParcours(prev=>mergeBestParcours(prev,bestByShooter));
+    const stageResults = {};
+    STAGES.forEach(st=>{
+      const grouped = {};
+      t.rounds.filter(r=>r.type==="stage" && r.stage===st.key).forEach(r=>{grouped[r.sid]=[...(grouped[r.sid]||[]),r];});
+      Object.entries(grouped).forEach(([sid,rounds])=>{
+        const average = avg(rounds.map(r=>r.score));
+        if(average!=null) stageResults[st.key] = {...(stageResults[st.key]||{}), [sid]:{avg:average, rounds:rounds.length, best:Math.max(...rounds.map(r=>r.score)), ts:now, trainingId:t.id}};
+      });
+    });
+    setBestStageAverages(prev=>mergeBestStageAverages(prev,stageResults));
+    setCurrentTraining(newTraining(t.mode,t.stage));
+    flash("Nieuwe training gestart");
+  };
 
   const resetAll = () => {if(confirm("Alles wissen? Kan niet ongedaan worden.")){
     const now=Date.now();
     setTombstones(p=>({
       shooters:{...p.shooters, ...Object.fromEntries(shooters.map(s=>[s.id,now]))},
-      shots:{...p.shots, ...Object.fromEntries(cameraShots.map(s=>[s.id,now]))}
+      shots:{...p.shots, ...Object.fromEntries(cameraShots.map(s=>[s.id,now]))},
+      monthWipes:{...(p.monthWipes||{})},
+      resetAt:now
     }));
-    setShooters([]);setScores({});setCameraShots([]);setStageShots(DEFAULT_SHOTS);flash("Alles gewist");
+    setShooters([]);setScores({});setCameraShots([]);setCurrentTraining(newTraining());setBestParcours({});setBestStageAverages({});setStageShots(DEFAULT_SHOTS);flash("Alles gewist");
   }};
   const logout = () => {localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();};
 
@@ -1394,8 +1536,6 @@ function App() {
     await pullRemote({createIfMissing:true});
     flash("Synchronisatie uitgevoerd");
   };
-
-  const sharedProps = {getVal,setVal,maxOf};
 
   const navItems = (isTrainer ? [
     {key:"invoer",  label:"Invoer",    icon:Icon.pencil},
@@ -1409,11 +1549,11 @@ function App() {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="invoer" && isTrainer ? h(TabInvoer,{...sharedProps,shooters,nieuw,setNieuw,addShooter,removeShooter,onderdeel,setOnderdeel,stage,setStage})
-    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,getVal,setVal,maxOf,flash,markShotsDeleted})
-    : tab==="stand"  ? h(TabStand,{shooters,getVal,stageTotaal,TOT_MAX,ranking,maxOf})
-    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
-    : h(TabStand,{shooters,getVal,stageTotaal,TOT_MAX,ranking,maxOf});
+    : tab==="invoer" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound,maxOf})
+    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,markShotsDeleted,addRound,removeRoundByReplaceKey})
+    : tab==="stand"  ? h(TabStand,{shooters,currentTraining,bestParcours,bestStageAverages,maxOf})
+    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
+    : h(TabStand,{shooters,currentTraining,bestParcours,bestStageAverages,maxOf});
 
   return h("div",{className:"app"},
     h("style",null,CSS),
