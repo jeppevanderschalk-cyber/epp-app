@@ -1125,6 +1125,24 @@ const TabRanglijst = ({ranking, stageTotaal, getVal, maxOf, TOT_MAX}) =>
     ))
   );
 
+// ── TabStand ──────────────────────────────────────────────────────
+const TabStand = ({shooters, maand, setMaand, getVal, stageTotaal, TOT_MAX, ranking, maxOf}) => {
+  const [view,setView] = React.useState("overzicht");
+  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("div",{className:"card"},
+      h("div",{className:"card-body",style:{paddingBottom:0}},
+        h("div",{className:"sub-tab-row"},
+          h("button",{className:"sub-tab","data-on":view==="overzicht"?"1":"0",onClick:()=>setView("overzicht")},"Overzicht"),
+          h("button",{className:"sub-tab","data-on":view==="ranglijst"?"1":"0",onClick:()=>setView("ranglijst")},"Ranglijst")
+        )
+      )
+    ),
+    view==="overzicht"
+      ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
+      : h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
+  );
+};
+
 // ── TabInstellingen ───────────────────────────────────────────────
 const TabInstellingen = ({isTrainer, stageShots, setStageShots, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
@@ -1258,7 +1276,7 @@ function App() {
     try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
-  const [tab,        setTab]        = React.useState(isTrainer ? "invoer" : "dash");
+  const [tab,        setTab]        = React.useState(isTrainer ? "invoer" : "stand");
   const [maand,      setMaand]      = React.useState(MONTHS[new Date().getMonth()]);
   const [onderdeel,  setOnderdeel]  = React.useState("stage");
   const [stage,      setStage]      = React.useState("s1");
@@ -1409,12 +1427,10 @@ function App() {
   const navItems = (isTrainer ? [
     {key:"invoer",  label:"Invoer",    icon:Icon.pencil},
     {key:"camera",  label:"Camera",    icon:Icon.camera},
-    {key:"dash",    label:"Overzicht", icon:Icon.chart},
-    {key:"rang",    label:"Ranglijst", icon:Icon.trophy},
+    {key:"stand",   label:"Stand",     icon:Icon.trophy},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
   ] : [
-    {key:"dash",    label:"Overzicht", icon:Icon.chart},
-    {key:"rang",    label:"Ranglijst", icon:Icon.trophy},
+    {key:"stand",   label:"Stand",     icon:Icon.trophy},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
   ]);
 
@@ -1422,10 +1438,9 @@ function App() {
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
     : tab==="invoer" && isTrainer ? h(TabInvoer,{...sharedProps,shooters,nieuw,setNieuw,addShooter,removeShooter,maand,setMaand,onderdeel,setOnderdeel,stage,setStage})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash,markShotsDeleted})
-    : tab==="dash"   ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
-    : tab==="rang"   ? h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
+    : tab==="stand"  ? h(TabStand,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX,ranking,maxOf})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
-    : h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX});
+    : h(TabStand,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX,ranking,maxOf});
 
   return h("div",{className:"app"},
     h("style",null,CSS),
