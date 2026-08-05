@@ -438,6 +438,7 @@ const C = {
   gradCard:"linear-gradient(170deg,#15224e 0%,#0d1737 100%)",
 };
 const MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+const SCORE_PERIOD = "doorlopend";
 const STAGES = [
   {key:"s1",sheet:"Gericht snelvuur 7m",  kort:"Gericht snelvuur",  afstand:"7 m · 2×5"},
   {key:"s2",sheet:"Liggend 30m",          kort:"Liggend",           afstand:"30 m · 5"},
@@ -466,6 +467,20 @@ const kleur = (i,n=1) => `hsl(${Math.round((360*i/Math.max(n,1))%360)} 68% 58%)`
 const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"").slice(0,2).join("");
 const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
 const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
+const periodScore = bucket => {
+  if(typeof bucket==="number")return bucket;
+  if(!bucket || typeof bucket!=="object")return undefined;
+  if(typeof bucket[SCORE_PERIOD]==="number")return bucket[SCORE_PERIOD];
+  return [...MONTHS].reverse().map(m=>bucket[m]).find(v=>typeof v==="number");
+};
+const normalizeScores = scores => Object.fromEntries(
+  Object.entries(scores||{}).map(([sid, onderdelen]) => [sid, Object.fromEntries(
+    Object.entries(onderdelen||{}).map(([onderdeel, bucket]) => {
+      const v = periodScore(bucket);
+      return [onderdeel, typeof v==="number" ? {[SCORE_PERIOD]:v} : {}];
+    })
+  )])
+);
 const mergeById = (remote=[], local=[]) => {
   const map = new Map();
   [...remote, ...local].forEach(item => {
@@ -501,7 +516,7 @@ const mergePayloads = (remote={}, local={}) => {
     .filter(shot=>!tombstones.shots[shot?.id]);
   const shooterIds = new Set(shooters.map(s=>s.id));
   const wipedMonths = Object.keys(activeMonthWipes);
-  const scores = Object.fromEntries(
+  const scores = normalizeScores(Object.fromEntries(
     Object.entries(mergeScores(remote.scores, local.scores))
       .filter(([sid])=>shooterIds.has(sid))
       .map(([sid,onderdelen])=>[sid, Object.fromEntries(
@@ -511,7 +526,7 @@ const mergePayloads = (remote={}, local={}) => {
           return [onderdeel,m2];
         })
       )])
-  );
+  ));
   return {
     schema:1,
     shooters,
@@ -576,10 +591,6 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .card-body{padding:14px 18px 18px}
 .eyebrow{font-family:'Archivo',sans-serif;text-transform:uppercase;letter-spacing:2.5px;font-size:.66rem;font-weight:800;color:${C.goldLt};margin-bottom:10px}
 .beta-note{margin:0 0 12px;color:${C.muted};font-size:12px;font-weight:600;line-height:1.45;background:rgba(228,187,74,.08);border:1px solid rgba(228,187,74,.22);border-radius:12px;padding:10px 12px}
-.month-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
-.month-strip::-webkit-scrollbar{display:none}
-.mchip{font-family:'Archivo',sans-serif;font-weight:800;font-size:13px;border:1px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};border-radius:999px;min-height:38px;padding:0 15px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
-.mchip[data-on="1"]{background:${C.gradGold};color:${C.navy};border-color:transparent;box-shadow:0 8px 20px rgba(200,160,48,.35)}
 .stage-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .stage-strip::-webkit-scrollbar{display:none}
 .spill{font-family:'Archivo',sans-serif;font-weight:800;font-size:12px;border:1px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};border-radius:999px;min-height:38px;padding:0 14px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
@@ -719,23 +730,18 @@ const Empty = ({msg}) => h("div",{className:"empty"},
   h("p",null,msg)
 );
 
-const MonthStrip = ({maand, setMaand}) =>
-  h("div",{className:"month-strip"},
-    MONTHS.map(m=>h("button",{key:m,className:"mchip","data-on":maand===m?"1":"0",onClick:()=>setMaand(m)},m))
-  );
-
-const NumInput = ({sid, k, maxV, getVal, setVal, maand}) => {
-  const v = getVal(sid,k,maand);
+const NumInput = ({sid, k, maxV, getVal, setVal}) => {
+  const v = getVal(sid,k);
   return h("div",{className:"num-wrap"},
     h("input",{
       className:"num-in",type:"number",min:0,max:maxV,inputMode:"numeric",
       value:typeof v==="number"?v:"",placeholder:"–",
       onChange:e=>{
         const raw=e.target.value;
-        if(raw==="")return setVal(sid,k,maand,"");
+        if(raw==="")return setVal(sid,k,"");
         let n=Math.round(Number(raw));
         if(Number.isNaN(n))return;
-        setVal(sid,k,maand,Math.max(0,Math.min(maxV,n)));
+        setVal(sid,k,Math.max(0,Math.min(maxV,n)));
       }
     }),
     h("div",{className:"maxbadge"},"/",maxV)
@@ -768,7 +774,7 @@ const RankList = ({items, max}) => {
 // ── TabInvoer ─────────────────────────────────────────────────────
 const TabInvoer = ({
   shooters, nieuw, setNieuw, addShooter, removeShooter,
-  maand, setMaand, onderdeel, setOnderdeel, stage, setStage,
+  onderdeel, setOnderdeel, stage, setStage,
   getVal, setVal, maxOf
 }) => {
   const stageObj = STAGES.find(s=>s.key===stage);
@@ -797,13 +803,6 @@ const TabInvoer = ({
             )
       )
     ),
-    // Maand
-    h("div",{className:"card"},
-      h("div",{className:"card-body",style:{paddingBottom:12}},
-        h("div",{className:"eyebrow"},"Maand"),
-        h(MonthStrip,{maand,setMaand})
-      )
-    ),
     // Scores
     h("div",{className:"card"},
       h("div",{className:"card-body",style:{paddingBottom:0}},
@@ -825,14 +824,12 @@ const TabInvoer = ({
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Voeg eerst schutters toe.")
           : shooters.map((s,i)=>{
-              const prev=MONTHS.slice(0,MONTHS.indexOf(maand)).reverse().map(m=>getVal(s.id,stage,m)).find(x=>typeof x==="number");
               return h("div",{key:s.id,className:"score-row"},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
-                  h("div",{className:"score-name-txt"},s.naam),
-                  prev!=null&&h("div",{className:"score-prev"},"vorige: ",prev)
+                  h("div",{className:"score-name-txt"},s.naam)
                 ),
-                h(NumInput,{sid:s.id,k:stage,maxV:maxOf(stage),getVal,setVal,maand})
+                h(NumInput,{sid:s.id,k:stage,maxV:maxOf(stage),getVal,setVal})
               );
             })
       ),
@@ -846,14 +843,12 @@ const TabInvoer = ({
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Voeg eerst schutters toe.")
           : shooters.map((s,i)=>{
-              const prev=MONTHS.slice(0,MONTHS.indexOf(maand)).reverse().map(m=>getVal(s.id,"parcours",m)).find(x=>typeof x==="number");
               return h("div",{key:s.id,className:"score-row"},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
-                  h("div",{className:"score-name-txt"},s.naam),
-                  prev!=null&&h("div",{className:"score-prev"},"vorige: ",prev)
+                  h("div",{className:"score-name-txt"},s.naam)
                 ),
-                h(NumInput,{sid:s.id,k:"parcours",maxV:250,getVal,setVal,maand})
+                h(NumInput,{sid:s.id,k:"parcours",maxV:250,getVal,setVal})
               );
             })
       )
@@ -871,7 +866,7 @@ const TargetOverlay = ({frame}) => h("svg",{className:"cam-overlay",style:frameS
   )
 );
 
-const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getVal, setVal, maxOf, flash, markShotsDeleted}) => {
+const TabCamera = ({shooters, cameraShots, setCameraShots, getVal, setVal, maxOf, flash, markShotsDeleted}) => {
   const [sid,setSid] = React.useState(shooters[0]?.id || "");
   const [stage,setStage] = React.useState("s1");
   const [camOn,setCamOn] = React.useState(false);
@@ -885,14 +880,15 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
   React.useEffect(()=>{try{localStorage.setItem("epp-camera-frame",JSON.stringify(frame));}catch(e){}},[frame]);
 
   const stageObj = STAGES.find(s=>s.key===stage);
-  const activeShots = cameraShots.filter(x=>x.sid===sid && x.stage===stage && x.maand===maand);
+  const isCurrentShot = x => x.sid===sid && x.stage===stage && (x.period===SCORE_PERIOD || (!x.period && !x.maand));
+  const activeShots = cameraShots.filter(isCurrentShot);
   const total = activeShots.reduce((a,s)=>a+s.score,0);
   const maxShots = Math.max(1,Math.round(maxOf(stage)/5));
   const missingShots = Math.max(0,maxShots-activeShots.length);
 
   const updateStoredTotal = nextShots => {
-    const sum = nextShots.filter(x=>x.sid===sid && x.stage===stage && x.maand===maand).reduce((a,s)=>a+s.score,0);
-    setVal(sid,stage,maand,sum);
+    const sum = nextShots.filter(isCurrentShot).reduce((a,s)=>a+s.score,0);
+    setVal(sid,stage,sum);
   };
   const viewToTarget = p => ({x:(p.x-frame.x)/frame.w,y:(p.y-frame.y)/frame.h});
   const inTarget = p => p.x>=0 && p.x<=1 && p.y>=0 && p.y<=1;
@@ -911,7 +907,7 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
     if(activeShots.some(s=>dist(s,viewPoint)<.025)) return;
     const targetPoint = viewToTarget(viewPoint);
     const score = inTarget(targetPoint) ? scoreAtTargetPoint(targetPoint) : 0;
-    const shot = {id:newId(),sid,stage,maand,x:viewPoint.x,y:viewPoint.y,tx:targetPoint.x,ty:targetPoint.y,score,source,ts:Date.now()};
+    const shot = {id:newId(),sid,stage,period:SCORE_PERIOD,x:viewPoint.x,y:viewPoint.y,tx:targetPoint.x,ty:targetPoint.y,score,source,ts:Date.now()};
     setCameraShots(prev=>{
       const next=[...prev,shot];
       setTimeout(()=>updateStoredTotal(next),0);
@@ -923,7 +919,7 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
     if(!sid) return flash("Kies eerst een schutter");
     if(activeShots.length>=maxShots) return flash("Maximum schoten voor deze stage bereikt");
     const n = activeShots.length;
-    const shot = {id:newId(),sid,stage,maand,x:.12+(n%5)*.08,y:.96,score,source:"correctie",ts:Date.now()};
+    const shot = {id:newId(),sid,stage,period:SCORE_PERIOD,x:.12+(n%5)*.08,y:.96,score,source:"correctie",ts:Date.now()};
     setCameraShots(prev=>{
       const next=[...prev,shot];
       setTimeout(()=>updateStoredTotal(next),0);
@@ -950,8 +946,8 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
     if(!confirm("Schoten voor deze schutter/stage wissen?")) return;
     markShotsDeleted(activeShots.map(s=>s.id));
     setCameraShots(prev=>{
-      const next=prev.filter(s=>!(s.sid===sid && s.stage===stage && s.maand===maand));
-      setTimeout(()=>setVal(sid,stage,maand,""),0);
+      const next=prev.filter(s=>!isCurrentShot(s));
+      setTimeout(()=>setVal(sid,stage,""),0);
       return next;
     });
     setStatus("Stage gewist");
@@ -988,7 +984,6 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
       ),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
         h("p",{className:"beta-note"},"Lijn het gele kader uit met de kaart en tik op de foto op de plek van elke inslag, of gebruik de handmatige score-knoppen hieronder."),
-        h(MonthStrip,{maand,setMaand}),
         h("div",{className:"cam-stage-grid"},
           h("select",{className:"cam-select",value:sid,onChange:e=>setSid(e.target.value)},
             shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam))
@@ -1067,25 +1062,19 @@ const TabCamera = ({shooters, maand, setMaand, cameraShots, setCameraShots, getV
 };
 
 // ── TabDashboard ──────────────────────────────────────────────────
-const TabDashboard = ({shooters, maand, setMaand, getVal, stageTotaal, TOT_MAX}) => {
+const TabDashboard = ({shooters, getVal, stageTotaal, TOT_MAX}) => {
   if(!shooters.length) return h(Empty,{msg:"Voeg schutters en scores toe via Invoer."});
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
-    h("div",{className:"card"},
-      h("div",{className:"card-body",style:{paddingBottom:12}},
-        h("div",{className:"eyebrow"},"Maand"),
-        h(MonthStrip,{maand,setMaand})
-      )
-    ),
     h("div",{className:"stat-grid"},
       h("div",{className:"stat-card"},h("div",{className:"stat-val"},shooters.length),h("div",{className:"stat-lbl"},"Schutters")),
       h("div",{className:"stat-card"},h("div",{className:"stat-val"},TOT_MAX),h("div",{className:"stat-lbl"},"Max stage-totaal"))
     ),
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},`Scores ${maand}`)),
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Doorlopende scores")),
       h("div",{className:"card-body"},
         shooters.map((s,i)=>{
-          const tot=stageTotaal(s.id,maand);
-          const par=getVal(s.id,"parcours",maand);
+          const tot=stageTotaal(s.id);
+          const par=getVal(s.id,"parcours");
           return h("div",{key:s.id,className:"shooter-score-card"},
             h("div",{className:"ssc-top"},
               h("div",{className:"score-avatar",style:{width:36,height:36,fontSize:14,boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
@@ -1094,7 +1083,7 @@ const TabDashboard = ({shooters, maand, setMaand, getVal, stageTotaal, TOT_MAX})
             ),
             h("div",{className:"stage-badges"},
               STAGES.map(st=>{
-                const v=getVal(s.id,st.key,maand);
+                const v=getVal(s.id,st.key);
                 return h("div",{key:st.key,className:`sbadge${typeof v==="number"?" has-score":""}`},
                   st.kort.split(" ")[0],": ",typeof v==="number"?v:"–"
                 );
@@ -1112,21 +1101,21 @@ const TabDashboard = ({shooters, maand, setMaand, getVal, stageTotaal, TOT_MAX})
 const TabRanglijst = ({ranking, stageTotaal, getVal, maxOf, TOT_MAX}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Stage-totaal · seizoensgemiddelde")),
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Stage-totaal · doorlopende stand")),
       h("div",{className:"card-body"},h(RankList,{items:ranking(stageTotaal,TOT_MAX),max:TOT_MAX}))
     ),
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Parcours · seizoensgemiddelde")),
-      h("div",{className:"card-body"},h(RankList,{items:ranking((sid,m)=>getVal(sid,"parcours",m),250),max:250}))
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Parcours · doorlopende stand")),
+      h("div",{className:"card-body"},h(RankList,{items:ranking(sid=>getVal(sid,"parcours"),250),max:250}))
     ),
     ...STAGES.map(st=>h("div",{key:st.key,className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},st.kort," · ",st.afstand)),
-      h("div",{className:"card-body"},h(RankList,{items:ranking((sid,m)=>getVal(sid,st.key,m),maxOf(st.key)),max:maxOf(st.key)}))
+      h("div",{className:"card-body"},h(RankList,{items:ranking(sid=>getVal(sid,st.key),maxOf(st.key)),max:maxOf(st.key)}))
     ))
   );
 
 // ── TabStand ──────────────────────────────────────────────────────
-const TabStand = ({shooters, maand, setMaand, getVal, stageTotaal, TOT_MAX, ranking, maxOf}) => {
+const TabStand = ({shooters, getVal, stageTotaal, TOT_MAX, ranking, maxOf}) => {
   const [view,setView] = React.useState("overzicht");
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
@@ -1138,13 +1127,13 @@ const TabStand = ({shooters, maand, setMaand, getVal, stageTotaal, TOT_MAX, rank
       )
     ),
     view==="overzicht"
-      ? h(TabDashboard,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX})
+      ? h(TabDashboard,{shooters,getVal,stageTotaal,TOT_MAX})
       : h(TabRanglijst,{ranking,stageTotaal,getVal,maxOf,TOT_MAX})
   );
 };
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({isTrainer, stageShots, setStageShots, resetAll, wisMonth, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
@@ -1182,7 +1171,6 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, resetAll, wisMon
     isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Beheer")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h("button",{className:"btn btn-danger btn-full",onClick:wisMonth},"Maandscores wissen"),
         h("button",{className:"btn btn-danger btn-full",onClick:resetAll},"Alles wissen")
       )
     ),
@@ -1257,7 +1245,7 @@ with check (true);`)
         )
       )
     ),
-    h("p",{style:{fontSize:11,color:C.muted,textAlign:"center",padding:"4px 0 8px"}},"Scores worden automatisch opgeslagen in de browser.")
+    h("p",{style:{fontSize:11,color:C.muted,textAlign:"center",padding:"4px 0 8px"}},"Scores worden automatisch online opgeslagen.")
   );
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1277,7 +1265,6 @@ function App() {
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
   const [tab,        setTab]        = React.useState(isTrainer ? "invoer" : "stand");
-  const [maand,      setMaand]      = React.useState(MONTHS[new Date().getMonth()]);
   const [onderdeel,  setOnderdeel]  = React.useState("stage");
   const [stage,      setStage]      = React.useState("s1");
   const [nieuw,      setNieuw]      = React.useState("");
@@ -1295,7 +1282,7 @@ function App() {
     if(!payload || typeof payload!=="object")return;
     applyingRemote.current=true;
     setShooters(payload.shooters||[]);
-    setScores(payload.scores||{});
+    setScores(normalizeScores(payload.scores||{}));
     setCameraShots(payload.cameraShots||[]);
     setStageShots({...DEFAULT_SHOTS,...(payload.stageShots||{})});
     setTombstones({shooters:{...(payload.tombstones?.shooters)},shots:{...(payload.tombstones?.shots)},monthWipes:{...(payload.tombstones?.monthWipes)}});
@@ -1350,7 +1337,7 @@ function App() {
 
   // localStorage
   React.useEffect(()=>{
-    try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);setShooters(p.shooters||[]);setScores(p.scores||{});setCameraShots(p.cameraShots||[]);setStageShots({...DEFAULT_SHOTS,...(p.stageShots||{})});setTombstones({shooters:{...(p.tombstones?.shooters)},shots:{...(p.tombstones?.shots)},monthWipes:{...(p.tombstones?.monthWipes)}});}}catch(e){}finally{setLoaded(true);}
+    try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);setShooters(p.shooters||[]);setScores(normalizeScores(p.scores||{}));setCameraShots(p.cameraShots||[]);setStageShots({...DEFAULT_SHOTS,...(p.stageShots||{})});setTombstones({shooters:{...(p.tombstones?.shooters)},shots:{...(p.tombstones?.shots)},monthWipes:{...(p.tombstones?.monthWipes)}});}}catch(e){}finally{setLoaded(true);}
   },[]);
   React.useEffect(()=>{
     if(!loaded)return;if(firstSave.current){firstSave.current=false;return;}
@@ -1380,17 +1367,17 @@ function App() {
   },[loaded,syncConfig]);
 
   // State helpers
-  const getVal = (sid,k,mnd) => scores?.[sid]?.[k]?.[mnd];
-  const setVal = (sid,k,mnd,val) => setScores(prev=>{
+  const getVal = (sid,k) => periodScore(scores?.[sid]?.[k]);
+  const setVal = (sid,k,val) => setScores(prev=>{
     const next={...prev},s={...(next[sid]||{})},o={...(s[k]||{})};
-    if(val===""||val==null||Number.isNaN(val))delete o[mnd];else o[mnd]=val;
+    if(val===""||val==null||Number.isNaN(val))delete o[SCORE_PERIOD];else o[SCORE_PERIOD]=val;
     s[k]=o;next[sid]=s;return next;
   });
   const addShooter = () => {const n=nieuw.trim();if(!n)return;setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
   const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
   const markShotsDeleted = ids => setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));
-  const stageTotaal = (sid,mnd) => {const v=STAGES.map(st=>getVal(sid,st.key,mnd)).filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b,0):null;};
-  const ranking = (perMonth,max) => shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:avg(MONTHS.map(m=>perMonth(s.id,m))),max})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
+  const stageTotaal = sid => {const v=STAGES.map(st=>getVal(sid,st.key)).filter(x=>typeof x==="number");return v.length?v.reduce((a,b)=>a+b,0):null;};
+  const ranking = (getter,max) => shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:getter(s.id),max})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
 
   const resetAll = () => {if(confirm("Alles wissen? Kan niet ongedaan worden.")){
     const now=Date.now();
@@ -1400,20 +1387,6 @@ function App() {
     }));
     setShooters([]);setScores({});setCameraShots([]);setStageShots(DEFAULT_SHOTS);flash("Alles gewist");
   }};
-  const wisMonth = () => {
-    const m=prompt("Maandscores wissen? Typ de maand (bijv. jun):");
-    if(!m||!MONTHS.includes(m.trim()))return m&&flash("Ongeldige maand");
-    const monthKey=m.trim();
-    setScores(prev=>{const n={};for(const sid in prev){const sj={};for(const k in prev[sid]){const o={...prev[sid][k]};delete o[monthKey];if(Object.keys(o).length)sj[k]=o;}n[sid]=sj;}return n;});
-    setTombstones(p=>({
-      ...p,
-      shots:{...p.shots, ...Object.fromEntries(cameraShots.filter(s=>s.maand===monthKey).map(s=>[s.id,Date.now()]))},
-      monthWipes:{...p.monthWipes, [monthKey]:Date.now()}
-    }));
-    setCameraShots(prev=>prev.filter(s=>s.maand!==monthKey));
-    flash(`Scores van ${monthKey} gewist`);
-  };
-
   const logout = () => {localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();};
 
   const syncNow = async () => {
@@ -1436,11 +1409,11 @@ function App() {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="invoer" && isTrainer ? h(TabInvoer,{...sharedProps,shooters,nieuw,setNieuw,addShooter,removeShooter,maand,setMaand,onderdeel,setOnderdeel,stage,setStage})
-    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,maand,setMaand,cameraShots,setCameraShots,getVal,setVal,maxOf,flash,markShotsDeleted})
-    : tab==="stand"  ? h(TabStand,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX,ranking,maxOf})
-    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,resetAll,wisMonth,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
-    : h(TabStand,{shooters,maand,setMaand,getVal,stageTotaal,TOT_MAX,ranking,maxOf});
+    : tab==="invoer" && isTrainer ? h(TabInvoer,{...sharedProps,shooters,nieuw,setNieuw,addShooter,removeShooter,onderdeel,setOnderdeel,stage,setStage})
+    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,getVal,setVal,maxOf,flash,markShotsDeleted})
+    : tab==="stand"  ? h(TabStand,{shooters,getVal,stageTotaal,TOT_MAX,ranking,maxOf})
+    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
+    : h(TabStand,{shooters,getVal,stageTotaal,TOT_MAX,ranking,maxOf});
 
   return h("div",{className:"app"},
     h("style",null,CSS),
