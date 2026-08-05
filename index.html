@@ -1390,10 +1390,18 @@ function App() {
   const applyingRemote = React.useRef(false);
   const syncPushTimer = React.useRef(null);
   const lastRemoteStamp = React.useRef("");
+  const latestPayload = React.useRef(null);
+  const localEditVersion = React.useRef(0);
+  const localDirtyUntil = React.useRef(0);
 
   const flash = m => { setToast(m); setTimeout(()=>setToast(""),2400); };
   const maxOf = k => (stageShots[k]||0)*5;
   const makePayload = () => ({schema:2,shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages});
+  React.useEffect(()=>{latestPayload.current=makePayload();});
+  const markLocalEdit = () => {
+    localEditVersion.current += 1;
+    localDirtyUntil.current = Date.now()+5000;
+  };
   const applyPayload = payload => {
     if(!payload || typeof payload!=="object")return;
     applyingRemote.current=true;
@@ -1423,21 +1431,26 @@ function App() {
   };
   const pushRemote = async (label="online opgeslagen") => {
     if(!syncReady(syncConfig))return;
+    const startedVersion = localEditVersion.current;
     try{
       setSyncStatus("online opslaan...");
       const id=String(syncConfig.space||"").trim();
       const safeId=encodeURIComponent(id);
       const existing=await syncFetch("GET",`/rest/v1/epp_sync?id=eq.${safeId}&select=id,payload,updated_at&limit=1`);
       const row=Array.isArray(existing)?existing[0]:null;
-      const payload=mergePayloads(row?.payload, makePayload());
+      const payload=mergePayloads(row?.payload, latestPayload.current || makePayload());
       const rows=await syncFetch("POST","/rest/v1/epp_sync?on_conflict=id",{id,payload});
       lastRemoteStamp.current=rows?.[0]?.updated_at || new Date().toISOString();
-      applyPayload(payload);
+      if(startedVersion===localEditVersion.current) applyPayload(payload);
       setSyncStatus(label);
     }catch(e){setSyncStatus("sync fout: controleer Supabase");console.warn("EPP sync push",e);}
   };
   const pullRemote = async ({createIfMissing=false}={}) => {
     if(!syncReady(syncConfig)){setSyncStatus("sync uit");return;}
+    if(!createIfMissing && Date.now()<localDirtyUntil.current){
+      setSyncStatus("lokale invoer opslaan...");
+      return;
+    }
     try{
       setSyncStatus("online controleren...");
       const id=encodeURIComponent(String(syncConfig.space||"").trim());
@@ -1488,18 +1501,19 @@ function App() {
   },[loaded,syncConfig]);
 
   // State helpers
-  const addShooter = () => {const n=nieuw.trim();if(!n)return;setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
-  const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
-  const markShotsDeleted = ids => setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));
-  const setTrainingMode = mode => setCurrentTraining(t=>({...t,mode,updatedAt:Date.now()}));
-  const setTrainingStage = stageKey => setCurrentTraining(t=>({...t,stage:stageKey,updatedAt:Date.now()}));
+  const addShooter = () => {const n=nieuw.trim();if(!n)return;markLocalEdit();setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
+  const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;markLocalEdit();setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
+  const markShotsDeleted = ids => {markLocalEdit();setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));};
+  const setTrainingMode = mode => {markLocalEdit();setCurrentTraining(t=>({...t,mode,updatedAt:Date.now()}));};
+  const setTrainingStage = stageKey => {markLocalEdit();setCurrentTraining(t=>({...t,stage:stageKey,updatedAt:Date.now()}));};
   const addRound = ({sid,type,stage:stageKey,score,source="handmatig",replaceKey=""}) => setCurrentTraining(t=>{
+    markLocalEdit();
     const round = {id:newId(),trainingId:t.id,sid,type,stage:stageKey||t.stage,score,source,replaceKey,ts:Date.now()};
     const rounds = replaceKey ? (t.rounds||[]).filter(r=>r.replaceKey!==replaceKey) : (t.rounds||[]);
     return {...t,rounds:[...rounds,round],updatedAt:Date.now()};
   });
   const addRoundAndFlash = data => {addRound(data);flash("Score opgeslagen");};
-  const removeRoundByReplaceKey = replaceKey => setCurrentTraining(t=>({...t,rounds:(t.rounds||[]).filter(r=>r.replaceKey!==replaceKey),updatedAt:Date.now()}));
+  const removeRoundByReplaceKey = replaceKey => {markLocalEdit();setCurrentTraining(t=>({...t,rounds:(t.rounds||[]).filter(r=>r.replaceKey!==replaceKey),updatedAt:Date.now()}));};
   const finishTraining = () => {
     const t = ensureTraining(currentTraining);
     if(!t.rounds.length) return flash("Nog geen rondes in deze training");
@@ -1520,12 +1534,14 @@ function App() {
       });
     });
     setBestStageAverages(prev=>mergeBestStageAverages(prev,stageResults));
+    markLocalEdit();
     setCurrentTraining(newTraining(t.mode,t.stage));
     flash("Nieuwe training gestart");
   };
 
   const resetAll = () => {if(confirm("Alles wissen? Kan niet ongedaan worden.")){
     const now=Date.now();
+    markLocalEdit();
     setTombstones(p=>({
       shooters:{...p.shooters, ...Object.fromEntries(shooters.map(s=>[s.id,now]))},
       shots:{...p.shots, ...Object.fromEntries(cameraShots.map(s=>[s.id,now]))},
