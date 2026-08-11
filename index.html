@@ -661,10 +661,10 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .stage-strip::-webkit-scrollbar{display:none}
 .stage-card-row{display:flex;gap:10px;overflow-x:auto;padding:2px 18px 10px;scrollbar-width:none;scroll-snap-type:x proximity;margin:0 -18px 8px}
 .stage-card-row::-webkit-scrollbar{display:none}
-.stage-card{width:184px;min-width:184px;aspect-ratio:337/480;border-radius:18px;border:1px solid ${C.border};background:#031326;display:block;padding:0;cursor:pointer;scroll-snap-align:start;transition:border-color .15s,box-shadow .15s,transform .15s;overflow:hidden}
+.stage-card{height:248px;width:auto;min-width:0;border-radius:18px;border:1px solid ${C.border};background:#031326;display:block;padding:0;cursor:pointer;scroll-snap-align:start;transition:border-color .15s,box-shadow .15s,transform .15s;overflow:hidden;flex:0 0 auto}
 .stage-card[data-on="1"]{border-color:${C.goldLt};box-shadow:0 0 0 2px rgba(255,198,41,.35),0 12px 28px rgba(200,160,48,.18)}
 .stage-card:active{transform:scale(.98)}
-.stage-card-img{width:100%;height:100%;display:block;object-fit:cover}
+.stage-card-img{width:auto;height:100%;display:block;object-fit:contain}
 .stage-visual{width:54px;height:76px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;border:1px solid rgba(43,117,214,.35);background:#031326;flex-shrink:0}
 .stage-visual img{width:100%;height:100%;display:block;object-fit:cover}
 .stage-progress{height:3px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 0 12px}
