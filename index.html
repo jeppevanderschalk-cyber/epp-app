@@ -661,18 +661,12 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .stage-strip::-webkit-scrollbar{display:none}
 .stage-card-row{display:flex;gap:10px;overflow-x:auto;padding:2px 18px 10px;scrollbar-width:none;scroll-snap-type:x proximity;margin:0 -18px 8px}
 .stage-card-row::-webkit-scrollbar{display:none}
-.stage-card{width:126px;min-width:126px;min-height:172px;border-radius:18px;border:1px solid ${C.border};background:linear-gradient(180deg,rgba(10,50,100,.5),rgba(4,18,42,.9));color:${C.muted};display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;padding:10px 8px;cursor:pointer;scroll-snap-align:start;transition:border-color .15s,background .15s,transform .15s;color:${C.muted}}
-.stage-card[data-on="1"]{border-color:${C.goldLt};background:rgba(228,187,74,.11);box-shadow:0 12px 28px rgba(200,160,48,.16);color:${C.goldLt}}
+.stage-card{width:184px;min-width:184px;aspect-ratio:337/480;border-radius:18px;border:1px solid ${C.border};background:#031326;display:block;padding:0;cursor:pointer;scroll-snap-align:start;transition:border-color .15s,box-shadow .15s,transform .15s;overflow:hidden}
+.stage-card[data-on="1"]{border-color:${C.goldLt};box-shadow:0 0 0 2px rgba(255,198,41,.35),0 12px 28px rgba(200,160,48,.18)}
 .stage-card:active{transform:scale(.98)}
-.stage-no{font-family:'Archivo',sans-serif;font-size:12px;font-weight:900;width:24px;height:24px;border-radius:999px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:${C.muted}}
-.stage-card[data-on="1"] .stage-no{background:${C.gradGold};color:${C.navy}}
-.stage-visual{width:88px;height:58px;display:flex;align-items:center;justify-content:center;color:currentColor;margin:2px 0}
-.stage-visual svg{width:88px;height:58px;display:block;overflow:visible}
-.stage-card-name{font-size:10px;font-weight:900;color:${C.ink};text-align:center;line-height:1.08;min-height:28px;display:flex;align-items:center;text-transform:uppercase}
-.stage-card[data-on="1"] .stage-card-name{color:${C.goldLt}}
-.stage-card-meta{font-size:10px;font-weight:800;line-height:1.2;text-align:center;color:${C.muted};font-family:'Archivo',sans-serif}
-.stage-card-max{font-size:10px;font-weight:900;color:${C.muted};font-family:'Archivo',sans-serif}
-.stage-card[data-on="1"] .stage-card-max{color:${C.goldLt}}
+.stage-card-img{width:100%;height:100%;display:block;object-fit:cover}
+.stage-visual{width:54px;height:76px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px;border:1px solid rgba(43,117,214,.35);background:#031326;flex-shrink:0}
+.stage-visual img{width:100%;height:100%;display:block;object-fit:cover}
 .stage-progress{height:3px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 0 12px}
 .stage-progress-fill{height:100%;border-radius:999px;background:${C.gradGold};transition:width .2s}
 .spill{font-family:'Archivo',sans-serif;font-weight:800;font-size:12px;border:1px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};border-radius:999px;min-height:38px;padding:0 14px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
@@ -821,39 +815,15 @@ const Empty = ({msg}) => h("div",{className:"empty"},
   h("p",null,msg)
 );
 
-const StageIcon = ({type}) => {
-  const common = {viewBox:"0 0 120 78",fill:"none","aria-hidden":"true"};
-  const body="#edf3ff", shade="#aab8cc", edge="#071a34", gold="#ffc629", blue="#2b75d6";
-  const line = (d,w=7,c=body) => [h("path",{d,stroke:edge,strokeWidth:w+2,strokeLinecap:"round",strokeLinejoin:"round"}),h("path",{d,stroke:c,strokeWidth:w,strokeLinecap:"round",strokeLinejoin:"round"})];
-  const gun = (x,y,len=34) => [h("path",{d:`M${x} ${y} H${x+len}`,stroke:edge,strokeWidth:5,strokeLinecap:"round"}),h("path",{d:`M${x} ${y} H${x+len}`,stroke:body,strokeWidth:3,strokeLinecap:"round"}),h("path",{d:`M${x+len-6} ${y-4} V${y+4}`,stroke:body,strokeWidth:2,strokeLinecap:"round"})];
-  const head = (x,y,r=7) => [h("circle",{cx:x,cy:y,r:r+2,fill:edge}),h("circle",{cx:x,cy:y,r,fill:body}),h("circle",{cx:x+2,cy:y-1,r:1.4,fill:edge})];
-  const ground = (x1=8,x2=112,y=66) => h("path",{d:`M${x1} ${y} H${x2}`,stroke:gold,strokeWidth:3,strokeLinecap:"round",opacity:.95});
-  const speed = (x,y) => h("g",null,h("path",{d:`M${x} ${y} H${x+18}`,stroke:gold,strokeWidth:3,strokeLinecap:"round"}),h("path",{d:`M${x+8} ${y+8} H${x+28}`,stroke:gold,strokeWidth:3,strokeLinecap:"round"}),h("path",{d:`M${x-4} ${y+16} H${x+18}`,stroke:gold,strokeWidth:3,strokeLinecap:"round"}));
-  const prone = h("svg",common,ground(10,108,63),...head(38,36,7),...line("M45 39 L62 49 L86 49",8,body),...line("M60 49 L42 58",6,shade),...line("M78 49 L103 47",6,shade),...line("M51 43 L77 39",5,body),...gun(74,39,32));
-  const seated = h("svg",common,ground(22,104,65),...head(44,24,7),...line("M45 32 L57 49 L78 50",8,body),...line("M58 49 L37 62",6,shade),...line("M75 50 L100 58",6,shade),...line("M51 37 L78 34",5,body),...gun(76,34,30));
-  const kneel = h("svg",common,ground(28,106,66),...head(45,21,7),...line("M46 29 L55 48 L73 62",8,body),...line("M55 48 L37 64",6,shade),...line("M50 36 L78 33",5,body),...gun(76,33,31));
-  const standing = (fast=false, shoulder=false) => h("svg",common,fast&&speed(10,30),...head(45,16,7),...line("M46 24 L47 48",8,body),...line("M47 48 L34 68",6,shade),...line("M48 48 L64 68",6,shade),...line(`M47 ${shoulder?30:36} L78 ${shoulder?26:32}`,5,body),...gun(76,shoulder?26:32,31));
-  const fastFire = h("svg",common,speed(6,30),h("circle",{cx:62,cy:38,r:25,fill:"rgba(255,255,255,.08)",stroke:body,strokeWidth:4}),h("circle",{cx:62,cy:38,r:15,stroke:shade,strokeWidth:3}),h("circle",{cx:62,cy:38,r:4,fill:gold}),h("path",{d:"M62 17 V38 L75 45",stroke:body,strokeWidth:4,strokeLinecap:"round",strokeLinejoin:"round"}),h("path",{d:"M52 7 H72",stroke:body,strokeWidth:5,strokeLinecap:"round"}),h("path",{d:"M83 18 L96 10",stroke:gold,strokeWidth:4,strokeLinecap:"round"}));
-  const barricade = h("svg",common,ground(30,110,67),h("rect",{x:58,y:8,width:19,height:57,rx:2,fill:"#7b6424",stroke:gold,strokeWidth:3}),h("rect",{x:64,y:21,width:8,height:12,fill:edge,stroke:gold,strokeWidth:2}),...head(48,22,7),...line("M49 30 L50 55",8,body),...line("M50 55 L39 68",6,shade),...line("M50 55 L61 68",6,shade),...line("M54 35 L84 32",5,body),...gun(82,32,29),h("path",{d:"M48 36 H36",stroke:gold,strokeWidth:3,strokeLinecap:"round"}),h("path",{d:"M77 44 H94",stroke:gold,strokeWidth:3,strokeLinecap:"round"}));
-  const precision = h("svg",common,...standing(false,true).props.children,h("circle",{cx:24,cy:22,r:11,stroke:gold,strokeWidth:3}),h("circle",{cx:24,cy:22,r:4,fill:gold}),h("path",{d:"M24 7 V14 M24 30 V37 M9 22 H16 M32 22 H39",stroke:body,strokeWidth:2,strokeLinecap:"round"}));
-  const map = {
-    "stage-1-fast-fire": fastFire,
-    "stage-2-prone": prone,
-    "stage-3-seated-ground": seated,
-    "stage-4-barricade-narrow": barricade,
-    "stage-5-kneeling": kneel,
-    "stage-6-shoulder": standing(true,true),
-    "stage-7-precision": precision
-  };
-  return map[type] || precision;
+const stageImageSrc = (stageOrType) => {
+  const stage = typeof stageOrType === "object" ? stageOrType : STAGES.find(s => s.icon === stageOrType);
+  return `assets/stages/stage-${stage?.id || 7}.png`;
 };
 
-const StageCard = ({stage, active, onClick}) => h("button",{className:"stage-card","data-on":active?"1":"0",onClick,type:"button"},
-  h("div",{className:"stage-no"},stage.id),
-  h("div",{className:"stage-visual"},h(StageIcon,{type:stage.icon})),
-  h("div",{className:"stage-card-name"},stage.kort),
-  h("div",{className:"stage-card-meta"},stage.distance," · ",stage.shots),
-  h("div",{className:"stage-card-max"},"MAX ",stage.maxScore)
+const StageIcon = ({type}) => h("img",{src:stageImageSrc(type),alt:"",loading:"lazy",draggable:false});
+
+const StageCard = ({stage, active, onClick}) => h("button",{className:"stage-card","data-on":active?"1":"0",onClick,type:"button","aria-label":`${stage.id}. ${stage.kort}, ${stage.distance}, ${stage.shots} schoten, max ${stage.maxScore}`},
+  h("img",{className:"stage-card-img",src:stageImageSrc(stage),alt:"",loading:"lazy",draggable:false})
 );
 
 const StageCarousel = ({stageKey, onSelect}) => {
