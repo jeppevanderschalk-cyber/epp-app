@@ -440,13 +440,13 @@ const C = {
 const MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
 const SCORE_PERIOD = "doorlopend";
 const STAGES = [
-  {key:"s1",sheet:"Gericht snelvuur 7m",  kort:"Gericht snelvuur",  afstand:"7 m · 2×5"},
-  {key:"s2",sheet:"Liggend 30m",          kort:"Liggend",           afstand:"30 m · 5"},
-  {key:"s3",sheet:"Zittend 25m",          kort:"Zittend",           afstand:"25 m · 5"},
-  {key:"s4",sheet:"Barricade 20m",        kort:"Barricade R+L",     afstand:"20 m · 5+5"},
-  {key:"s5",sheet:"Knielend 15m",         kort:"Knielend",          afstand:"15 m · 5"},
-  {key:"s6",sheet:"Snelvuur schouderhoogte 15m",kort:"Snelvuur schouder",afstand:"15 m · 5"},
-  {key:"s7",sheet:"Precisievuur 10m",     kort:"Precisievuur E+D",  afstand:"10 m · 5+5"},
+  {id:1,key:"s1",sheet:"Gericht snelvuur 7m",kort:"Gericht snelvuur",afstand:"7 m · 2×5",distance:"7 m",shots:"2 × 5",maxScore:50,icon:"stage-1-fast-fire"},
+  {id:2,key:"s2",sheet:"Liggend 30m",kort:"Liggend",afstand:"30 m · 5",distance:"30 m",shots:"5",maxScore:25,icon:"stage-2-prone"},
+  {id:3,key:"s3",sheet:"Zittend 25m",kort:"Zittend",afstand:"25 m · 5",distance:"25 m",shots:"5",maxScore:25,icon:"stage-3-seated-ground"},
+  {id:4,key:"s4",sheet:"Barricade 20m",kort:"Barricade R+L",afstand:"20 m · 5+5",distance:"20 m",shots:"5R + 5L",maxScore:50,icon:"stage-4-barricade-narrow"},
+  {id:5,key:"s5",sheet:"Knielend 15m",kort:"Knielend",afstand:"15 m · 5",distance:"15 m",shots:"5",maxScore:25,icon:"stage-5-kneeling"},
+  {id:6,key:"s6",sheet:"Snelvuur schouderhoogte 15m",kort:"Snelvuur schouder",afstand:"15 m · 5",distance:"15 m",shots:"5",maxScore:25,icon:"stage-6-shoulder"},
+  {id:7,key:"s7",sheet:"Precisievuur 10m",kort:"Precisievuur E+D",afstand:"10 m · 5+5",distance:"10 m",shots:"5 + 5",maxScore:50,icon:"stage-7-precision"},
 ];
 const DEFAULT_SHOTS = {s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10};
 const CLUB_ID = localStorage.getItem(EPP_AUTH_CLUB_KEY) || "svbb";
@@ -659,6 +659,22 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .beta-note{margin:0 0 12px;color:${C.muted};font-size:12px;font-weight:600;line-height:1.45;background:rgba(228,187,74,.08);border:1px solid rgba(228,187,74,.22);border-radius:12px;padding:10px 12px}
 .stage-strip{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .stage-strip::-webkit-scrollbar{display:none}
+.stage-card-row{display:flex;gap:10px;overflow-x:auto;padding:2px 18px 10px;scrollbar-width:none;scroll-snap-type:x proximity;margin:0 -18px 8px}
+.stage-card-row::-webkit-scrollbar{display:none}
+.stage-card{width:112px;min-width:112px;min-height:148px;border-radius:18px;border:1px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;padding:10px 8px;cursor:pointer;scroll-snap-align:start;transition:border-color .15s,background .15s,transform .15s;color:${C.muted}}
+.stage-card[data-on="1"]{border-color:${C.goldLt};background:rgba(228,187,74,.11);box-shadow:0 12px 28px rgba(200,160,48,.16);color:${C.goldLt}}
+.stage-card:active{transform:scale(.98)}
+.stage-no{font-family:'Archivo',sans-serif;font-size:12px;font-weight:900;width:24px;height:24px;border-radius:999px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:${C.muted}}
+.stage-card[data-on="1"] .stage-no{background:${C.gradGold};color:${C.navy}}
+.stage-visual{width:62px;height:46px;display:flex;align-items:center;justify-content:center;color:currentColor}
+.stage-visual svg{width:62px;height:46px;display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.stage-card-name{font-size:11px;font-weight:900;color:${C.ink};text-align:center;line-height:1.1;min-height:25px;display:flex;align-items:center}
+.stage-card[data-on="1"] .stage-card-name{color:${C.goldLt}}
+.stage-card-meta{font-size:10px;font-weight:800;line-height:1.2;text-align:center;color:${C.muted};font-family:'Archivo',sans-serif}
+.stage-card-max{font-size:10px;font-weight:900;color:${C.muted};font-family:'Archivo',sans-serif}
+.stage-card[data-on="1"] .stage-card-max{color:${C.goldLt}}
+.stage-progress{height:3px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 0 12px}
+.stage-progress-fill{height:100%;border-radius:999px;background:${C.gradGold};transition:width .2s}
 .spill{font-family:'Archivo',sans-serif;font-weight:800;font-size:12px;border:1px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};border-radius:999px;min-height:38px;padding:0 14px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .spill[data-on="1"]{background:rgba(228,187,74,.12);color:${C.goldLt};border-color:rgba(228,187,74,.4)}
 .score-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${C.border};border-radius:14px;transition:background .15s,box-shadow .15s}
@@ -805,6 +821,43 @@ const Empty = ({msg}) => h("div",{className:"empty"},
   h("p",null,msg)
 );
 
+const StageIcon = ({type}) => {
+  const common = {viewBox:"0 0 80 56",fill:"none"};
+  const person = (x,y,pose="stand") => pose==="prone"
+    ? [h("circle",{cx:x+9,cy:y+7,r:4}),h("path",{d:`M${x+13} ${y+9} L${x+31} ${y+18} L${x+50} ${y+18}`}),h("path",{d:`M${x+29} ${y+18} L${x+16} ${y+27}`}),h("path",{d:`M${x+48} ${y+18} L${x+65} ${y+16}`})]
+    : pose==="seated"
+      ? [h("circle",{cx:x+10,cy:y+5,r:4}),h("path",{d:`M${x+10} ${y+10} L${x+20} ${y+24} L${x+38} ${y+24}`}),h("path",{d:`M${x+20} ${y+24} L${x+8} ${y+38}`}),h("path",{d:`M${x+38} ${y+24} L${x+54} ${y+30}`}),h("path",{d:`M${x+16} ${y+16} L${x+38} ${y+12} L${x+55} ${y+12}`})]
+      : pose==="kneel"
+        ? [h("circle",{cx:x+12,cy:y+5,r:4}),h("path",{d:`M${x+12} ${y+10} L${x+18} ${y+25} L${x+30} ${y+39}`}),h("path",{d:`M${x+18} ${y+25} L${x+8} ${y+40}`}),h("path",{d:`M${x+16} ${y+17} L${x+38} ${y+13} L${x+56} ${y+13}`})]
+        : [h("circle",{cx:x+12,cy:y+5,r:4}),h("path",{d:`M${x+12} ${y+10} L${x+12} ${y+31}`}),h("path",{d:`M${x+12} ${y+31} L${x+4} ${y+48}`}),h("path",{d:`M${x+12} ${y+31} L${x+24} ${y+48}`}),h("path",{d:`M${x+12} ${y+18} L${x+36} ${y+18} L${x+55} ${y+18}`})];
+  const map = {
+    "stage-1-fast-fire": h("svg",common,h("circle",{cx:30,cy:28,r:18}),h("path",{d:"M30 14 V28 L42 34"}),h("path",{d:"M22 4 H38"}),h("path",{d:"M55 12 L67 7"}),h("path",{d:"M57 22 H72"}),h("path",{d:"M55 32 L69 38"})),
+    "stage-2-prone": h("svg",common,...person(6,13,"prone")),
+    "stage-3-seated-ground": h("svg",common,...person(8,9,"seated")),
+    "stage-4-barricade-narrow": h("svg",common,h("rect",{x:35,y:6,width:10,height:44,rx:1}),h("path",{d:"M35 12 H26"}),h("path",{d:"M45 28 H58"}),...person(11,9,"stand")),
+    "stage-5-kneeling": h("svg",common,...person(11,8,"kneel")),
+    "stage-6-shoulder": h("svg",common,...person(10,6,"stand"),h("path",{d:"M42 18 L64 18"})),
+    "stage-7-precision": h("svg",common,h("circle",{cx:28,cy:28,r:20}),h("circle",{cx:28,cy:28,r:10}),h("path",{d:"M28 8 V16"}),h("path",{d:"M28 40 V48"}),h("path",{d:"M8 28 H16"}),h("path",{d:"M40 28 H48"}),h("path",{d:"M55 18 H70"}),h("path",{d:"M55 28 H70"}))
+  };
+  return map[type] || map["stage-7-precision"];
+};
+
+const StageCard = ({stage, active, onClick}) => h("button",{className:"stage-card","data-on":active?"1":"0",onClick,type:"button"},
+  h("div",{className:"stage-no"},stage.id),
+  h("div",{className:"stage-visual"},h(StageIcon,{type:stage.icon})),
+  h("div",{className:"stage-card-name"},stage.kort),
+  h("div",{className:"stage-card-meta"},stage.distance," · ",stage.shots),
+  h("div",{className:"stage-card-max"},"MAX ",stage.maxScore)
+);
+
+const StageCarousel = ({stageKey, onSelect}) => {
+  const idx = Math.max(0,STAGES.findIndex(s=>s.key===stageKey));
+  return h("div",null,
+    h("div",{className:"stage-card-row"},STAGES.map(stage=>h(StageCard,{key:stage.key,stage,active:stage.key===stageKey,onClick:()=>onSelect(stage.key)}))),
+    h("div",{className:"stage-progress"},h("div",{className:"stage-progress-fill",style:{width:`${((idx+1)/STAGES.length)*100}%`}}))
+  );
+};
+
 const RoundInput = ({maxV, onAdd, autoFocus=false}) => {
   const [value,setValue] = React.useState("");
   const inputRef = React.useRef(null);
@@ -862,10 +915,11 @@ const RankList = ({items, max}) => {
 const TabInvoer = ({
   shooters, nieuw, setNieuw, addShooter, removeShooter,
   currentTraining, setTrainingMode, setTrainingStage, addRound,
-  setTab, maxOf
+  setTab, maxOf, fixedMode="parcours"
 }) => {
-  const mode = currentTraining.mode;
+  const mode = fixedMode;
   const stage = currentTraining.stage;
+  React.useEffect(()=>{if(currentTraining.mode!==fixedMode)setTrainingMode(fixedMode);},[fixedMode]);
   const stageObj = STAGES.find(s=>s.key===stage);
   const trainingRounds = currentTraining.rounds || [];
   const [activeSid,setActiveSid] = React.useState(shooters[0]?.id || "");
@@ -906,16 +960,8 @@ const TabInvoer = ({
       )
     ),
     h("div",{className:"card"},
-      h("div",{className:"card-body",style:{paddingBottom:0}},
-        h("div",{className:"sub-tab-row"},
-          h("button",{className:"sub-tab","data-on":mode==="stage"?"1":"0",onClick:()=>setTrainingMode("stage")},"Stage training"),
-          h("button",{className:"sub-tab","data-on":mode==="parcours"?"1":"0",onClick:()=>setTrainingMode("parcours")},"Parcours training")
-        )
-      ),
-      mode==="stage" && h("div",{className:"card-body",style:{paddingTop:0}},
-        h("div",{className:"stage-strip"},
-          STAGES.map(s=>h("button",{key:s.key,className:"spill","data-on":stage===s.key?"1":"0",onClick:()=>setTrainingStage(s.key)},s.kort))
-        ),
+      mode==="stage" && h("div",{className:"card-body"},
+        h(StageCarousel,{stageKey:stage,onSelect:setTrainingStage}),
         h("div",{className:"stage-hdr"},
           h("div",null,
             h("div",{className:"stage-hdr-name"},stageObj.kort),
@@ -940,7 +986,7 @@ const TabInvoer = ({
               );
             })
       ),
-      mode==="parcours" && h("div",{className:"card-body",style:{paddingTop:0}},
+      mode==="parcours" && h("div",{className:"card-body"},
         h("div",{className:"stage-hdr"},
           h("div",null,
             h("div",{className:"stage-hdr-name"},"Volledig Parcours"),
@@ -1095,7 +1141,7 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markSho
     registerShot({x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height},"tap");
   };
 
-  if(!shooters.length) return h(Empty,{msg:"Voeg eerst een schutter toe via Invoer."});
+  if(!shooters.length) return h(Empty,{msg:"Voeg eerst een schutter toe via Parcours of Stages."});
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},
@@ -1106,11 +1152,9 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markSho
         h("div",{className:"cam-stage-grid"},
           h("select",{className:"cam-select",value:sid,onChange:e=>setSid(e.target.value)},
             shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam))
-          ),
-          h("select",{className:"cam-select",value:stage,onChange:e=>setStage(e.target.value)},
-            STAGES.map(s=>h("option",{key:s.key,value:s.key},s.kort))
           )
         ),
+        h(StageCarousel,{stageKey:stage,onSelect:setStage}),
         h("div",{className:"stage-hdr"},
           h("div",null,
             h("div",{className:"stage-hdr-name"},stageObj.kort),
@@ -1198,8 +1242,13 @@ const TabTraining = ({shooters, currentTraining, finishTraining, setTab}) => {
       h("div",{className:"card-body"},
         h("div",{className:"stage-hdr"},
           h("div",null,
-            h("div",{className:"stage-hdr-name"},mode==="parcours"?"Parcours training":stageObj.kort),
-            h("div",{className:"stage-hdr-sub"},mode==="parcours"?"Hoogste ronde telt bij afsluiten":"Gemiddelde van deze stage telt bij afsluiten")
+            h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+              mode!=="parcours" && h("div",{className:"stage-visual",style:{width:44,height:34}},h(StageIcon,{type:stageObj.icon})),
+              h("div",null,
+                h("div",{className:"stage-hdr-name"},mode==="parcours"?"Parcours training":stageObj.kort),
+                h("div",{className:"stage-hdr-sub"},mode==="parcours"?"Hoogste ronde telt bij afsluiten":"Gemiddelde van deze stage telt bij afsluiten")
+              )
+            )
           )
         ),
         missing.length>0 && h("p",{className:"beta-note"},"Nog zonder opgeslagen ronde: ",missing.map(s=>s.naam).join(", ")),
@@ -1258,13 +1307,20 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
 const TabStand = ({shooters, bestParcours, bestStageAverages, maxOf}) => h(TabRanglijst,{shooters,bestParcours,bestStageAverages,maxOf});
 
 // ── TabInstellingen ───────────────────────────────────────────────
-const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout}) =>
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout, setTab}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
       h("div",{className:"card-body"},
         h("p",{className:"hint",style:{marginBottom:10}},"Ingelogd als ",isTrainer?"Trainer":"Schutter"," — ",CLUB.label,"."),
         h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
+      )
+    ),
+    isTrainer && h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Camera beta")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+        h("p",{className:"beta-note"},"De camerafunctie is nog Beta. Gebruik handmatige invoer als hoofdroute."),
+        h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("camera")},"Camera beta openen")
       )
     ),
     isTrainer && h("div",{className:"card"},
@@ -1400,7 +1456,7 @@ function App() {
     try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
-  const [tab,        setTab]        = React.useState(isTrainer ? "invoer" : "stand");
+  const [tab,        setTab]        = React.useState(isTrainer ? "parcours" : "stand");
   const [nieuw,      setNieuw]      = React.useState("");
   const [toast,      setToast]      = React.useState("");
   const firstSave = React.useRef(true);
@@ -1604,9 +1660,9 @@ function App() {
   };
 
   const navItems = (isTrainer ? [
-    {key:"invoer",  label:"Invoer",    icon:Icon.pencil},
+    {key:"parcours",label:"Parcours",  icon:Icon.pencil},
+    {key:"stages",  label:"Stages",    icon:Icon.target},
     {key:"training",label:"Training",  icon:Icon.chart},
-    {key:"camera",  label:"Camera",    icon:Icon.camera},
     {key:"stand",   label:"Stand",     icon:Icon.trophy},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
   ] : [
@@ -1617,11 +1673,12 @@ function App() {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="invoer" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf})
+    : tab==="parcours" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"parcours"})
+    : tab==="stages" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"stage"})
     : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,markShotsDeleted,addRound,removeRoundByReplaceKey})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
-    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout})
+    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab})
     : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
 
   return h("div",{className:"app"},
