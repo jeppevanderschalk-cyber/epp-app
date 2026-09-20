@@ -1558,8 +1558,7 @@ const EppMailComposer = ({match, signups, onSent, password, flash}) => {
   React.useEffect(()=>{localStorage.setItem("epp-mail-settings",JSON.stringify(settings));},[settings]);
 
   const discLabel = id => EPP_DISCIPLINES.find(d=>d.id===id)?.label || id;
-  const blockLabel = id => EPP_TIME_BLOCKS.find(b=>b.id===id)?.label || id;
-  const voorkeurTxt = d => `${discLabel(d.discipline)} — ${blockLabel(d.time_block)}${d.specific_time?` (${d.specific_time})`:""}`;
+  const voorkeurTxt = d => `${discLabel(d.discipline)} — voorkeurtijd: ${d.specific_time || "geen voorkeur"}`;
 
   const subject = `Groepsinschrijving ${CLUB.label} – EPP ${eppFmtDate(match.match_date)}`;
   const body = [
