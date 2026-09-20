@@ -467,6 +467,43 @@ const kleur = (i,n=1) => `hsl(${Math.round((360*i/Math.max(n,1))%360)} 68% 58%)`
 const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"").slice(0,2).join("");
 const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
 const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
+const EPP_DISCIPLINES = [
+  {id:"pistool",label:"Pistool (keep & korrel)"},
+  {id:"optiek",label:"Optiek"},
+  {id:"pcc",label:"PCC"},
+];
+const EPP_TIME_BLOCKS = [
+  {id:"ochtend",label:"Ochtend (9:00–11:00)"},
+  {id:"middag",label:"Middag (12:00–16:00)"},
+  {id:"geen_voorkeur",label:"Geen voorkeur"},
+];
+const EPP_SPECIFIC_TIMES = (()=>{const out=[];for(let h=9;h<=16;h++){for(const m of [0,30]){if(h===16&&m===30)continue;out.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}}return out;})();
+const eppBlockForTime = t => {
+  if(!t)return null;
+  const [h,m]=t.split(":").map(Number);
+  const mins=h*60+m;
+  if(mins<=11*60)return"ochtend";
+  if(mins>=12*60)return"middag";
+  return null; // 11:30 → geen gekoppeld blok
+};
+const todayIso_client = () => new Date().toISOString().slice(0,10);
+const eppFmtDate = iso => {
+  if(!iso)return"datum nog onbekend";
+  const [y,m,d]=iso.split("-").map(Number);
+  return `${d} ${MONTHS[m-1]} ${y}`;
+};
+const eppCall = async (fnName, payload) => {
+  const url = cleanUrl(CENTRAL_SYNC.url) + "/functions/v1/" + fnName;
+  const res = await fetch(url,{method:"POST",headers:{
+    apikey:CENTRAL_SYNC.anonKey,
+    Authorization:`Bearer ${CENTRAL_SYNC.anonKey}`,
+    "Content-Type":"application/json"
+  },body:JSON.stringify(payload)});
+  let data=null;
+  try{data=await res.json();}catch(e){}
+  if(!res.ok || !data?.ok) throw new Error(data?.error || `fout (${res.status})`);
+  return data;
+};
 const newTraining = (mode="parcours", stage="s1") => ({id:newId(),mode,stage,rounds:[],startedAt:Date.now(),updatedAt:Date.now()});
 const periodScore = bucket => {
   if(typeof bucket==="number")return bucket;
@@ -784,6 +821,22 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .page-fade{animation:pageFade .25s ease both}
 @keyframes pageFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.status-dot{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;font-family:'Archivo',sans-serif;color:${C.muted}}
+.status-dot::before{content:'';width:9px;height:9px;border-radius:999px;background:rgba(255,255,255,.25);box-shadow:0 0 0 3px rgba(255,255,255,.06);flex-shrink:0}
+.status-dot.red::before{background:${C.red};box-shadow:0 0 0 3px rgba(255,107,93,.12)}
+.status-dot.green::before{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.12)}
+.match-card{border:1px solid ${C.border};border-radius:18px;padding:14px 16px;background:${C.gradCard};display:flex;flex-direction:column;gap:10px}
+.match-card[data-on="1"]{border-color:rgba(228,187,74,.45);box-shadow:0 0 0 1px rgba(228,187,74,.2)}
+.match-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.match-org{font-size:15px;font-weight:900;color:${C.ink}}
+.match-sub{font-size:12px;font-weight:600;color:${C.muted};margin-top:2px}
+.chk-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid ${C.border}}
+.chk-row:last-child{border-bottom:none}
+.chk-row input[type=checkbox]{width:22px;height:22px;flex-shrink:0;accent-color:${C.goldLt};margin-top:2px}
+.chk-lbl{flex:1;font-size:14px;font-weight:800;color:${C.ink}}
+.sel-in{width:100%;font-size:14px;padding:0 12px;min-height:48px;border:1px solid ${C.border};border-radius:14px;background:#081026;color:${C.ink};outline:none;font-family:'Archivo',sans-serif;font-weight:700}
+.sel-in:focus{border-color:${C.goldLt};box-shadow:inset 0 0 0 2px ${C.goldLt}}
+.mail-box{white-space:pre-wrap;font-size:12.5px;line-height:1.6;color:${C.ink};background:#081026;border:1px solid ${C.border};border-radius:14px;padding:14px;font-family:ui-monospace,monospace;max-height:340px;overflow-y:auto}
 `;
 // ─── Icons ───────────────────────────────────────────────────────────
 const h = React.createElement;
@@ -1283,6 +1336,355 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
 const TabStand = ({shooters, bestParcours, bestStageAverages, maxOf}) => h(TabRanglijst,{shooters,bestParcours,bestStageAverages,maxOf});
 
 // ── TabInstellingen ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// EPP GROEPSINSCHRIJVING
+// ═══════════════════════════════════════════════════════════════════
+const EppPasswordGate = ({isTrainer, onUnlock}) => {
+  const [pw,setPw] = React.useState("");
+  const [busy,setBusy] = React.useState(false);
+  const [err,setErr] = React.useState("");
+  const submit = async () => {
+    if(!pw.trim())return;
+    setBusy(true);setErr("");
+    try{
+      await eppCall(isTrainer?"epp-admin":"epp-signup",{clubId:CLUB_ID,password:pw,action:"list_matches"});
+      onUnlock(pw);
+    }catch(e){setErr("Onjuist wachtwoord");}
+    finally{setBusy(false);}
+  };
+  return h("div",{className:"card"},
+    h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Inschrijven voor wedstrijden")),
+    h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+      h("p",{className:"hint"},"Vul hetzelfde ",isTrainer?"trainer":"schutter","wachtwoord in als waarmee je bent ingelogd."),
+      h("input",{className:"txt-in",type:"password",placeholder:"Wachtwoord",value:pw,
+        onChange:e=>setPw(e.target.value),onKeyDown:e=>e.key==="Enter"&&submit()}),
+      err && h("p",{className:"hint",style:{color:C.red}},err),
+      h("button",{className:"btn btn-gold btn-full",disabled:busy,onClick:submit},busy?"Controleren...":"Ontgrendelen")
+    )
+  );
+};
+
+const EppDisciplineRow = ({d, checked, value, onToggle, onChange, disabled}) =>
+  h("div",{className:"chk-row"},
+    h("input",{type:"checkbox",id:"epp-d-"+d.id,checked,disabled,onChange:e=>onToggle(e.target.checked)}),
+    h("div",{style:{flex:1}},
+      h("label",{className:"chk-lbl",htmlFor:"epp-d-"+d.id},d.label),
+      checked && h("div",{style:{marginTop:8,display:"flex",flexDirection:"column",gap:8}},
+        h("div",{className:"sub-tab-row"},
+          EPP_TIME_BLOCKS.map(b=>h("button",{key:b.id,type:"button",disabled,className:"sub-tab","data-on":value.time_block===b.id?"1":"0",
+            onClick:()=>onChange({...value,time_block:b.id})},b.label))
+        ),
+        h("select",{className:"sel-in",value:value.specific_time||"",disabled,
+          onChange:e=>{
+            const t=e.target.value||null;
+            const blk=eppBlockForTime(t);
+            onChange({...value,specific_time:t,time_block:blk||value.time_block});
+          }},
+          h("option",{value:""},"Geen specifieke tijd"),
+          EPP_SPECIFIC_TIMES.map(t=>h("option",{key:t,value:t},t))
+        )
+      )
+    )
+  );
+
+const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
+  const [shooterName,setShooterName] = React.useState(()=>localStorage.getItem("epp-shooter-name")||"");
+  const [matches,setMatches] = React.useState(null);
+  const [mySignups,setMySignups] = React.useState({});
+  const [draft,setDraft] = React.useState({});
+  const [savingId,setSavingId] = React.useState(null);
+
+  const load = React.useCallback(async ()=>{
+    try{
+      const r = await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"list_matches"});
+      setMatches(r.matches||[]);
+    }catch(e){onAuthFail();}
+  },[password]);
+  React.useEffect(()=>{load();},[load]);
+
+  const loadMine = React.useCallback(async (name)=>{
+    if(!name)return;
+    try{
+      const r = await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"my_signups",shooterName:name});
+      const map={};
+      (r.signups||[]).forEach(s=>{map[s.match_id]=s.epp_signup_disciplines||[];});
+      setMySignups(map);
+    }catch(e){onAuthFail();}
+  },[password]);
+  React.useEffect(()=>{loadMine(shooterName);},[shooterName,loadMine]);
+
+  React.useEffect(()=>{
+    if(!matches)return;
+    setDraft(()=>{
+      const next={};
+      matches.forEach(m=>{
+        const existing = mySignups[m.id];
+        const disc={};
+        (existing||[]).forEach(d=>{disc[d.discipline]={checked:true,time_block:d.time_block,specific_time:d.specific_time};});
+        next[m.id] = {active:!!existing, disciplines:disc};
+      });
+      return next;
+    });
+  },[matches,mySignups]);
+
+  const onPickName = e => {
+    const n = e.target.value;
+    setShooterName(n);
+    localStorage.setItem("epp-shooter-name",n);
+    setDraft({});
+  };
+
+  const isClosed = m => !!(m.deadline && todayIso_client() > m.deadline);
+
+  const setActive = (m, active) => setDraft(p=>({...p,[m.id]:{...(p[m.id]||{disciplines:{}}),active}}));
+  const toggleDisc = (m,d,checked) => setDraft(p=>{
+    const cur = p[m.id]||{active:true,disciplines:{}};
+    const disc = {...cur.disciplines};
+    if(checked) disc[d.id] = disc[d.id] || {checked:true,time_block:"geen_voorkeur",specific_time:null};
+    else delete disc[d.id];
+    return {...p,[m.id]:{...cur,disciplines:disc}};
+  });
+  const changeDisc = (m,dId,value) => setDraft(p=>({...p,[m.id]:{...p[m.id],disciplines:{...p[m.id].disciplines,[dId]:value}}}));
+
+  const save = async (m) => {
+    if(!shooterName){flash("Kies eerst je naam");return;}
+    const d = draft[m.id] || {active:false,disciplines:{}};
+    setSavingId(m.id);
+    try{
+      if(!d.active){
+        if(mySignups[m.id]) await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"delete_signup",shooterName,matchId:m.id});
+        flash("Afgemeld");
+      }else{
+        const disciplines = Object.entries(d.disciplines).map(([discipline,v])=>({discipline,time_block:v.time_block,specific_time:v.specific_time||null}));
+        if(!disciplines.length){flash("Kies minimaal één discipline");setSavingId(null);return;}
+        await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"save_signup",shooterName,matchId:m.id,disciplines});
+        flash("Inschrijving opgeslagen");
+      }
+      await loadMine(shooterName);
+    }catch(e){flash("Opslaan mislukt: "+e.message);}
+    finally{setSavingId(null);}
+  };
+
+  if(!matches) return h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…");
+
+  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Wie ben je?")),
+      h("div",{className:"card-body"},
+        h("select",{className:"sel-in",value:shooterName,onChange:onPickName},
+          h("option",{value:""},"Kies je naam"),
+          shooters.map(s=>h("option",{key:s.id,value:s.naam},s.naam))
+        )
+      )
+    ),
+    !shooterName ? h("div",{className:"empty"},h("p",null,"Kies je naam om je aan te melden voor wedstrijden.")) :
+    !matches.length ? h("div",{className:"empty"},h("p",null,"Er zijn nog geen wedstrijden gepland.")) :
+    matches.map(m=>{
+      const d = draft[m.id] || {active:false,disciplines:{}};
+      const closed = isClosed(m);
+      const nDisc = Object.keys(d.disciplines).length;
+      const dotClass = !d.active ? "" : nDisc===0 ? "red" : "green";
+      const dotLabel = !d.active ? "Niet ingeschreven" : nDisc===0 ? "Discipline kiezen" : "Compleet";
+      const notOffered = EPP_DISCIPLINES.filter(x=>!m.offered_disciplines.includes(x.id));
+      return h("div",{key:m.id,className:"match-card","data-on":d.active?"1":"0"},
+        h("div",{className:"match-hd"},
+          h("div",null,
+            h("div",{className:"match-org"},m.organizer),
+            h("div",{className:"match-sub"},eppFmtDate(m.match_date)),
+            h("div",{className:"match-sub"},closed?"Inschrijving gesloten":`Deadline: ${eppFmtDate(m.deadline)}`)
+          ),
+          h("div",{className:"status-dot "+dotClass},dotLabel)
+        ),
+        !closed && h("button",{className:"btn "+(d.active?"btn-danger":"btn-gold")+" btn-full",onClick:()=>setActive(m,!d.active)},d.active?"AFMELDEN":"DOE MEE"),
+        d.active && h("div",{style:{display:"flex",flexDirection:"column"}},
+          EPP_DISCIPLINES.filter(x=>m.offered_disciplines.includes(x.id)).map(disc=>
+            h(EppDisciplineRow,{key:disc.id,d:disc,checked:!!d.disciplines[disc.id],
+              value:d.disciplines[disc.id]||{time_block:"geen_voorkeur",specific_time:null},
+              onToggle:c=>toggleDisc(m,disc,c),onChange:v=>changeDisc(m,disc.id,v),disabled:closed})
+          ),
+          !!notOffered.length && h("p",{className:"hint",style:{marginTop:8}},"Niet aangeboden: ",notOffered.map(x=>x.label).join(", "))
+        ),
+        d.active && !closed && h("button",{className:"btn btn-ghost btn-full",disabled:savingId===m.id,onClick:()=>save(m)},savingId===m.id?"Bezig...":"Opslaan")
+      );
+    })
+  );
+};
+
+const EppMatchForm = ({initial, onSave, onCancel}) => {
+  const [f,setF] = React.useState(()=>initial || {organizer:"",location:"",match_date:"",deadline:"",organizer_email:"",offered_disciplines:["pistool","optiek","pcc"],notes:""});
+  const toggleD = id => setF(p=>({...p,offered_disciplines:p.offered_disciplines.includes(id)?p.offered_disciplines.filter(x=>x!==id):[...p.offered_disciplines,id]}));
+  return h("div",{className:"card"},
+    h("div",{className:"card-head"},h("div",{className:"eyebrow"},initial?"Wedstrijd bewerken":"Wedstrijd toevoegen")),
+    h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+      h("input",{className:"txt-in",placeholder:"Organiserende vereniging",value:f.organizer,onChange:e=>setF(p=>({...p,organizer:e.target.value}))}),
+      h("input",{className:"txt-in",placeholder:"Adres (optioneel)",value:f.location||"",onChange:e=>setF(p=>({...p,location:e.target.value}))}),
+      h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Wedstrijddatum"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.match_date||"",onChange:e=>setF(p=>({...p,match_date:e.target.value}))})),
+      h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Inschrijfdeadline"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.deadline||"",onChange:e=>setF(p=>({...p,deadline:e.target.value}))})),
+      h("input",{className:"txt-in",placeholder:"E-mailadres inschrijfbureau",value:f.organizer_email||"",onChange:e=>setF(p=>({...p,organizer_email:e.target.value}))}),
+      h("div",null,
+        h("div",{className:"set-sub",style:{marginBottom:6}},"Aangeboden disciplines"),
+        EPP_DISCIPLINES.map(d=>h("label",{key:d.id,className:"chk-row"},
+          h("input",{type:"checkbox",checked:f.offered_disciplines.includes(d.id),onChange:()=>toggleD(d.id)}),
+          h("div",{className:"chk-lbl"},d.label)
+        ))
+      ),
+      h("input",{className:"txt-in",placeholder:"Notitie (optioneel)",value:f.notes||"",onChange:e=>setF(p=>({...p,notes:e.target.value}))}),
+      h("div",{style:{display:"flex",gap:8}},
+        h("button",{className:"btn btn-ghost",style:{flex:1},onClick:onCancel},"Annuleren"),
+        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>onSave(f)},"Opslaan")
+      )
+    )
+  );
+};
+
+const EppMailComposer = ({match, signups, onSent, password, flash}) => {
+  const [settings,setSettings] = React.useState(()=>{
+    try{return {trainerName:"",phone:"",...JSON.parse(localStorage.getItem("epp-mail-settings")||"{}")};}catch(e){return {trainerName:"",phone:""};}
+  });
+  React.useEffect(()=>{localStorage.setItem("epp-mail-settings",JSON.stringify(settings));},[settings]);
+
+  const discLabel = id => EPP_DISCIPLINES.find(d=>d.id===id)?.label || id;
+  const blockLabel = id => EPP_TIME_BLOCKS.find(b=>b.id===id)?.label || id;
+  const voorkeurTxt = d => `${discLabel(d.discipline)} — ${blockLabel(d.time_block)}${d.specific_time?` (${d.specific_time})`:""}`;
+
+  const subject = `Groepsinschrijving ${CLUB.label} – EPP ${eppFmtDate(match.match_date)}`;
+  const body = [
+    "Beste inschrijfbureau,",
+    "",
+    `Namens ${CLUB.label} melden wij ons graag aan voor de EPP-wedstrijd bij ${match.organizer} op ${eppFmtDate(match.match_date)}.`,
+    "",
+    "Deelnemers:",
+    ...signups.map(s=>`- ${s.shooter_name}: ${(s.epp_signup_disciplines||[]).map(voorkeurTxt).join("; ")}`),
+    "",
+    "Wij verzoeken u vriendelijk de starttijden zo veel mogelijk aan te laten sluiten bij de aangegeven voorkeuren.",
+    "",
+    "Met vriendelijke groet,",
+    settings.trainerName || "[naam trainer]",
+    CLUB.label,
+    settings.phone || "[telefoonnummer]",
+  ].join("\n");
+
+  const copy = async () => {
+    try{await navigator.clipboard.writeText(body);flash("Mailtekst gekopieerd");}
+    catch(e){flash("Kopiëren mislukt, selecteer handmatig");}
+  };
+  const markSent = async () => {
+    try{await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"mark_sent",matchId:match.id});flash("Gemarkeerd als verstuurd");onSent();}
+    catch(e){flash("Mislukt: "+e.message);}
+  };
+
+  return h("div",{className:"card"},
+    h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Mail naar inschrijfbureau")),
+    h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+      h("input",{className:"txt-in",placeholder:"Naam trainer",value:settings.trainerName,onChange:e=>setSettings(p=>({...p,trainerName:e.target.value}))}),
+      h("input",{className:"txt-in",placeholder:"Telefoonnummer",value:settings.phone,onChange:e=>setSettings(p=>({...p,phone:e.target.value}))}),
+      h("p",{className:"hint"},"Aan: ",match.organizer_email||"(geen e-mailadres bekend)"),
+      h("p",{className:"hint"},"Onderwerp: ",subject),
+      h("div",{className:"mail-box"},body),
+      h("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+        h("button",{className:"btn btn-ghost",style:{flex:1},onClick:copy},"KOPIEER"),
+        h("a",{className:"btn btn-gold",style:{flex:1},href:`mailto:${encodeURIComponent(match.organizer_email||"")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`},"OPEN IN MAIL")
+      ),
+      h("button",{className:"btn btn-ghost btn-full",onClick:markSent},match.mail_status==="niet_verstuurd"?"Markeer als verstuurd":"Opnieuw markeren als verstuurd")
+    )
+  );
+};
+
+const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
+  const [matches,setMatches] = React.useState(null);
+  const [adding,setAdding] = React.useState(false);
+  const [editing,setEditing] = React.useState(null);
+  const [openId,setOpenId] = React.useState(null);
+  const [group,setGroup] = React.useState(null);
+
+  const load = React.useCallback(async ()=>{
+    try{const r=await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"list_matches"});setMatches(r.matches||[]);}
+    catch(e){onAuthFail();}
+  },[password]);
+  React.useEffect(()=>{load();},[load]);
+
+  const openGroup = async (m) => {
+    setOpenId(m.id);setGroup(null);
+    try{const r=await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"group_list",matchId:m.id});setGroup(r);}
+    catch(e){flash("Laden mislukt: "+e.message);}
+  };
+
+  const createMatch = async (f) => {
+    try{
+      await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"create_match",match:f});
+      setAdding(false);flash("Wedstrijd toegevoegd");load();
+    }catch(e){flash("Mislukt: "+e.message);}
+  };
+  const updateMatch = async (id,f) => {
+    try{
+      await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"update_match",id,match:f});
+      setEditing(null);flash("Wedstrijd bijgewerkt");load();
+    }catch(e){flash("Mislukt: "+e.message);}
+  };
+  const deleteMatch = async (id) => {
+    if(!confirm("Deze wedstrijd en alle inschrijvingen verwijderen?"))return;
+    try{await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"delete_match",id});flash("Verwijderd");load();}
+    catch(e){flash("Mislukt: "+e.message);}
+  };
+
+  if(!matches) return h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…");
+
+  if(openId){
+    const m = matches.find(x=>x.id===openId);
+    return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+      h("button",{className:"btn btn-ghost btn-full",onClick:()=>{setOpenId(null);setGroup(null);load();}},"← Terug naar wedstrijden"),
+      h("div",{className:"card"},
+        h("div",{className:"card-head"},h("div",{className:"eyebrow"},m.organizer)),
+        h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:6}},
+          h("p",{className:"hint"},eppFmtDate(m.match_date)," · deadline ",eppFmtDate(m.deadline)),
+          !group ? h("p",{className:"hint"},"Laden…") :
+          !group.signups.length ? h("p",{className:"hint"},"Nog geen aanmeldingen.") :
+          group.signups.map(s=>h("div",{key:s.id,className:"set-row"},
+            h("div",{className:"set-lbl"},
+              h("div",null,s.shooter_name),
+              h("div",{className:"set-sub"},(s.epp_signup_disciplines||[]).map(d=>`${EPP_DISCIPLINES.find(x=>x.id===d.discipline)?.label||d.discipline} (${EPP_TIME_BLOCKS.find(x=>x.id===d.time_block)?.label||d.time_block}${d.specific_time?", "+d.specific_time:""})`).join(" · "))
+            )
+          ))
+        )
+      ),
+      group && h(EppMailComposer,{match:group.match,signups:group.signups,password,flash,onSent:()=>openGroup(m)})
+    );
+  }
+
+  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    !adding && !editing && h("button",{className:"btn btn-gold btn-full",onClick:()=>setAdding(true)},"+ Wedstrijd toevoegen"),
+    adding && h(EppMatchForm,{onSave:createMatch,onCancel:()=>setAdding(false)}),
+    editing && h(EppMatchForm,{initial:editing.data,onSave:f=>updateMatch(editing.id,f),onCancel:()=>setEditing(null)}),
+    !matches.length ? h("div",{className:"empty"},h("p",null,"Nog geen wedstrijden toegevoegd.")) :
+    matches.map(m=>h("div",{key:m.id,className:"match-card"},
+      h("div",{className:"match-hd"},
+        h("div",null,
+          h("div",{className:"match-org"},m.organizer),
+          h("div",{className:"match-sub"},eppFmtDate(m.match_date)," · deadline ",eppFmtDate(m.deadline)),
+          h("div",{className:"match-sub"},m.schutters," schutters · ",m.starts," starts · mail: ",m.mail_status.replace("_"," "))
+        )
+      ),
+      h("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>openGroup(m)},"Groepslijst"),
+        h("button",{className:"btn btn-ghost",style:{flex:1},onClick:()=>setEditing({id:m.id,data:m})},"Bewerken"),
+        h("button",{className:"btn btn-danger",style:{flex:1},onClick:()=>deleteMatch(m.id)},"Verwijderen")
+      )
+    ))
+  );
+};
+
+const TabInschrijven = ({isTrainer, shooters, eppPassword, setEppPassword, flash, setTab}) => {
+  const terug = h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("instel")},"← Terug naar Meer");
+  if(!eppPassword) return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},terug,h(EppPasswordGate,{isTrainer,onUnlock:setEppPassword}));
+  const onAuthFail = () => {setEppPassword("");flash("Sessie verlopen, wachtwoord opnieuw invoeren");};
+  return h("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+    terug,
+    isTrainer
+      ? h(TabInschrijvenTrainer,{password:eppPassword,onAuthFail,flash})
+      : h(TabInschrijvenLid,{shooters,password:eppPassword,onAuthFail,flash})
+  );
+};
+
 const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout, setTab}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
@@ -1290,6 +1692,13 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
       h("div",{className:"card-body"},
         h("p",{className:"hint",style:{marginBottom:10}},"Ingelogd als ",isTrainer?"Trainer":"Schutter"," — ",CLUB.label,"."),
         h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
+      )
+    ),
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"EPP-wedstrijden")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+        h("p",{className:"hint"},isTrainer?"Beheer wedstrijden, bekijk groepslijsten en stel de mail naar het inschrijfbureau op.":"Meld je aan voor EPP-wedstrijden met je disciplines en voorkeurstijd."),
+        h("button",{className:"btn btn-gold btn-full",onClick:()=>setTab("inschrijven")},"Inschrijven voor wedstrijden")
       )
     ),
     isTrainer && h("div",{className:"card"},
@@ -1433,6 +1842,7 @@ function App() {
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
   const [tab,        setTab]        = React.useState(isTrainer ? "parcours" : "stand");
+  const [eppPassword,setEppPassword]= React.useState("");
   const [nieuw,      setNieuw]      = React.useState("");
   const [toast,      setToast]      = React.useState("");
   const firstSave = React.useRef(true);
@@ -1655,6 +2065,7 @@ function App() {
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,markShotsDeleted,addRound,removeRoundByReplaceKey})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab})
+    : tab==="inschrijven" ? h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash,setTab})
     : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
 
   return h("div",{className:"app"},
