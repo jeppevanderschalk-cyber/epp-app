@@ -487,6 +487,12 @@ const eppBlockForTime = t => {
   return null; // 11:30 → geen gekoppeld blok
 };
 const todayIso_client = () => new Date().toISOString().slice(0,10);
+const eppOneMonthBefore = iso => {
+  if(!iso)return"";
+  const d = new Date(iso+"T00:00:00");
+  d.setMonth(d.getMonth()-1);
+  return d.toISOString().slice(0,10);
+};
 const eppFmtDate = iso => {
   if(!iso)return"datum nog onbekend";
   const [y,m,d]=iso.split("-").map(Number);
@@ -1505,6 +1511,12 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
           ),
           h("div",{className:"status-dot "+dotClass},dotLabel)
         ),
+        closed && h("p",{className:"hint"},
+          "Inschrijven via de app kan niet meer. Wil je nog mee, mail dan zelf naar het inschrijfbureau: ",
+          m.organizer_email
+            ? h("a",{href:`mailto:${m.organizer_email}`,style:{color:C.goldLt,fontWeight:800}},m.organizer_email)
+            : "(geen e-mailadres bekend, vraag de trainer)"
+        ),
         !closed && h("button",{className:"btn "+(d.active?"btn-danger":"btn-gold")+" btn-full",onClick:()=>setActive(m,!d.active)},d.active?"AFMELDEN":"DOE MEE"),
         d.active && h("div",{style:{display:"flex",flexDirection:"column"}},
           EPP_DISCIPLINES.filter(x=>m.offered_disciplines.includes(x.id)).map(disc=>
@@ -1532,8 +1544,12 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
     h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
       h("input",{className:"txt-in",placeholder:"Organiserende vereniging",value:f.organizer,onChange:e=>setF(p=>({...p,organizer:e.target.value}))}),
       h("input",{className:"txt-in",placeholder:"Adres (optioneel)",value:f.location||"",onChange:e=>setF(p=>({...p,location:e.target.value}))}),
-      h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Wedstrijddatum"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.match_date||"",onChange:e=>setF(p=>({...p,match_date:e.target.value}))})),
+      h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Wedstrijddatum"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.match_date||"",onChange:e=>{
+        const match_date=e.target.value;
+        setF(p=>({...p,match_date,deadline:p.deadline?p.deadline:eppOneMonthBefore(match_date)}));
+      }})),
       h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Inschrijfdeadline"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.deadline||"",onChange:e=>setF(p=>({...p,deadline:e.target.value}))})),
+      h("p",{className:"hint"},"Standaard 1 maand voor de wedstrijddatum, zelf aan te passen."),
       h("input",{className:"txt-in",placeholder:"E-mailadres inschrijfbureau",value:f.organizer_email||"",onChange:e=>setF(p=>({...p,organizer_email:e.target.value}))}),
       h("div",null,
         h("div",{className:"set-sub",style:{marginBottom:6}},"Aangeboden disciplines"),

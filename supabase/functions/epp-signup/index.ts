@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     if (action === "list_matches") {
       const { data, error } = await db
         .from("epp_matches")
-        .select("id, organizer, location, match_date, deadline, offered_disciplines, notes")
+        .select("id, organizer, location, match_date, deadline, offered_disciplines, notes, organizer_email")
         .eq("club_id", clubId)
         .order("match_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
