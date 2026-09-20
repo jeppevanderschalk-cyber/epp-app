@@ -734,6 +734,7 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .btn-gold{background:${C.gradGold};color:${C.navy};border:none;box-shadow:0 12px 28px rgba(200,160,48,.28)}
 .btn-ghost{background:${C.gradCard};color:${C.muted};border-color:${C.border}}
 .btn-danger{background:rgba(255,107,93,.12);color:${C.red};border-color:rgba(255,107,93,.3)}
+.btn-success{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.35)}
 .btn-full{width:100%}
 .txt-in{width:100%;font-size:15px;padding:0 14px;min-height:56px;border:1px solid ${C.border};border-radius:16px;background:#081026;color:${C.ink};outline:none;font-family:'Archivo',sans-serif;font-weight:800;transition:border-color .15s,box-shadow .15s}
 .txt-in:focus{border-color:${C.goldLt};box-shadow:inset 0 0 0 2px ${C.goldLt}}
@@ -1435,6 +1436,13 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
   };
 
   const isClosed = m => !!(m.deadline && todayIso_client() > m.deadline);
+  const serverStateFor = m => {
+    const existing = mySignups[m.id];
+    const disc={};
+    (existing||[]).forEach(d=>{disc[d.discipline]={checked:true,time_block:d.time_block,specific_time:d.specific_time};});
+    return {active:!!existing, disciplines:disc};
+  };
+  const isDirty = m => JSON.stringify(draft[m.id]||{active:false,disciplines:{}}) !== JSON.stringify(serverStateFor(m));
 
   const setActive = (m, active) => setDraft(p=>({...p,[m.id]:{...(p[m.id]||{disciplines:{}}),active}}));
   const toggleDisc = (m,d,checked) => setDraft(p=>{
@@ -1482,6 +1490,8 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
     matches.map(m=>{
       const d = draft[m.id] || {active:false,disciplines:{}};
       const closed = isClosed(m);
+      const dirty = isDirty(m);
+      const hasServerRecord = !!mySignups[m.id];
       const nDisc = Object.keys(d.disciplines).length;
       const dotClass = !d.active ? "" : nDisc===0 ? "red" : "green";
       const dotLabel = !d.active ? "Niet ingeschreven" : nDisc===0 ? "Discipline kiezen" : "Compleet";
@@ -1504,7 +1514,11 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
           ),
           !!notOffered.length && h("p",{className:"hint",style:{marginTop:8}},"Niet aangeboden: ",notOffered.map(x=>x.label).join(", "))
         ),
-        d.active && !closed && h("button",{className:"btn btn-ghost btn-full",disabled:savingId===m.id,onClick:()=>save(m)},savingId===m.id?"Bezig...":"Opslaan")
+        !closed && (d.active || hasServerRecord) && h("button",{
+          className:"btn "+(dirty?"btn-danger":"btn-success")+" btn-full",
+          disabled:savingId===m.id || !dirty,
+          onClick:()=>save(m)
+        }, savingId===m.id?"Bezig...":dirty?"OPSLAAN":"OPGESLAGEN")
       );
     })
   );
