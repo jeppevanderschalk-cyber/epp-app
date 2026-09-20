@@ -455,8 +455,8 @@ const KEY = CLUB_ID==="svbb" ? "epp-data-v1" : ("epp-data-v1-"+CLUB_ID);
 const SYNC_KEY = "epp-sync-v1";
 const CENTRAL_SYNC = {
   enabled:true,
-  url:"https://trwpdiepcuzpzrctwspd.supabase.co",
-  anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyd3BkaWVwY3V6cHpyY3R3c3BkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMzY2MjMsImV4cCI6MjA5ODcxMjYyM30.S-I3X-3_57PPpe0NiYymWUp-FUosGBgpSR6BXhALPxY",
+  url:"https://rxfvbmotatdyinbmliwq.supabase.co",
+  anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4ZnZibW90YXRkeWluYm1saXdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDc0ODAsImV4cCI6MjEwNTQ4MzQ4MH0.tNUNEH2o6QScp-fXzFdmLCqT5Bu3eioi_KjqyZCszHM",
   space:CLUB.space
 };
 const DEFAULT_SYNC = CENTRAL_SYNC.enabled ? CENTRAL_SYNC : {enabled:false,url:"",anonKey:"",space:CLUB.space};
@@ -1558,7 +1558,7 @@ function App() {
 
   React.useEffect(()=>{
     if(!loaded || !syncReady(syncConfig))return;
-    const t=setInterval(()=>pullRemote(),7000);
+    const t=setInterval(()=>pullRemote(),20000);
     return()=>clearInterval(t);
   },[loaded,syncConfig]);
 
