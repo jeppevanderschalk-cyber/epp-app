@@ -510,6 +510,15 @@ const eppCall = async (fnName, payload) => {
   if(!res.ok || !data?.ok) throw new Error(data?.error || `fout (${res.status})`);
   return data;
 };
+const eppPlatformError = code => ({
+  ongeldig_wachtwoord:"Onjuist trainerwachtwoord",
+  schutter_naam_verplicht:"Vul een schutter in",
+  alle_aantallen_gehele_getallen:"Alle aantallen moeten 0 of hoger zijn",
+  exact_50_schoten_verplicht:"De kaarttelling moet exact 50 schoten bevatten",
+  eindscore_buiten_bereik:"De eindscore moet tussen 0 en 250 liggen",
+  eindscore_0_tot_250:"Vul een hele eindscore van 0 t/m 250 in",
+  onbekende_club:"Deze vereniging is nog niet bekend in de centrale server"
+}[code] || code || "Onbekende fout");
 const newTraining = (mode="parcours", stage="s1") => ({id:newId(),mode,stage,rounds:[],startedAt:Date.now(),updatedAt:Date.now()});
 const periodScore = bucket => {
   if(typeof bucket==="number")return bucket;
@@ -1339,6 +1348,115 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
   );
 };
 
+
+// ── TabLandelijk ──────────────────────────────────────────────────
+const scoreFields = [
+  ["hits5","5 punten"],["hits4","4 punten"],["hits3","3 punten"],["hits2","2 punten"],["misses","0 punten"]
+];
+const RankingTable = ({items}) => !items?.length
+  ? h("p",{className:"hint"},"Nog geen bevestigde landelijke scores.")
+  : h("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+    items.map(item=>h("div",{key:item.publicId,className:"shooter-score-card"},
+      h("div",{className:"ssc-top"},
+        h("div",{className:"pos"},item.position),
+        h("div",{style:{flex:1,minWidth:0}},
+          h("div",{style:{fontWeight:900,color:C.ink,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},item.name),
+          h("div",{className:"set-sub"},item.club," · ",item.publicId)
+        ),
+        h("div",{className:"ssc-total"},item.score)
+      )
+    ))
+  );
+
+const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
+  const emptyCounts = {hits5:"",hits4:"",hits3:"",hits2:"",misses:"",penaltyPoints:"0"};
+  const [ranking,setRanking] = React.useState([]);
+  const [status,setStatus] = React.useState("laden...");
+  const [busy,setBusy] = React.useState(false);
+  const [entryMode,setEntryMode] = React.useState("counted");
+  const [shooterName,setShooterName] = React.useState("");
+  const [counts,setCounts] = React.useState(emptyCounts);
+  const [finalScore,setFinalScore] = React.useState("");
+  const load = React.useCallback(async ()=>{
+    try{
+      const r = await eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,action:"context"});
+      setRanking(r.ranking||[]);
+      setStatus("landelijke stand bijgewerkt");
+    }catch(e){setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}
+  },[]);
+  React.useEffect(()=>{load();},[load]);
+  const n = k => Math.max(0,Math.round(Number(counts[k])||0));
+  const shots = n("hits5")+n("hits4")+n("hits3")+n("hits2")+n("misses");
+  const gross = n("hits5")*5+n("hits4")*4+n("hits3")*3+n("hits2")*2;
+  const penalty = n("penaltyPoints");
+  const countedFinal = gross-penalty;
+  const canConfirm = isTrainer && password && shooterName.trim() && (entryMode==="total" ? /^\d+$/.test(String(finalScore)) && Number(finalScore)>=0 && Number(finalScore)<=250 : shots===50 && countedFinal>=0 && countedFinal<=250);
+  const resetForm = () => {setShooterName("");setCounts(emptyCounts);setFinalScore("");};
+  const confirm = async () => {
+    if(!password)return flash("Vul eerst het trainerwachtwoord in");
+    if(!canConfirm)return flash("Controleer de invoer");
+    setBusy(true);setStatus("officiële score opslaan...");
+    try{
+      const payload = entryMode==="total"
+        ? {clubId:CLUB_ID,clubLabel:CLUB.label,password,action:"confirm_result",entryMode:"total",shooterName,finalScore:Number(finalScore),idempotencyKey:newId()}
+        : {clubId:CLUB_ID,clubLabel:CLUB.label,password,action:"confirm_result",entryMode:"counted",shooterName,idempotencyKey:newId(),...Object.fromEntries(Object.keys(emptyCounts).map(k=>[k,n(k)]))};
+      const r = await eppCall("epp-platform",payload);
+      setRanking(r.ranking||[]);
+      resetForm();
+      setStatus("Opgeslagen — klassement bijgewerkt");
+      flash("Landelijke score opgeslagen");
+    }catch(e){setStatus("Opslaan mislukt: "+eppPlatformError(e.message));}
+    finally{setBusy(false);}
+  };
+  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Landelijk scoreplatform")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+        h("p",{className:"hint"},"Officiële EPP pistoolscore: één eindscore per schutter per ronde, maximaal 250. Stages tellen hier niet mee."),
+        h("p",{className:"beta-note"},"Deze module gebruikt centrale servervalidatie en auditlog. Training blijft apart van officiële landelijke uitslagen."),
+        h("p",{className:"hint"},"Status: ",status)
+      )
+    ),
+    isTrainer && h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Score bevestigen")),
+      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+        h("input",{className:"txt-in",type:"password",placeholder:"Trainerwachtwoord voor officiële opslag",value:password,onChange:e=>setPassword(e.target.value)}),
+        h("input",{className:"txt-in",placeholder:"Schutter zoeken of naam invoeren",value:shooterName,onChange:e=>setShooterName(e.target.value)}),
+        h("div",{className:"sub-tab-row"},
+          h("button",{type:"button",className:"sub-tab","data-on":entryMode==="counted"?"1":"0",onClick:()=>setEntryMode("counted")},"Kaart tellen"),
+          h("button",{type:"button",className:"sub-tab","data-on":entryMode==="total"?"1":"0",onClick:()=>setEntryMode("total")},"Totaalscore")
+        ),
+        entryMode==="counted" ? h("div",null,
+          scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
+            h("div",{className:"set-lbl"},h("div",null,label)),
+            h("button",{className:"cal-btn",style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(Math.max(0,n(key)-1))}))},"−"),
+            h("input",{className:"set-in",type:"number",inputMode:"numeric",min:0,value:counts[key],onChange:e=>setCounts(p=>({...p,[key]:e.target.value}))}),
+            h("button",{className:"cal-btn",style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(n(key)+1)}))},"+")
+          )),
+          h("div",{className:"set-row"},
+            h("div",{className:"set-lbl"},h("div",null,"Strafpunten"),h("div",{className:"set-sub"},"Totale aftrek, standaard 0")),
+            h("input",{className:"set-in",type:"number",inputMode:"numeric",min:0,value:counts.penaltyPoints,onChange:e=>setCounts(p=>({...p,penaltyPoints:e.target.value}))})
+          ),
+          h("div",{className:"stat-grid"},
+            h("div",{className:"stat-card"},h("div",{className:"stat-val"},shots),h("div",{className:"stat-lbl"},"schoten")),
+            h("div",{className:"stat-card"},h("div",{className:"stat-val"},gross),h("div",{className:"stat-lbl"},"bruto")),
+            h("div",{className:"stat-card"},h("div",{className:"stat-val"},countedFinal),h("div",{className:"stat-lbl"},"eindscore"))
+          ),
+          shots!==50 && h("p",{className:"hint",style:{color:C.red}},"Kaarttelling vereist exact 50 schoten. Nu: ",shots,".")
+        ) : h("div",null,
+          h("input",{className:"txt-in",type:"number",inputMode:"numeric",min:0,max:250,placeholder:"Eindscore / 250",value:finalScore,onChange:e=>setFinalScore(e.target.value)}),
+          h("p",{className:"hint"},"Gebruik dit alleen als de kaart al geteld is. De app slaat dan geen fictieve onderbouwing op.")
+        ),
+        h("button",{className:"btn btn-gold btn-full",disabled:busy||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan")
+      )
+    ),
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Landelijke seizoensranking · beste wedstrijdscore")),
+      h("div",{className:"card-body"},h(RankingTable,{items:ranking}))
+    )
+  );
+};
+
 // ── TabStand ──────────────────────────────────────────────────────
 const TabStand = ({shooters, bestParcours, bestStageAverages, maxOf}) => h(TabRanglijst,{shooters,bestParcours,bestStageAverages,maxOf});
 
@@ -1872,6 +1990,7 @@ function App() {
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
   const [tab,        setTab]        = React.useState(isTrainer ? "parcours" : "stand");
   const [eppPassword,setEppPassword]= React.useState("");
+  const [platformPassword,setPlatformPassword]= React.useState("");
   const [nieuw,      setNieuw]      = React.useState("");
   const [toast,      setToast]      = React.useState("");
   const firstSave = React.useRef(true);
@@ -2079,10 +2198,12 @@ function App() {
     {key:"stages",  label:"Stages",    icon:Icon.target},
     {key:"training",label:"Training",  icon:Icon.chart},
     {key:"stand",   label:"Stand",     icon:Icon.trophy},
+    {key:"landelijk",label:"Landelijk",icon:Icon.target},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
   ] : [
     {key:"training",label:"Training",  icon:Icon.chart},
     {key:"stand",   label:"Stand",     icon:Icon.trophy},
+    {key:"landelijk",label:"Landelijk",icon:Icon.target},
     {key:"instel",  label:"Meer",      icon:Icon.gear},
   ]);
 
@@ -2093,6 +2214,7 @@ function App() {
     : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,markShotsDeleted,addRound,removeRoundByReplaceKey})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
+    : tab==="landelijk" ? h(TabLandelijk,{isTrainer,password:platformPassword,setPassword:setPlatformPassword,flash})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab})
     : tab==="inschrijven" ? h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash,setTab})
     : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
