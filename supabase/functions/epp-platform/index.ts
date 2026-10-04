@@ -71,11 +71,31 @@ function validateCounted(input: any): { ok: true; counted: CountedInput; grossSc
   if (finalScore < 0 || finalScore > 250) return { ok: false, error: "eindscore_buiten_bereik" };
   return { ok: true, counted: c, grossScore, finalScore };
 }
-async function findOrCreateShooter(db: any, displayName: string, representedClubId: string) {
+async function loadClubShooters(db: any, clubId: string) {
+  const shooters = new Map();
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await db.from("memberships").select("shooter:shooters(id,public_id,display_name)").eq("club_id", clubId).order("id").range(offset, offset + 999);
+    if (error) throw error;
+    for (const row of data || []) if (row.shooter) shooters.set(row.shooter.id, row.shooter);
+    if (!data || data.length < 1000) return [...shooters.values()];
+  }
+}
+async function findOrCreateShooter(db: any, displayName: string, representedClubId: string, selectedId?: string) {
   const name = cleanText(displayName);
   if (!name) throw new Error("schutter_naam_verplicht");
-  const { data: found, error: fErr } = await db.from("shooters").select("*").ilike("display_name", name).limit(1);
+  if (selectedId) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedId)) throw new Error("ongeldige_schutter");
+    const { data, error } = await db.from("memberships").select("shooter_id").eq("club_id", representedClubId).eq("shooter_id", selectedId).limit(1);
+    if (error) throw error;
+    if (!data?.length) throw new Error("schutter_niet_gevonden");
+  }
+  const query = db.from("shooters").select("*");
+  const { data: found, error: fErr } = selectedId
+    ? await query.eq("id", selectedId).limit(1)
+    : await query.ilike("display_name", name.replace(/[\\%_]/g, "\\$&")).limit(2);
   if (fErr) throw fErr;
+  if (selectedId && !found?.length) throw new Error("schutter_niet_gevonden");
+  if (!selectedId && found?.length > 1) throw new Error("schutter_naam_niet_uniek");
   let shooter = found?.[0];
   if (!shooter) {
     const { data, error } = await db.from("shooters").insert({ display_name: name }).select().single();
@@ -171,6 +191,11 @@ Deno.serve(async (req) => {
       return json({ ok: true, context: ctx, ranking, updatedAt: new Date().toISOString() });
     }
 
+    if (action === "list_shooters") {
+      if (!await checkPassword(clubId, String(body.password || ""), "TRAINER")) return json({ ok: false, error: "ongeldig_wachtwoord" }, 401);
+      return json({ ok: true, shooters: await loadClubShooters(db, ctx.club.id) });
+    }
+
     if (action === "confirm_result") {
       const password = body.password;
       const authOk = await checkPassword(clubId, String(password || ""), "TRAINER");
@@ -180,7 +205,6 @@ Deno.serve(async (req) => {
       if (!shooterName) return json({ ok: false, error: "schutter_naam_verplicht" }, 400);
       const entryMode = body.entryMode === "total" ? "total" : "counted";
       const idempotencyKey = cleanText(body.idempotencyKey) || crypto.randomUUID();
-      const shooter = await findOrCreateShooter(db, shooterName, ctx.club.id);
 
       let row: Record<string, unknown>;
       if (entryMode === "total") {
@@ -195,6 +219,7 @@ Deno.serve(async (req) => {
           gross_score: valid.grossScore, penalty_points: valid.counted.penaltyPoints, final_score: valid.finalScore, status: "confirmed", confirmed_at: new Date().toISOString(), confirmed_by: null };
       }
 
+      const shooter = await findOrCreateShooter(db, shooterName, ctx.club.id, cleanText(body.shooterId) || undefined);
       const base = { round_id: ctx.round.id, shooter_id: shooter.id, division_id: ctx.division.id, represented_club_id: ctx.club.id };
       const { data: beforeRows, error: beforeErr } = await db.from("results").select("*").match(base).limit(1);
       if (beforeErr) throw beforeErr;
