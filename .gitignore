@@ -16,3 +16,4 @@
 !assets/stages/
 !assets/stages/*.png
 supabase/.temp/
+backups/

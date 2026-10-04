@@ -64,7 +64,7 @@ var EPP_AUTH_ROLE_KEY="epp-app-role-v1";
 var EPP_AUTH_CLUB_KEY="epp-app-club-v1";
 var EPP_CLUBS=[
   {id:"svbb", label:"SVBB", trainerHash:"acc4000223bcdfa348e0f3524fdf5028d2944f713f122b9f57f7a86f036dacb5", schutterHash:"daeb81b8d50edaaa11bfbf22fa040e093ab5cdf82b592f764daa82d93bc155e9", space:"epp-app"},
-  {id:"mercurius75", label:"SV Mercurius '75", trainerHash:"d038dbe895f492672181a4b7f3aac4e2d4765bef3bbefb8092da9a67fd433261", managedAuth:false, schutterHash:null, space:"epp-app-mercurius75"},
+  {id:"mercurius75", label:"SV Mercurius '75", managedAuth:true, schutterHash:null, space:"epp-app-mercurius75"},
   {id:"eppnationaal", label:"EPP Nationaal", trainerHash:"acc4000223bcdfa348e0f3524fdf5028d2944f713f122b9f57f7a86f036dacb5", schutterHash:"daeb81b8d50edaaa11bfbf22fa040e093ab5cdf82b592f764daa82d93bc155e9", space:"epp-app-nationaal"},
   {id:"gast", label:"Gast", trainerHash:"acc4000223bcdfa348e0f3524fdf5028d2944f713f122b9f57f7a86f036dacb5", schutterHash:null, space:"epp-app-gast"}
 ];
@@ -470,8 +470,8 @@ const KEY = CLUB_ID==="svbb" ? "epp-data-v1" : ("epp-data-v1-"+CLUB_ID);
 const SYNC_KEY = "epp-sync-v1";
 const CENTRAL_SYNC = {
   enabled:true,
-  url:"https://rxfvbmotatdyinbmliwq.supabase.co",
-  anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4ZnZibW90YXRkeWluYm1saXdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDc0ODAsImV4cCI6MjEwNTQ4MzQ4MH0.tNUNEH2o6QScp-fXzFdmLCqT5Bu3eioi_KjqyZCszHM",
+  url:"https://nnsozxjkltcnexqpnwia.supabase.co",
+  anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc296eGprbHRjbmV4cXBud2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDI3MTMsImV4cCI6MjEwNTQ3ODcxM30.xfgh12ksiCiSZGxXsrIF5HIiw6w418cECT476mBrUp0",
   space:CLUB.space
 };
 const DEFAULT_SYNC = CENTRAL_SYNC.enabled ? CENTRAL_SYNC : {enabled:false,url:"",anonKey:"",space:CLUB.space};
