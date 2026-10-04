@@ -1,5 +1,6 @@
 // Gedeelde helpers voor epp-admin en epp-signup edge functions.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { verifyTrainerPassword } from "./trainer-auth.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,7 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const KNOWN_CLUBS = (Deno.env.get("EPP_KNOWN_CLUBS") || "").split(",").map((s) => s.trim()).filter(Boolean);
+const KNOWN_CLUBS = [...new Set(["mercurius75", ...(Deno.env.get("EPP_KNOWN_CLUBS") || "").split(",").map((s) => s.trim()).filter(Boolean)])];
 
 export function isKnownClub(clubId: string): boolean {
   return KNOWN_CLUBS.includes(clubId);
@@ -36,6 +37,10 @@ export function isKnownClub(clubId: string): boolean {
 // role: "TRAINER" | "MEMBER"
 export async function checkPassword(clubId: string, password: string, role: "TRAINER" | "MEMBER"): Promise<boolean> {
   if (!isKnownClub(clubId)) return false;
+  if (role === "TRAINER") {
+    const central = await verifyTrainerPassword(serviceClient(), clubId, password);
+    if (central.configured) return central.valid;
+  }
   const secretName = `EPP_${role}_HASH_${clubId.toUpperCase()}`;
   const expected = Deno.env.get(secretName);
   if (!expected) return false;
