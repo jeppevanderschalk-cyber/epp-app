@@ -1416,10 +1416,8 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
   const [ranking,setRanking] = React.useState([]);
   const [status,setStatus] = React.useState("laden...");
   const [busy,setBusy] = React.useState(false);
-  const [entryMode,setEntryMode] = React.useState("counted");
   const [shooterName,setShooterName] = React.useState("");
   const [counts,setCounts] = React.useState(emptyCounts);
-  const [finalScore,setFinalScore] = React.useState("");
   const load = React.useCallback(async ()=>{
     try{
       const r = await eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,action:"context"});
@@ -1433,16 +1431,14 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
   const gross = n("hits5")*5+n("hits4")*4+n("hits3")*3+n("hits2")*2;
   const penalty = n("penaltyPoints");
   const countedFinal = gross-penalty;
-  const canConfirm = isTrainer && password && shooterName.trim() && (entryMode==="total" ? /^\d+$/.test(String(finalScore)) && Number(finalScore)>=0 && Number(finalScore)<=250 : shots===50 && countedFinal>=0 && countedFinal<=250);
-  const resetForm = () => {setShooterName("");setCounts(emptyCounts);setFinalScore("");};
+  const canConfirm = isTrainer && password && shooterName.trim() && shots===50 && countedFinal>=0 && countedFinal<=250;
+  const resetForm = () => {setShooterName("");setCounts(emptyCounts);};
   const confirm = async () => {
     if(!password)return flash("Vul eerst het trainerwachtwoord in");
     if(!canConfirm)return flash("Controleer de invoer");
     setBusy(true);setStatus("officiële score opslaan...");
     try{
-      const payload = entryMode==="total"
-        ? {clubId:CLUB_ID,clubLabel:CLUB.label,password,action:"confirm_result",entryMode:"total",shooterName,finalScore:Number(finalScore),idempotencyKey:newId()}
-        : {clubId:CLUB_ID,clubLabel:CLUB.label,password,action:"confirm_result",entryMode:"counted",shooterName,idempotencyKey:newId(),...Object.fromEntries(Object.keys(emptyCounts).map(k=>[k,n(k)]))};
+      const payload = {clubId:CLUB_ID,clubLabel:CLUB.label,password,action:"confirm_result",entryMode:"counted",shooterName,idempotencyKey:newId(),...Object.fromEntries(Object.keys(emptyCounts).map(k=>[k,n(k)]))};
       const r = await eppCall("epp-platform",payload);
       setRanking(r.ranking||[]);
       resetForm();
@@ -1457,11 +1453,8 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
         h("input",{className:"txt-in",type:"password",placeholder:"Trainerwachtwoord voor officiële opslag",value:password,onChange:e=>setPassword(e.target.value)}),
         h("input",{className:"txt-in",placeholder:"Schutter zoeken of naam invoeren",value:shooterName,onChange:e=>setShooterName(e.target.value)}),
-        h("div",{className:"sub-tab-row"},
-          h("button",{type:"button",className:"sub-tab","data-on":entryMode==="counted"?"1":"0",onClick:()=>setEntryMode("counted")},"Kaart tellen"),
-          h("button",{type:"button",className:"sub-tab","data-on":entryMode==="total"?"1":"0",onClick:()=>setEntryMode("total")},"Totaalscore")
-        ),
-        entryMode==="counted" ? h("div",null,
+        h("h3",{style:{margin:"8px 0",fontSize:16}},"Kaart tellen"),
+        h("div",null,
           scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,label)),
             h("button",{className:"cal-btn",style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(Math.max(0,n(key)-1))}))},"−"),
@@ -1478,9 +1471,6 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},countedFinal),h("div",{className:"stat-lbl"},"eindscore"))
           ),
           shots!==50 && h("p",{className:"hint",style:{color:C.red}},"Kaarttelling vereist exact 50 schoten. Nu: ",shots,".")
-        ) : h("div",null,
-          h("input",{className:"txt-in",type:"number",inputMode:"numeric",min:0,max:250,placeholder:"Eindscore / 250",value:finalScore,onChange:e=>setFinalScore(e.target.value)}),
-          h("p",{className:"hint"},"Gebruik dit alleen als de kaart al geteld is. De app slaat dan geen fictieve onderbouwing op.")
         ),
         h("button",{className:"btn btn-gold btn-full",disabled:busy||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan"),
         h("p",{className:"hint",role:"status"},status)
