@@ -1452,14 +1452,6 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
     finally{setBusy(false);}
   };
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Landelijk scoreplatform")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
-        h("p",{className:"hint"},"Officiële EPP pistoolscore: één eindscore per schutter per ronde, maximaal 250. Stages tellen hier niet mee."),
-        h("p",{className:"beta-note"},"Deze module gebruikt centrale servervalidatie en auditlog. Training blijft apart van officiële landelijke uitslagen."),
-        h("p",{className:"hint"},"Status: ",status)
-      )
-    ),
     isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Score bevestigen")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
@@ -1490,12 +1482,13 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
           h("input",{className:"txt-in",type:"number",inputMode:"numeric",min:0,max:250,placeholder:"Eindscore / 250",value:finalScore,onChange:e=>setFinalScore(e.target.value)}),
           h("p",{className:"hint"},"Gebruik dit alleen als de kaart al geteld is. De app slaat dan geen fictieve onderbouwing op.")
         ),
-        h("button",{className:"btn btn-gold btn-full",disabled:busy||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan")
+        h("button",{className:"btn btn-gold btn-full",disabled:busy||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan"),
+        h("p",{className:"hint",role:"status"},status)
       )
     ),
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Landelijke seizoensranking · beste wedstrijdscore")),
-      h("div",{className:"card-body"},h(RankingTable,{items:ranking}))
+      h("div",{className:"card-body"},!isTrainer && h("p",{className:"hint",role:"status"},status),h(RankingTable,{items:ranking}))
     ),
     h(PublishedStandings)
   );
