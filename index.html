@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- EPP authenticated score platform, release 2026-10-05. -->
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
@@ -45,6 +46,7 @@
         <option value="gast">Gast</option>
       </select>
     </label>
+    <label><span>Gebruikersnaam</span><input id="loginUsername" autocomplete="username" value="beheer" required /></label>
     <label>
       <span>Wachtwoord</span>
       <input type="password" id="loginPassword" autocomplete="current-password" required />
@@ -54,8 +56,14 @@
   </form>
 </div>
 <div id="root" hidden></div>
+<script src="training-store.js"></script>
 <script>
-window.__eppError=function(msg){var r=document.getElementById("root");if(r)r.innerHTML='<div style="font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:24px;color:#1F2A36"><h2 style="color:#063971">App kon niet laden</h2><pre style="white-space:pre-wrap;color:#E30613;font-size:13px">'+String(msg)+'</pre></div>';};
+window.__eppError=function(msg){
+  console.error("EPP runtime error",msg);
+  var alert=document.getElementById("eppRuntimeAlert");
+  if(!alert){alert=document.createElement("div");alert.id="eppRuntimeAlert";alert.setAttribute("role","alert");alert.style.cssText="padding:16px;background:#fff;color:#a31818;font-family:system-ui,sans-serif";document.body.prepend(alert);}
+  alert.textContent="Er ging iets mis. Houd deze pagina open en controleer of je invoer online is opgeslagen voordat je opnieuw laadt.";
+};
 window.addEventListener("error",function(e){window.__eppError((e.error&&e.error.stack)||e.message||"Onbekende fout");});
 </script>
 <script>
@@ -63,10 +71,10 @@ var EPP_AUTH_STORAGE_KEY="epp-app-auth-v1";
 var EPP_AUTH_ROLE_KEY="epp-app-role-v1";
 var EPP_AUTH_CLUB_KEY="epp-app-club-v1";
 var EPP_CLUBS=[
-  {id:"svbb", label:"SVBB", trainerHash:"acc4000223bcdfa348e0f3524fdf5028d2944f713f122b9f57f7a86f036dacb5", schutterHash:"daeb81b8d50edaaa11bfbf22fa040e093ab5cdf82b592f764daa82d93bc155e9", space:"epp-app"},
-  {id:"mercurius75", label:"SV Mercurius '75", managedAuth:true, schutterHash:null, space:"epp-app-mercurius75"},
-  {id:"eppnationaal", label:"EPP Nationaal", trainerHash:"acc4000223bcdfa348e0f3524fdf5028d2944f713f122b9f57f7a86f036dacb5", schutterHash:"daeb81b8d50edaaa11bfbf22fa040e093ab5cdf82b592f764daa82d93bc155e9", space:"epp-app-nationaal"},
-  {id:"gast", label:"Gast", trainerHash:"acc4000223bcdfa348e0f3524fdf5028d2944f713f122b9f57f7a86f036dacb5", schutterHash:null, space:"epp-app-gast"}
+  {id:"svbb", label:"SVBB", managedAuth:true, space:"epp-app"},
+  {id:"mercurius75", label:"SV Mercurius '75", managedAuth:true, space:"epp-app-mercurius75"},
+  {id:"eppnationaal", label:"EPP Nationaal", managedAuth:true, space:"epp-app-nationaal"},
+  {id:"gast", label:"Gast", managedAuth:true, space:"epp-app-gast"}
 ];
 function eppSha256Hex(text){
   var bytes=new TextEncoder().encode(text);
@@ -77,6 +85,12 @@ function eppSha256Hex(text){
 function eppShowApp(){
   document.getElementById("loginGate").setAttribute("hidden","");
   document.getElementById("root").removeAttribute("hidden");
+}
+var EPP_SESSION_KEY='epp-session-v2';
+function eppSession(){try{return JSON.parse(localStorage.getItem(EPP_SESSION_KEY)||'null');}catch{return null;}}
+function eppRawCall(fn,payload){
+  var key='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc296eGprbHRjbmV4cXBud2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDI3MTMsImV4cCI6MjEwNTQ3ODcxM30.xfgh12ksiCiSZGxXsrIF5HIiw6w418cECT476mBrUp0';
+  return fetch('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/'+fn,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)}).then(async function(r){var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'server_fout');return d;});
 }
 function eppShowLoginGate(){
   document.getElementById("root").setAttribute("hidden","");
@@ -94,12 +108,13 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
   var clubId=document.getElementById("loginClub").value;
   var club=EPP_CLUBS.find(function(c){return c.id===clubId;});
   var entered=document.getElementById("loginPassword").value;
-  if(club && club.managedAuth){
+  if(club){
     var submitButton=document.querySelector(".login-submit");
     submitButton.disabled=true;
-    eppCall("epp-auth",{clubId:club.id,action:"login",password:entered}).then(function(){
+    eppRawCall("epp-auth",{clubId:club.id,action:"login",username:document.getElementById('loginUsername').value,password:entered}).then(function(result){
+      localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
       localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
-      localStorage.setItem(EPP_AUTH_ROLE_KEY,"trainer");
+      localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
       localStorage.setItem(EPP_AUTH_CLUB_KEY,club.id);
       location.reload();
     }).catch(function(error){
@@ -107,26 +122,19 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
     }).finally(function(){submitButton.disabled=false;});
     return;
   }
-  eppSha256Hex(entered).then(function(hash){
-    if(club && hash===club.trainerHash){
-      localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
-      localStorage.setItem(EPP_AUTH_ROLE_KEY,"trainer");
-      localStorage.setItem(EPP_AUTH_CLUB_KEY,club.id);
-      location.reload();
-    }else if(club && club.schutterHash && hash===club.schutterHash){
-      localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
-      localStorage.setItem(EPP_AUTH_ROLE_KEY,"schutter");
-      localStorage.setItem(EPP_AUTH_CLUB_KEY,club.id);
-      location.reload();
-    }else{
-      document.getElementById("loginError").textContent="Onjuist wachtwoord. Probeer het opnieuw.";
-    }
-  });
+  document.getElementById("loginError").textContent="Kies je vereniging.";
 });
 var eppStoredRole=localStorage.getItem(EPP_AUTH_ROLE_KEY);
 var eppStoredClub=localStorage.getItem(EPP_AUTH_CLUB_KEY);
 var eppClubValid=EPP_CLUBS.some(function(c){return c.id===eppStoredClub;});
-if(localStorage.getItem(EPP_AUTH_STORAGE_KEY)==="1" && (eppStoredRole==="trainer"||eppStoredRole==="schutter") && eppClubValid){eppShowApp();}else{eppShowLoginGate();}
+var savedSession=eppSession();
+var eppAuthReady=Promise.resolve(false);
+if(savedSession && eppClubValid){
+  eppAuthReady=eppRawCall('epp-auth',{action:'session',clubId:eppStoredClub,sessionToken:savedSession.sessionToken}).then(function(result){
+    localStorage.setItem(EPP_SESSION_KEY,JSON.stringify({...savedSession,account:result.account}));
+    localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);return true;
+  }).catch(function(){localStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();return false;});
+}else{eppShowLoginGate();}
 </script>
 <script>/* react */
 /**
@@ -514,15 +522,16 @@ const eppFmtDate = iso => {
   return `${d} ${MONTHS[m-1]} ${y}`;
 };
 const eppCall = async (fnName, payload) => {
+  payload={...payload,sessionToken:eppSession()?.sessionToken};
   const url = cleanUrl(CENTRAL_SYNC.url) + "/functions/v1/" + fnName;
   const res = await fetch(url,{method:"POST",headers:{
     apikey:CENTRAL_SYNC.anonKey,
     Authorization:`Bearer ${CENTRAL_SYNC.anonKey}`,
     "Content-Type":"application/json"
-  },body:JSON.stringify(payload)});
+  },body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)});
   let data=null;
   try{data=await res.json();}catch(e){}
-  if(!res.ok || !data?.ok) throw new Error(data?.error || `fout (${res.status})`);
+  if(!res.ok || !data?.ok){const error=new Error(data?.error || `fout (${res.status})`);error.status=res.status;if(error.message==='sessie_verlopen'){localStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();}throw error;}
   return data;
 };
 const eppPlatformError = code => ({
@@ -923,12 +932,13 @@ const StageCarousel = ({stageKey, onSelect}) => {
 
 const RoundInput = ({maxV, onAdd, autoFocus=false}) => {
   const [value,setValue] = React.useState("");
+  const [error,setError] = React.useState("");
   const inputRef = React.useRef(null);
   React.useEffect(()=>{if(autoFocus) setTimeout(()=>inputRef.current?.focus(),60);},[autoFocus]);
   const save = () => {
-    const n=Math.round(Number(value));
-    if(Number.isNaN(n))return;
-    onAdd(Math.max(0,Math.min(maxV,n)));
+    const n=Number(value);
+    if(!value.trim()||!Number.isInteger(n)||n<0||n>maxV){setError("Geheel getal van 0 tot "+maxV+" vereist.");return;}
+    setError("");onAdd(n);
     setValue("");
   };
   return h("div",{className:"num-wrap"},
@@ -941,7 +951,8 @@ const RoundInput = ({maxV, onAdd, autoFocus=false}) => {
         save();
       }
     }),
-    h("button",{className:"score-save",type:"button",onClick:save},"Ronde opslaan")
+    h("button",{className:"score-save",type:"button",onClick:save},"Ronde opslaan"),
+    error&&h("small",{role:"alert",style:{color:C.red}},error)
   );
 };
 
@@ -1042,7 +1053,7 @@ const TabInvoer = ({
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
                   h("div",{className:"score-prev"},"Gemiddelde: ",average==null?"–":average.toFixed(1)),
-                  h("div",{className:`entry-status ${done?"done":""}`},done?"Opgeslagen":"Nog invullen"),
+                  h("div",{className:`entry-status ${done?"done":""}`},done?"Ingevoerd":"Nog invullen"),
                   h(ShooterRounds,{rounds})
                 ),
                 h(RoundInput,{maxV:maxOf(stage),autoFocus:activeSid===s.id,onAdd:score=>saveFor(s.id,{sid:s.id,type:"stage",stage,score})})
@@ -1060,14 +1071,14 @@ const TabInvoer = ({
           ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Voeg eerst schutters toe.")
           : shooters.map((s,i)=>{
               const rounds = roundGroups(s.id);
-              const best = rounds.reduce((m,r)=>Math.max(m,r.score),0) || null;
+              const best = rounds.length?Math.max(...rounds.map(r=>r.score)):null;
               const done = rounds.length>0;
               return h("div",{key:s.id,className:"score-row","data-active":activeSid===s.id?"1":"0",onClick:()=>setActiveSid(s.id)},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
                   h("div",{className:"score-prev"},"Beste deze training: ",best==null?"–":best),
-                  h("div",{className:`entry-status ${done?"done":""}`},done?"Opgeslagen":"Nog invullen"),
+                  h("div",{className:`entry-status ${done?"done":""}`},done?"Ingevoerd":"Nog invullen"),
                   h(ShooterRounds,{rounds})
                 ),
                 h(RoundInput,{maxV:250,autoFocus:activeSid===s.id,onAdd:score=>saveFor(s.id,{sid:s.id,type:"parcours",score})})
@@ -1094,7 +1105,7 @@ const TargetOverlay = ({frame}) => h("svg",{className:"cam-overlay",style:frameS
   )
 );
 
-const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markShotsDeleted, addRound, removeRoundByReplaceKey}) => {
+const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markShotsDeleted, addRound, removeRoundByReplaceKey,trainingId}) => {
   const [sid,setSid] = React.useState(shooters[0]?.id || "");
   const [stage,setStage] = React.useState("s1");
   const [camOn,setCamOn] = React.useState(false);
@@ -1108,7 +1119,7 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markSho
   React.useEffect(()=>{try{localStorage.setItem("epp-camera-frame",JSON.stringify(frame));}catch(e){}},[frame]);
 
   const stageObj = STAGES.find(s=>s.key===stage);
-  const isCurrentShot = x => x.sid===sid && x.stage===stage && (x.period===SCORE_PERIOD || (!x.period && !x.maand));
+  const isCurrentShot = x => x.sid===sid && x.stage===stage && x.trainingId===trainingId;
   const activeShots = cameraShots.filter(isCurrentShot);
   const total = activeShots.reduce((a,s)=>a+s.score,0);
   const maxShots = Math.max(1,Math.round(maxOf(stage)/5));
@@ -1288,7 +1299,7 @@ const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markSho
 };
 
 // ── TabTraining ───────────────────────────────────────────────────
-const TabTraining = ({shooters, currentTraining, finishTraining, setTab}) => {
+const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTrainer,archives=[]}) => {
   if(!shooters.length) return h(Empty,{msg:"Voeg schutters en scores toe via Invoer."});
   const mode = currentTraining.mode;
   const stageObj = STAGES.find(s=>s.key===currentTraining.stage);
@@ -1317,23 +1328,26 @@ const TabTraining = ({shooters, currentTraining, finishTraining, setTab}) => {
         missing.length>0 && h("p",{className:"beta-note"},"Nog zonder opgeslagen ronde: ",missing.map(s=>s.naam).join(", ")),
         shooters.map((s,i)=>{
           const rounds = roundsFor(s.id);
-          const value = mode==="parcours" ? (rounds.reduce((m,r)=>Math.max(m,r.score),0) || null) : avg(rounds.map(r=>r.score));
+          const value = mode==="parcours" ? (rounds.length?Math.max(...rounds.map(r=>r.score)):null) : avg(rounds.map(r=>r.score));
           return h("div",{key:s.id,className:"shooter-score-card"},
             h("div",{className:"ssc-top"},
               h("div",{className:"score-avatar",style:{width:36,height:36,fontSize:14,boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
               h("span",{style:{flex:1,fontWeight:600,fontSize:14,color:C.ink}},s.naam),
-              h("div",{className:`entry-status ${rounds.length?"done":""}`},rounds.length?"Opgeslagen":"Nog invullen"),
+              h("div",{className:`entry-status ${rounds.length?"done":""}`},rounds.length?"Ingevoerd":"Nog invullen"),
               value!=null&&h("div",{className:"ssc-total"},mode==="parcours"?value:value.toFixed(1))
             ),
             h(ShooterRounds,{rounds})
           );
         }),
-        h("div",{className:"training-action"},
-          h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("invoer")},"Terug naar invoer"),
+        isTrainer && h("div",{className:"training-action"},
+          h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab(mode==="stage"?"stages":"parcours")},"Terug naar invoer"),
           h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Training afsluiten en nieuwe starten")
         )
       )
-    )
+    ),
+    archives.length>0&&h("section",null,h("h3",null,"Trainingsarchief"),archives.map(t=>h("details",{key:t.id,style:{padding:"12px 0",borderBottom:"1px solid "+C.border}},
+      h("summary",null,new Date(t.closedAt).toLocaleDateString("nl-NL")+" - "+(t.rounds||[]).length+" rondes"+(t.excludedFromStand?" - niet meegenomen":"")),
+      (t.rounds||[]).map(r=>h("p",{key:r.id},(shooters.find(s=>s.id===r.sid)?.naam||r.sid)+" - "+(r.type==="parcours"?"Parcours":r.stage)+": "+r.score)))))
   );
 };
 
@@ -1427,7 +1441,7 @@ const shooterCandidates = (directory, published) => {
   return result.sort((a,b)=>a.name.localeCompare(b.name,"nl"));
 };
 
-const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
+const TabLandelijk = ({isTrainer, flash}) => {
   const emptyCounts = {hits5:"",hits4:"",hits3:"",hits2:"",misses:"",penaltyPoints:"0"};
   const [ranking,setRanking] = React.useState([]);
   const [status,setStatus] = React.useState("laden...");
@@ -1436,31 +1450,52 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
   const [directory,setDirectory] = React.useState([]);
   const [directoryBusy,setDirectoryBusy] = React.useState(false);
   const [directoryStatus,setDirectoryStatus] = React.useState("");
-  const [directoryPassword,setDirectoryPassword] = React.useState(password);
+  const [events,setEvents] = React.useState([]);
+  const [matchesCalendar,setMatchesCalendar] = React.useState([]);
+  const [matchId,setMatchId] = React.useState("");
+  const [roundId,setRoundId] = React.useState("");
+  const [roundNumber,setRoundNumber] = React.useState(1);
+  const [revision,setRevision] = React.useState(0);
+  const [reason,setReason] = React.useState("");
+  const [resultLoading,setResultLoading] = React.useState(false);
+  const requestKey=React.useRef(newId());
+  const newShooterId=React.useRef(newId());
+  const requestFingerprint=React.useRef("");
   const [selectedShooter,setSelectedShooter] = React.useState(null);
   const [newShooter,setNewShooter] = React.useState(false);
   const [counts,setCounts] = React.useState(emptyCounts);
-  React.useEffect(()=>{setDirectory([]);setSelectedShooter(null);setNewShooter(false);setDirectoryStatus("");},[password]);
   React.useEffect(()=>{
     let active=true;
     setDirectoryBusy(false);
-    if(!isTrainer || !directoryPassword || directoryPassword!==password)return;
+    if(!isTrainer)return;
     setDirectoryBusy(true);setDirectoryStatus("Schutters laden...");
-    eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,password:directoryPassword,action:"list_shooters"})
+    eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,action:"list_shooters"})
       .then(r=>{if(active){setDirectory(r.shooters||[]);setDirectoryStatus("");}})
       .catch(e=>{if(active)setDirectoryStatus(eppPlatformError(e.message));})
       .finally(()=>{if(active)setDirectoryBusy(false);});
     return()=>{active=false;};
-  },[directoryPassword,password,isTrainer]);
+  },[isTrainer]);
   const load = React.useCallback(async ()=>{
     try{
       const r = await eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,action:"context"});
       setRanking(r.ranking||[]);
+      setEvents(r.events||[]);setMatchesCalendar(r.matches||[]);
       setStatus("landelijke stand bijgewerkt");
     }catch(e){setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}
   },[]);
   React.useEffect(()=>{load();},[load]);
-  const n = k => Math.max(0,Math.round(Number(counts[k])||0));
+  React.useEffect(()=>{
+    let active=true;requestKey.current=newId();setReason("");setRevision(0);
+    if(!roundId||!selectedShooter?.id){setCounts(emptyCounts);return;}
+    setResultLoading(true);
+    eppCall("epp-platform",{clubId:CLUB_ID,action:"get_result",roundId,shooterId:selectedShooter.id})
+      .then(r=>{if(!active)return;setRevision(r.result?.revision||0);setCounts(r.result?{hits5:String(r.result.hits5),hits4:String(r.result.hits4),hits3:String(r.result.hits3),hits2:String(r.result.hits2),misses:String(r.result.misses),penaltyPoints:String(r.result.penalty_points)}:emptyCounts);})
+      .catch(e=>{if(active)setStatus("Score ophalen mislukt: "+e.message);})
+      .finally(()=>{if(active)setResultLoading(false);});
+    return()=>{active=false;};
+  },[roundId,selectedShooter?.id]);
+  const n = k => counts[k]===""?0:Number(counts[k]);
+  const validCounts=Object.keys(emptyCounts).every(k=>Number.isSafeInteger(n(k))&&n(k)>=0);
   const shots = n("hits5")+n("hits4")+n("hits3")+n("hits2")+n("misses");
   const gross = n("hits5")*5+n("hits4")*4+n("hits3")*3+n("hits2")*2;
   const penalty = n("penaltyPoints");
@@ -1469,14 +1504,25 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
   const search = shooterName.trim().toLocaleLowerCase("nl-NL");
   const matches = search ? candidates.filter(s=>(s.name+" "+s.club+" "+(s.publicId||"")).toLocaleLowerCase("nl-NL").includes(search)).slice(0,20) : [];
   const exactMatch = candidates.some(s=>s.name.toLocaleLowerCase("nl-NL")===search);
-  const canConfirm = isTrainer && password && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250;
-  const resetForm = () => {setShooterName("");setSelectedShooter(null);setNewShooter(false);setCounts(emptyCounts);};
+  const canConfirm = isTrainer && roundId && !resultLoading && validCounts && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250 && (!revision||reason.trim().length>=3);
+  const resetForm = () => {setShooterName("");setSelectedShooter(null);setNewShooter(false);setCounts(emptyCounts);setRevision(0);setReason("");requestKey.current=newId();newShooterId.current=newId();};
+  const createRound=async()=>{
+    if(!matchId||busy)return;
+    setBusy(true);
+    try{const r=await eppCall("epp-platform",{clubId:CLUB_ID,action:"create_round",matchId,label:"Ronde "+roundNumber});await load();setRoundId(r.round.id);}
+    catch(e){setStatus("Ronde aanmaken mislukt: "+e.message);}
+    finally{setBusy(false);}
+  };
   const confirm = async () => {
-    if(!password)return flash("Vul eerst het trainerwachtwoord in");
     if(!canConfirm)return flash("Controleer de invoer");
     setBusy(true);setStatus("officiële score opslaan...");
     try{
-      const payload = {clubId:CLUB_ID,clubLabel:CLUB.label,password,action:"confirm_result",entryMode:"counted",shooterName,shooterId:selectedShooter?.id||undefined,idempotencyKey:newId(),...Object.fromEntries(Object.keys(emptyCounts).map(k=>[k,n(k)]))};
+      let shooterId=selectedShooter?.id;
+      if(!shooterId){const created=await eppCall("epp-platform",{clubId:CLUB_ID,action:"register_shooter",shooterId:newShooterId.current,shooterName});shooterId=created.shooter.id;}
+      const payload = {clubId:CLUB_ID,clubLabel:CLUB.label,action:"confirm_result",roundId,expectedRevision:revision,reason,entryMode:"counted",shooterName,shooterId,idempotencyKey:requestKey.current,...Object.fromEntries(Object.keys(emptyCounts).map(k=>[k,n(k)]))};
+      const fingerprint=JSON.stringify({...payload,idempotencyKey:undefined});
+      if(fingerprint!==requestFingerprint.current){requestKey.current=newId();requestFingerprint.current=fingerprint;}
+      payload.idempotencyKey=requestKey.current;
       const r = await eppCall("epp-platform",payload);
       setRanking(r.ranking||[]);
       if(r.shooter)setDirectory(p=>[...p.filter(s=>s.id!==r.shooter.id),r.shooter]);
@@ -1490,7 +1536,13 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
     isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Score bevestigen")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
-        h("input",{className:"txt-in",type:"password",placeholder:"Trainerwachtwoord voor officiële opslag",value:password,onChange:e=>setPassword(e.target.value),onBlur:()=>setDirectoryPassword(password),onKeyDown:e=>{if(e.key==="Enter"){e.preventDefault();setDirectoryPassword(password);}}}),
+        h("label",null,"Wedstrijd",h("select",{className:"txt-in",value:matchId,disabled:busy,onChange:e=>{setMatchId(e.target.value);setRoundId("");}},
+          h("option",{value:""},"Kies wedstrijd"),matchesCalendar.map(m=>h("option",{key:m.id,value:m.id},m.match_date+" - "+m.organizer)))),
+        h("label",null,"Ronde",h("select",{className:"txt-in",value:roundId,disabled:busy||!matchId,onChange:e=>setRoundId(e.target.value)},
+          h("option",{value:""},"Kies ronde"),events.filter(e=>e.registration_match_id===matchId).flatMap(e=>(e.rounds||[]).map(r=>h("option",{key:r.id,value:r.id},r.label))))),
+        h("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+          h("label",null,"Rondenummer",h("input",{className:"set-in",type:"number",min:1,max:99,value:roundNumber,disabled:busy,onChange:e=>setRoundNumber(Number(e.target.value))})),
+          h("button",{className:"btn btn-ghost",disabled:busy||!matchId||!Number.isInteger(roundNumber)||roundNumber<1||roundNumber>99,onClick:createRound},"Ronde aanmaken")),
         directoryStatus && h("p",{className:"hint",role:"status"},directoryStatus),
         h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);}}),
         !selectedShooter && !newShooter && search && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
@@ -1501,17 +1553,18 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
           !exactMatch && !directoryBusy && h("button",{type:"button",className:"btn btn-ghost",style:{whiteSpace:"normal",overflowWrap:"anywhere"},onClick:()=>setNewShooter(true)},"+ Nieuwe schutter: ",shooterName.trim())
         ),
         (selectedShooter || newShooter) && h("p",{className:"hint"},newShooter?"Nieuwe schutter: "+shooterName:selectedShooter.id?"Geselecteerd: "+selectedShooter.name+" · "+selectedShooter.publicId:"Geselecteerd uit klassement 2026: "+selectedShooter.name),
-        h("h3",{style:{margin:"8px 0",fontSize:16}},"Kaart tellen"),
+        revision>0&&h("label",null,"Reden van correctie",h("input",{className:"txt-in",value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
+        h("h3",{style:{margin:"8px 0",fontSize:16}},resultLoading?"Score ophalen...":"Kaart tellen"),
         h("div",null,
           scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,label)),
-            h("button",{className:"cal-btn",style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(Math.max(0,n(key)-1))}))},"−"),
-            h("input",{className:"set-in",type:"number",inputMode:"numeric",min:0,value:counts[key],onChange:e=>setCounts(p=>({...p,[key]:e.target.value}))}),
-            h("button",{className:"cal-btn",style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(n(key)+1)}))},"+")
+            h("button",{className:"cal-btn",disabled:busy||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(Math.max(0,n(key)-1))}))},"−"),
+            h("input",{className:"set-in",disabled:busy||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts[key],onChange:e=>setCounts(p=>({...p,[key]:e.target.value}))}),
+            h("button",{className:"cal-btn",disabled:busy||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(n(key)+1)}))},"+")
           )),
           h("div",{className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,"Strafpunten"),h("div",{className:"set-sub"},"Totale aftrek, standaard 0")),
-            h("input",{className:"set-in",type:"number",inputMode:"numeric",min:0,value:counts.penaltyPoints,onChange:e=>setCounts(p=>({...p,penaltyPoints:e.target.value}))})
+            h("input",{className:"set-in",disabled:busy||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts.penaltyPoints,onChange:e=>setCounts(p=>({...p,penaltyPoints:e.target.value}))})
           ),
           h("div",{className:"stat-grid"},
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},shots),h("div",{className:"stat-lbl"},"schoten")),
@@ -1587,8 +1640,9 @@ const EppDisciplineRow = ({d, checked, value, onToggle, onChange, disabled}) =>
     )
   );
 
-const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
-  const [shooterName,setShooterName] = React.useState(()=>localStorage.getItem("epp-shooter-name")||"");
+const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
+  const [shooters,setShooters] = React.useState([]);
+  const [shooterName,setShooterName] = React.useState("");
   const [matches,setMatches] = React.useState(null);
   const [mySignups,setMySignups] = React.useState({});
   const [draft,setDraft] = React.useState({});
@@ -1597,6 +1651,8 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
   const load = React.useCallback(async ()=>{
     try{
       const r = await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"list_matches"});
+      const directory=await eppCall("epp-signup",{clubId:CLUB_ID,action:"list_shooters"});
+      setShooters(directory.shooters||[]);setShooterName(directory.shooters?.[0]?.id||"");
       setMatches(r.matches||[]);
     }catch(e){onAuthFail();}
   },[password]);
@@ -1605,7 +1661,7 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
   const loadMine = React.useCallback(async (name)=>{
     if(!name)return;
     try{
-      const r = await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"my_signups",shooterName:name});
+      const r = await eppCall("epp-signup",{clubId:CLUB_ID,action:"my_signups",shooterId:name});
       const map={};
       (r.signups||[]).forEach(s=>{map[s.match_id]=s.epp_signup_disciplines||[];});
       setMySignups(map);
@@ -1630,7 +1686,6 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
   const onPickName = e => {
     const n = e.target.value;
     setShooterName(n);
-    localStorage.setItem("epp-shooter-name",n);
     setDraft({});
   };
 
@@ -1659,12 +1714,12 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
     setSavingId(m.id);
     try{
       if(!d.active){
-        if(mySignups[m.id]) await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"delete_signup",shooterName,matchId:m.id});
+        if(mySignups[m.id]) await eppCall("epp-signup",{clubId:CLUB_ID,action:"delete_signup",shooterId:shooterName,matchId:m.id});
         flash("Afgemeld");
       }else{
         const disciplines = Object.entries(d.disciplines).map(([discipline,v])=>({discipline,time_block:v.time_block,specific_time:v.specific_time||null}));
         if(!disciplines.length){flash("Kies minimaal één discipline");setSavingId(null);return;}
-        await eppCall("epp-signup",{clubId:CLUB_ID,password,action:"save_signup",shooterName,matchId:m.id,disciplines});
+        await eppCall("epp-signup",{clubId:CLUB_ID,action:"save_signup",shooterId:shooterName,matchId:m.id,disciplines});
         flash("Inschrijving opgeslagen");
       }
       await loadMine(shooterName);
@@ -1680,11 +1735,11 @@ const TabInschrijvenLid = ({shooters, password, onAuthFail, flash}) => {
       h("div",{className:"card-body"},
         h("select",{className:"sel-in",value:shooterName,onChange:onPickName},
           h("option",{value:""},"Kies je naam"),
-          shooters.map(s=>h("option",{key:s.id,value:s.naam},s.naam))
+          shooters.map(s=>h("option",{key:s.id,value:s.id},s.display_name))
         )
       )
     ),
-    !shooterName ? h("div",{className:"empty"},h("p",null,"Kies je naam om je aan te melden voor wedstrijden.")) :
+    !shooterName ? h("div",{className:"empty"},h("p",null,"Laat de beheerder je persoonlijke account koppelen aan jouw schutter-ID om in te schrijven.")) :
     !matches.length ? h("div",{className:"empty"},h("p",null,"Er zijn nog geen wedstrijden gepland.")) :
     matches.map(m=>{
       const d = draft[m.id] || {active:false,disciplines:{}};
@@ -1818,12 +1873,15 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
   const [editing,setEditing] = React.useState(null);
   const [openId,setOpenId] = React.useState(null);
   const [group,setGroup] = React.useState(null);
+  const [directory,setDirectory] = React.useState([]);
 
   const load = React.useCallback(async ()=>{
     try{const r=await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"list_matches"});setMatches(r.matches||[]);}
     catch(e){onAuthFail();}
   },[password]);
   React.useEffect(()=>{load();},[load]);
+
+  React.useEffect(()=>{eppCall('epp-platform',{clubId:CLUB_ID,action:'list_shooters'}).then(r=>setDirectory(r.shooters||[])).catch(e=>flash(e.message));},[]);
 
   const openGroup = async (m) => {
     setOpenId(m.id);setGroup(null);
@@ -1864,6 +1922,11 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
           group.signups.map(s=>h("div",{key:s.id,className:"set-row"},
             h("div",{className:"set-lbl"},
               h("div",null,s.shooter_name),
+              !s.shooter_id && h("select",{className:"sel-in","aria-label":"Schutter-ID voor "+s.shooter_name,value:"",onChange:async e=>{
+                const id=e.target.value;if(!id||!confirm("Deze inschrijving koppelen aan dit schutter-ID?"))return;
+                try{await eppCall('epp-admin',{clubId:CLUB_ID,action:'link_signup',signupId:s.id,shooterId:id});await openGroup(m);flash('Inschrijving gekoppeld');}
+                catch(error){flash('Koppelen mislukt: '+error.message);}
+              }},h("option",{value:""},"Kies het juiste schutter-ID"),directory.filter(d=>d.display_name.trim().toLowerCase()===s.shooter_name.trim().toLowerCase()).map(d=>h("option",{key:d.id,value:d.id},d.display_name+" - "+d.public_id))),
               h("div",{className:"set-sub"},(s.epp_signup_disciplines||[]).map(d=>`${EPP_DISCIPLINES.find(x=>x.id===d.discipline)?.label||d.discipline} (${EPP_TIME_BLOCKS.find(x=>x.id===d.time_block)?.label||d.time_block}${d.specific_time?", "+d.specific_time:""})`).join(" · "))
             )
           ))
@@ -1897,8 +1960,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
 
 const TabInschrijven = ({isTrainer, shooters, eppPassword, setEppPassword, flash, setTab}) => {
   const terug = h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("instel")},"← Terug naar Meer");
-  if(!eppPassword) return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},terug,h(EppPasswordGate,{isTrainer,onUnlock:setEppPassword}));
-  const onAuthFail = () => {setEppPassword("");flash("Sessie verlopen, wachtwoord opnieuw invoeren");};
+  const onAuthFail = () => {flash("Laden mislukt; controleer je verbinding of log opnieuw in.");};
   return h("div",{style:{display:"flex",flexDirection:"column",gap:12}},
     terug,
     isTrainer
@@ -1942,7 +2004,85 @@ const ChangeTrainerPassword = ({logout}) => {
   );
 };
 
-const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout, setTab}) =>
+const BackupManagement = ({canRestore,onRestored}) => {
+  const [backups,setBackups]=React.useState([]);
+  const [id,setId]=React.useState("");
+  const [busy,setBusy]=React.useState(false);
+  const [status,setStatus]=React.useState("");
+  const load=async()=>{
+    try{const r=await eppCall("epp-training",{clubId:CLUB_ID,action:"backup_status"});setBackups(r.backups||[]);setId(r.backup?.id||"");}
+    catch(e){setStatus(e.message);}
+  };
+  React.useEffect(()=>{load();},[]);
+  const create=async()=>{
+    setBusy(true);
+    try{await eppCall("epp-training",{clubId:CLUB_ID,action:"backup_now"});await load();setStatus("Back-up gemaakt.");}
+    catch(e){setStatus(e.message);}
+    finally{setBusy(false);}
+  };
+  const restore=async()=>{
+    if(!canRestore)return setStatus("Sla eerst alle invoer op.");
+    setBusy(true);
+    try{
+      const p=await eppCall("epp-training",{clubId:CLUB_ID,action:"restore_preview",backupId:id});
+      if(!confirm("Training van "+CLUB.label+" terugzetten naar "+new Date(p.createdAt).toLocaleString("nl-NL")+"?\n"+p.shooters+" schutters, "+p.rounds+" losse rondes en "+p.archives+" archieftrainingen.\nWedstrijdresultaten en andere verenigingen blijven ongewijzigd. Er wordt eerst een herstelkopie gemaakt."))return;
+      await eppCall("epp-training",{clubId:CLUB_ID,action:"restore_training",backupId:id,confirm:id,expectedStamp:p.expectedStamp});
+      await onRestored();setStatus("Training hersteld.");
+    }catch(e){setStatus("Niet hersteld: "+e.message);}
+    finally{setBusy(false);}
+  };
+  return h("section",null,h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Back-ups")),
+    h("div",{className:"card-body",style:{display:"grid",gap:10}},
+      h("button",{className:"btn btn-ghost",disabled:busy,onClick:create},"Back-up maken"),
+      h("select",{className:"txt-in","aria-label":"Herstelpunt",disabled:busy,value:id,onChange:e=>setId(e.target.value)},backups.map(b=>h("option",{key:b.id,value:b.id},new Date(b.created_at).toLocaleString("nl-NL")))),
+      h("button",{className:"btn btn-danger",disabled:busy||!id||!canRestore,onClick:restore},"Training herstellen"),
+      h("p",{role:"status",className:"hint"},status)));
+};
+const AccountManagement = () => {
+  const [accounts,setAccounts]=React.useState([]);
+  const [shooters,setShooters]=React.useState([]);
+  const [form,setForm]=React.useState({username:"",displayName:"",newPassword:"",role:"trainer",isAdmin:false,shooterId:""});
+  const [status,setStatus]=React.useState("");
+  const [busy,setBusy]=React.useState(false);
+  const load=async()=>{
+    try{
+      const a=await eppCall("epp-auth",{clubId:CLUB_ID,action:"list_accounts"});
+      const s=await eppCall("epp-platform",{clubId:CLUB_ID,action:"list_shooters"});
+      setAccounts(a.accounts||[]);setShooters(s.shooters||[]);
+    }catch(e){setStatus(e.message);}
+  };
+  React.useEffect(()=>{load();},[]);
+  const create=async e=>{
+    e.preventDefault();setBusy(true);
+    try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"create_account",...form});setForm({...form,username:"",displayName:"",newPassword:"",shooterId:""});setStatus("Account aangemaakt.");await load();}
+    catch(error){setStatus(error.message);}
+    finally{setBusy(false);}
+  };
+  const disable=async a=>{
+    if(!confirm("Toegang blokkeren voor "+a.display_name+"?"))return;
+    setBusy(true);
+    try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"disable_account",accountId:a.id});await load();}
+    catch(e){setStatus(e.message);}
+    finally{setBusy(false);}
+  };
+  const field=(key,label,type="text")=>h("label",null,label,h("input",{className:"txt-in",type,required:true,disabled:busy,value:form[key],minLength:key==="newPassword"?10:undefined,autoComplete:type==="password"?"new-password":"off",onChange:e=>setForm(p=>({...p,[key]:e.target.value}))}));
+  return h("section",null,
+    h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Accounts - "+CLUB.label)),
+    h("div",{className:"card-body",style:{display:"grid",gap:12}},
+      accounts.map(a=>h("div",{key:a.id,style:{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",borderBottom:"1px solid "+C.border,paddingBottom:8}},
+        h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+a.role+(a.active?"":" - geblokkeerd"))),
+        a.active&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-danger",disabled:busy,onClick:()=>disable(a)},"Blokkeren"))),
+      h("form",{onSubmit:create,style:{display:"grid",gap:10}},
+        field("displayName","Naam"),field("username","Gebruikersnaam"),field("newPassword","Tijdelijk wachtwoord","password"),
+        h("label",null,"Rol",h("select",{className:"txt-in",disabled:busy,value:form.role,onChange:e=>setForm(p=>({...p,role:e.target.value}))},
+          h("option",{value:"trainer"},"Trainer"),h("option",{value:"schutter"},"Schutter"))),
+        form.role==="schutter"?h("label",null,"Schutter",h("select",{className:"txt-in",required:true,disabled:busy,value:form.shooterId,onChange:e=>setForm(p=>({...p,shooterId:e.target.value}))},
+          h("option",{value:""},"Kies schutter-ID"),shooters.map(s=>h("option",{key:s.id,value:s.id},s.display_name+" - "+s.public_id)))):
+          h("label",null,h("input",{type:"checkbox",disabled:busy,checked:form.isAdmin,onChange:e=>setForm(p=>({...p,isAdmin:e.target.checked}))})," Accounts beheren"),
+        h("button",{className:"btn btn-gold",disabled:busy},busy?"Opslaan...":"Account aanmaken")),
+      h("p",{role:"status",className:"hint"},status)));
+};
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout, setTab,canRestore,onRestored}) =>
   h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
@@ -1951,7 +2091,9 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
         h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
       )
     ),
-    isTrainer && CLUB_ID==="mercurius75" && h(ChangeTrainerPassword,{logout}),
+    h(ChangeTrainerPassword,{logout}),
+    eppSession()?.account?.isAdmin && h(AccountManagement),
+    eppSession()?.account?.isAdmin && h(BackupManagement,{canRestore,onRestored}),
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"EPP-wedstrijden")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
@@ -2084,13 +2226,14 @@ with check (true);`)
 // APP — bevat alleen state en logica, geen geneste component-definities
 // ═══════════════════════════════════════════════════════════════════
 function App() {
-  const isTrainer = localStorage.getItem(EPP_AUTH_ROLE_KEY) !== "schutter";
+  const isTrainer = eppSession()?.account?.role === "trainer";
   const [shooters,   setShooters]   = React.useState([]);
   const [scores,     setScores]     = React.useState({});
   const [cameraShots,setCameraShots]= React.useState([]);
   const [currentTraining,setCurrentTraining] = React.useState(()=>newTraining());
   const [bestParcours,setBestParcours] = React.useState({});
   const [bestStageAverages,setBestStageAverages] = React.useState({});
+  const [archives,setArchives] = React.useState([]);
   const [stageShots, setStageShots] = React.useState(DEFAULT_SHOTS);
   const [tombstones, setTombstones] = React.useState({shooters:{},shots:{},monthWipes:{},resetAt:0});
   const [loaded,     setLoaded]     = React.useState(false);
@@ -2115,8 +2258,8 @@ function App() {
 
   const flash = m => { setToast(m); setTimeout(()=>setToast(""),2400); };
   const maxOf = k => (stageShots[k]||0)*5;
-  const makePayload = () => ({schema:2,shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages});
-  React.useEffect(()=>{latestPayload.current=makePayload();});
+  const makePayload = () => ({schema:3,shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages,archives});
+  latestPayload.current=makePayload();
   const markLocalEdit = () => {
     localEditVersion.current += 1;
     localDirtyUntil.current = Date.now()+5000;
@@ -2126,110 +2269,98 @@ function App() {
     applyingRemote.current=true;
     setShooters(payload.shooters||[]);
     const normalizedScores = normalizeScores(payload.scores||{});
-    const legacyBests = bestFromLegacyScores(normalizedScores);
     setScores(normalizedScores);
     setCameraShots(payload.cameraShots||[]);
+    setArchives(payload.archives||[]);
     setCurrentTraining(ensureTraining(payload.currentTraining));
-    setBestParcours(mergeBestParcours(legacyBests.bestParcours,payload.bestParcours||{}));
-    setBestStageAverages(mergeBestStageAverages(legacyBests.bestStageAverages,payload.bestStageAverages||{}));
+    setBestParcours(payload.bestParcours||{});
+    setBestStageAverages(payload.bestStageAverages||{});
     setStageShots({...DEFAULT_SHOTS,...(payload.stageShots||{})});
     setTombstones({shooters:{...(payload.tombstones?.shooters)},shots:{...(payload.tombstones?.shots)},monthWipes:{...(payload.tombstones?.monthWipes)},resetAt:payload.tombstones?.resetAt||0});
-    setTimeout(()=>{applyingRemote.current=false;},1500);
+    latestPayload.current={...payload,stageShots:{...DEFAULT_SHOTS,...payload.stageShots},currentTraining:ensureTraining(payload.currentTraining)};
   };
-  const syncFetch = async (method,path,body) => {
-    const url=cleanUrl(syncConfig.url);
-    const key=String(syncConfig.anonKey||"").trim();
-    const res=await fetch(url+path,{method,headers:{
-      apikey:key,
-      Authorization:`Bearer ${key}`,
-      "Content-Type":"application/json",
-      Prefer:"resolution=merge-duplicates,return=representation"
-    },body:body?JSON.stringify(body):undefined});
-    if(!res.ok)throw new Error(await res.text() || res.statusText);
-    return res.status===204 ? null : res.json();
-  };
-  const pushRemote = async (label="online opgeslagen") => {
-    if(!syncReady(syncConfig))return;
-    const startedVersion = localEditVersion.current;
+  const queueKey=KEY+"-records-v3";
+  const store=React.useRef({base:{},busy:false,hydrated:false,restored:false,conflict:false,localOk:true});
+  const persistQueue=()=>{
     try{
-      setSyncStatus("online opslaan...");
-      const id=String(syncConfig.space||"").trim();
-      const safeId=encodeURIComponent(id);
-      const existing=await syncFetch("GET",`/rest/v1/epp_sync?id=eq.${safeId}&select=id,payload,updated_at&limit=1`);
-      const row=Array.isArray(existing)?existing[0]:null;
-      if(row?.payload && !remoteHydrated.current && localEditVersion.current===0){
-        lastRemoteStamp.current=row.updated_at || "";
-        remoteHydrated.current=true;
-        applyPayload(row.payload);
-        setSyncStatus("online data geladen");
-        return;
-      }
-      const payload=mergePayloads(row?.payload, latestPayload.current || makePayload());
-      const rows=await syncFetch("POST","/rest/v1/epp_sync?on_conflict=id",{id,payload});
-      lastRemoteStamp.current=rows?.[0]?.updated_at || new Date().toISOString();
-      remoteHydrated.current=true;
-      if(startedVersion===localEditVersion.current) applyPayload(payload);
-      setSyncStatus(label);
-    }catch(e){setSyncStatus("sync fout: controleer Supabase");console.warn("EPP sync push",e);}
+      localStorage.setItem(queueKey,JSON.stringify({base:store.current.base,wanted:latestPayload.current}));
+      store.current.localOk=true;
+    }catch(e){store.current.localOk=false;setSyncStatus("Lokale opslag vol: houd de app open tot online opslag is bevestigd.");}
   };
-  const pullRemote = async ({createIfMissing=false}={}) => {
-    if(!syncReady(syncConfig)){setSyncStatus("sync uit");return;}
-    if(!createIfMissing && Date.now()<localDirtyUntil.current){
-      setSyncStatus("lokale invoer opslaan...");
-      return;
+  const installRemote=remote=>{
+    const state=store.current;
+    const changed=EppStore.rebase(state.base,latestPayload.current||{},remote);
+    if(changed.conflicts.length){
+      state.conflict=true;
+      setSyncStatus("Conflict: dezelfde invoer is elders gewijzigd. Jouw invoer blijft bewaard; controleer voordat je verdergaat.");
+      return false;
     }
-    try{
-      setSyncStatus("online controleren...");
-      const id=encodeURIComponent(String(syncConfig.space||"").trim());
-      const rows=await syncFetch("GET",`/rest/v1/epp_sync?id=eq.${id}&select=id,payload,updated_at&limit=1`);
-      const row=Array.isArray(rows)?rows[0]:null;
-      if(!row){
-        if(createIfMissing) await pushRemote("online set aangemaakt");
-        else setSyncStatus("nog geen online data");
-        return;
-      }
-      if(row.updated_at && row.updated_at!==lastRemoteStamp.current){
-        lastRemoteStamp.current=row.updated_at;
-        const payload = (!remoteHydrated.current && localEditVersion.current===0)
-          ? row.payload
-          : mergePayloads(row.payload, makePayload());
-        remoteHydrated.current=true;
-        applyPayload(payload);
-        setSyncStatus("online data geladen");
-      }else setSyncStatus("online up-to-date");
-    }catch(e){setSyncStatus("sync fout: controleer Supabase");console.warn("EPP sync pull",e);}
+    state.base=remote;state.conflict=false;
+    applyPayload(changed.payload);persistQueue();
+    return true;
   };
-
-  // localStorage
+  const pushRemote=async()=>{
+    const state=store.current;
+    if(!isTrainer||!state.hydrated||state.busy||state.conflict)return false;
+    const sent=latestPayload.current;
+    const ops=EppStore.diff(state.base,sent);
+    if(!ops.length)return true;
+    persistQueue();state.busy=true;setSyncStatus("Online opslaan...");
+    try{
+      const result=await eppCall("epp-training",{clubId:CLUB_ID,action:"save",ops});
+      const remote=EppStore.decode(result.entities||[]);
+      // Preserve edits made while this request was in flight.
+      state.base=sent;
+      if(!installRemote(remote))return false;
+      const pending=EppStore.diff(state.base,latestPayload.current).length;
+      setSyncStatus(pending?"Nieuwe invoer wacht op opslag...":"Online opgeslagen");
+      return !pending;
+    }catch(e){
+      if(e.status===409){
+        try{
+          const result=await eppCall("epp-training",{clubId:CLUB_ID,action:"load"});
+          if(installRemote(EppStore.decode(result.entities||[])))setSyncStatus("Wijzigingen samengevoegd; jouw invoer wacht op opslag.");
+        }catch(loadError){setSyncStatus("Niet opgeslagen: "+loadError.message);}
+      }else setSyncStatus((state.localOk?"Lokaal bewaard, nog niet online: ":"Niet opgeslagen; houd deze pagina open: ")+e.message);
+      return false;
+    }finally{state.busy=false;}
+  };
+  const pullRemote=async()=>{
+    const state=store.current;
+    if(state.busy||state.conflict)return false;
+    if(state.hydrated&&isTrainer&&EppStore.diff(state.base,latestPayload.current).length)return pushRemote();
+    state.busy=true;
+    try{
+      const result=await eppCall("epp-training",{clubId:CLUB_ID,action:"load"});
+      const remote=EppStore.decode(result.entities||[]);
+      if(!state.hydrated&&(!isTrainer||!state.restored)){state.base=remote;applyPayload(remote);persistQueue();}
+      else if(!installRemote(remote)){state.hydrated=true;setLoaded(true);return false;}
+      state.hydrated=true;setLoaded(true);
+      setSyncStatus(EppStore.diff(state.base,latestPayload.current).length?"Invoer wacht op online opslag...":"Online bijgewerkt");
+      return true;
+    }catch(e){setSyncStatus("Online laden mislukt: "+e.message);return false;}
+    finally{state.busy=false;}
+  };
   React.useEffect(()=>{
-    try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);const normalizedScores=normalizeScores(p.scores||{});const legacyBests=bestFromLegacyScores(normalizedScores);setShooters(p.shooters||[]);setScores(normalizedScores);setCameraShots(p.cameraShots||[]);setCurrentTraining(ensureTraining(p.currentTraining));setBestParcours(mergeBestParcours(legacyBests.bestParcours,p.bestParcours||{}));setBestStageAverages(mergeBestStageAverages(legacyBests.bestStageAverages,p.bestStageAverages||{}));setStageShots({...DEFAULT_SHOTS,...(p.stageShots||{})});setTombstones({shooters:{...(p.tombstones?.shooters)},shots:{...(p.tombstones?.shots)},monthWipes:{...(p.tombstones?.monthWipes)},resetAt:p.tombstones?.resetAt||0});}}catch(e){}finally{setLoaded(true);}
+    try{
+      const raw=localStorage.getItem(queueKey);
+      if(raw){const q=JSON.parse(raw);store.current.restored=true;store.current.base=q.base||{};applyPayload(q.wanted||q.base||{});}
+      // Legacy snapshots remain untouched and are never blindly uploaded.
+    }catch(e){setSyncStatus("Lokale wachtrij kon niet worden gelezen; houd deze pagina open.");}
+    pullRemote();
+    const timer=setInterval(()=>pullRemote(),10000);
+    const online=()=>pullRemote();
+    const unload=e=>{if(isTrainer&&EppStore.diff(store.current.base,latestPayload.current).length){persistQueue();e.preventDefault();e.returnValue="";}};
+    window.addEventListener("online",online);window.addEventListener("beforeunload",unload);
+    return()=>{clearInterval(timer);window.removeEventListener("online",online);window.removeEventListener("beforeunload",unload);};
   },[]);
   React.useEffect(()=>{
-    if(!loaded)return;if(firstSave.current){firstSave.current=false;return;}
-    const t=setTimeout(()=>{
-      try{
-        localStorage.setItem(KEY,JSON.stringify({shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages}));
-        if(syncReady(syncConfig) && !applyingRemote.current){
-          clearTimeout(syncPushTimer.current);
-          syncPushTimer.current=setTimeout(()=>pushRemote("online opgeslagen"),900);
-        }
-      }catch(e){}
-    },500);
-    return()=>clearTimeout(t);
-  },[shooters,scores,cameraShots,stageShots,tombstones,currentTraining,bestParcours,bestStageAverages,loaded,syncConfig]);
-
-  React.useEffect(()=>{
-    try{localStorage.setItem(SYNC_KEY,JSON.stringify(syncConfig));}catch(e){}
-    if(!loaded)return;
-    if(syncReady(syncConfig)) pullRemote({createIfMissing:true});
-    else setSyncStatus("sync uit");
-  },[syncConfig,loaded]);
-
-  React.useEffect(()=>{
-    if(!loaded || !syncReady(syncConfig))return;
-    const t=setInterval(()=>pullRemote(),20000);
-    return()=>clearInterval(t);
-  },[loaded,syncConfig]);
+    if(!loaded||!store.current.hydrated)return;
+    persistQueue();
+    if(!isTrainer)return;
+    const timer=setTimeout(()=>pushRemote(),600);
+    return()=>clearTimeout(timer);
+  },[shooters,scores,cameraShots,stageShots,currentTraining,bestParcours,bestStageAverages,archives,loaded]);
 
   // State helpers
   const addShooter = () => {const n=nieuw.trim();if(!n)return;markLocalEdit();setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
@@ -2239,11 +2370,12 @@ function App() {
   const setTrainingStage = stageKey => {markLocalEdit();setCurrentTraining(t=>({...t,stage:stageKey,updatedAt:Date.now()}));};
   const addRound = ({sid,type,stage:stageKey,score,source="handmatig",replaceKey=""}) => setCurrentTraining(t=>{
     markLocalEdit();
-    const round = {id:newId(),trainingId:t.id,sid,type,stage:stageKey||t.stage,score,source,replaceKey,ts:Date.now()};
+    const previous=replaceKey&&(t.rounds||[]).find(r=>r.replaceKey===replaceKey);
+    const round = {id:previous?.id||newId(),trainingId:t.id,sid,type,stage:stageKey||t.stage,score,source,replaceKey,ts:Date.now()};
     const rounds = replaceKey ? (t.rounds||[]).filter(r=>r.replaceKey!==replaceKey) : (t.rounds||[]);
     return {...t,rounds:[...rounds,round],updatedAt:Date.now()};
   });
-  const addRoundAndFlash = data => {addRound(data);flash("Ronde opgeslagen");};
+  const addRoundAndFlash = data => {addRound(data);flash("Ronde ingevoerd; wacht op online bevestiging.");};
   const removeRoundByReplaceKey = replaceKey => {markLocalEdit();setCurrentTraining(t=>({...t,rounds:(t.rounds||[]).filter(r=>r.replaceKey!==replaceKey),updatedAt:Date.now()}));};
   const finishTraining = () => {
     const t = ensureTraining(currentTraining);
@@ -2254,7 +2386,8 @@ function App() {
       const value = t.mode==="parcours" ? Math.max(...rounds.map(r=>r.score)) : avg(rounds.map(r=>r.score)).toFixed(1);
       return `${s.naam}: ${value} (${rounds.length} ronde${rounds.length===1?"":"s"})`;
     });
-    if(!confirm(`Training afsluiten en nieuwe starten?\n\nDit wordt in de stand verwerkt:\n${lines.join("\n")}\n\nLosse rondes worden daarna gewist.`)) return;
+    if(store.current.busy||store.current.conflict||EppStore.diff(store.current.base,makePayload()).length)return flash("Sla eerst alle invoer online op voordat je afsluit.");
+    if(!confirm(`Training afsluiten en nieuwe starten?\n\nDit wordt in de stand verwerkt:\n${lines.join("\n")}\n\nDe volledige training blijft in het archief.`)) return;
     const now = Date.now();
     const bestByShooter = {};
     t.rounds.filter(r=>r.type==="parcours").forEach(r=>{
@@ -2272,6 +2405,7 @@ function App() {
     });
     setBestStageAverages(prev=>mergeBestStageAverages(prev,stageResults));
     markLocalEdit();
+    setArchives(p=>[...p,{...t,closedAt:now}]);
     setCurrentTraining(newTraining(t.mode,t.stage));
     flash("Nieuwe training gestart");
   };
@@ -2281,6 +2415,7 @@ function App() {
     if(!(t.rounds||[]).length) return flash("Geen tijdelijke rondes om te wissen");
     if(!confirm("Nieuwe trainingsdag starten? De stand blijft bewaard, alleen de huidige losse rondes worden gewist.")) return;
     markLocalEdit();
+    setArchives(p=>[...p,{...t,closedAt:Date.now(),excludedFromStand:true}]);
     setCurrentTraining(newTraining(t.mode,t.stage));
     flash("Nieuwe trainingsdag gestart");
   };
@@ -2296,12 +2431,26 @@ function App() {
     }));
     setShooters([]);setScores({});setCameraShots([]);setCurrentTraining(newTraining());setBestParcours({});setBestStageAverages({});setStageShots(DEFAULT_SHOTS);flash("Alles gewist");
   }};
-  const logout = () => {localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();};
+  const logout = async () => {
+    if(isTrainer&&EppStore.diff(store.current.base,latestPayload.current).length&&!confirm("Er is nog niet online opgeslagen invoer. Die blijft lokaal bewaard. Toch uitloggen?"))return;
+    persistQueue();
+    try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"logout"});}catch(e){}
+    localStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();
+  };
 
   const syncNow = async () => {
-    if(!syncReady(syncConfig))return flash("Vul eerst Supabase URL, key en sync-code in");
-    await pullRemote({createIfMissing:true});
-    flash("Synchronisatie uitgevoerd");
+    const ok=await pullRemote();
+    if(ok)flash("Online opslag gecontroleerd");
+  };
+  const recoverConflict=async()=>{
+    if(!confirm("Online gegevens opnieuw laden? Jouw niet opgeslagen invoer wordt eerst als lokale herstelkopie bewaard en niet automatisch overschreven."))return;
+    try{
+      localStorage.setItem(queueKey+"-conflict-"+Date.now(),JSON.stringify({base:store.current.base,wanted:latestPayload.current}));
+      const result=await eppCall("epp-training",{clubId:CLUB_ID,action:"load"});
+      const remote=EppStore.decode(result.entities||[]);
+      store.current.base=remote;store.current.conflict=false;applyPayload(remote);persistQueue();
+      setSyncStatus("Online gegevens geladen. Jouw eerdere invoer staat in een lokale herstelkopie.");
+    }catch(e){setSyncStatus("Herstel niet uitgevoerd: "+e.message);}
   };
 
   const navItems = (isTrainer ? [
@@ -2322,11 +2471,11 @@ function App() {
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
     : tab==="parcours" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"parcours"})
     : tab==="stages" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"stage"})
-    : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab})
+    : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab,isTrainer,archives})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,markShotsDeleted,addRound,removeRoundByReplaceKey})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
     : tab==="landelijk" ? h(TabLandelijk,{isTrainer,password:platformPassword,setPassword:setPlatformPassword,flash})
-    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab})
+    : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab,canRestore:!store.current.busy&&!store.current.conflict&&!EppStore.diff(store.current.base,makePayload()).length,onRestored:pullRemote})
     : tab==="inschrijven" ? h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash,setTab})
     : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
 
@@ -2339,11 +2488,12 @@ function App() {
           h("h1",null,"EPP score app"),
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
-        h("div",{className:"club-tag"},"SVBB")
+        h("div",{className:"club-tag"},CLUB.label)
       ),
       h("div",{className:"gold-stripe"})
     ),
-    h("main",{className:"main"},activeContent),
+    h("main",{className:"main"},h("p",{role:"status",style:{fontSize:13,color:C.muted,overflowWrap:"anywhere"}},syncStatus),
+      store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:recoverConflict},"Online versie laden met herstelkopie"),activeContent),
     h("nav",{className:"bottomnav",style:{gridTemplateColumns:`repeat(${navItems.length},1fr)`}},
       navItems.map(n=>h("button",{key:n.key,className:"bnav-btn","data-on":tab===n.key?"1":"0",onClick:()=>setTab(n.key)},
         n.icon(),n.label
@@ -2353,8 +2503,11 @@ function App() {
   );
 }
 
-try{ReactDOM.createRoot(document.getElementById("root")).render(h(App));}
-catch(e){if(window.__eppError)window.__eppError(e?.stack||String(e));}
+eppAuthReady.then(function(verified){
+  if(!verified)return;
+  try{ReactDOM.createRoot(document.getElementById("root")).render(h(App));eppShowApp();}
+  catch(e){if(window.__eppError)window.__eppError(e?.stack||String(e));}
+});
 
 </script>
 </body>

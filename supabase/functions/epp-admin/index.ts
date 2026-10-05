@@ -1,7 +1,7 @@
 // epp-admin: trainer-only beheer van EPP-wedstrijden en groepslijsten.
-// Auth: trainerwachtwoord wordt server-side gecontroleerd tegen een Supabase secret
-// (EPP_TRAINER_HASH_<CLUB>), zelfde SHA-256-patroon als de bestaande app-login.
-import { corsHeaders, json, serviceClient, checkPassword, isKnownClub, DISCIPLINES } from "../_shared/epp.ts";
+// Mutations require an active trainer session for this club.
+import { corsHeaders, json, serviceClient, isKnownClub, DISCIPLINES } from "../_shared/epp.ts";
+import { requireAccount } from '../_shared/session.ts';
 
 function isValidDate(s: unknown): s is string {
   return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -26,8 +26,8 @@ Deno.serve(async (req) => {
   if (typeof clubId !== "string" || !isKnownClub(clubId)) {
     return json({ ok: false, error: "onbekende_club" }, 403);
   }
-  const authOk = await checkPassword(clubId, password, "TRAINER");
-  if (!authOk) return json({ ok: false, error: "ongeldig_wachtwoord" }, 401);
+  try { await requireAccount(body,true); }
+  catch(e){return json({ok:false,error:e.message},401);}
 
   const db = serviceClient();
 
@@ -160,11 +160,20 @@ Deno.serve(async (req) => {
       if (mErr) throw mErr;
       const { data: signups, error: sErr } = await db
         .from("epp_signups")
-        .select("id, shooter_name, updated_at, epp_signup_disciplines(discipline, time_block, specific_time)")
+        .select("id, shooter_id, shooter_name, updated_at, epp_signup_disciplines(discipline, time_block, specific_time)")
         .eq("match_id", matchId)
         .order("shooter_name", { ascending: true });
       if (sErr) throw sErr;
       return json({ ok: true, match, signups });
+    }
+
+    if(action==='link_signup'){
+      const {data:signup,error:signupError}=await db.from('epp_signups').select('id,match:epp_matches!inner(club_id)').eq('id',body.signupId).eq('match.club_id',clubId).single();
+      if(signupError||!signup)throw new Error('inschrijving_niet_gevonden');
+      const {data:club,error:clubError}=await db.from('clubs').select('id').eq('code',clubId).single();if(clubError)throw clubError;
+      const {data:member,error:memberError}=await db.from('memberships').select('id').eq('club_id',club.id).eq('shooter_id',body.shooterId).limit(1);if(memberError||!member?.length)throw new Error('schutter_niet_van_vereniging');
+      const {error}=await db.from('epp_signups').update({shooter_id:body.shooterId,updated_at:new Date().toISOString()}).eq('id',signup.id);if(error)throw error;
+      return json({ok:true});
     }
 
     if (action === "mark_sent") {

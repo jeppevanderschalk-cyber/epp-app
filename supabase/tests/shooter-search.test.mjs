@@ -39,14 +39,15 @@ test('preserves separate database shooters with the same name',()=>{
 test('score form requires explicit selection and keeps the 50-shot check',()=>{
   const form=html.slice(html.indexOf('const TabLandelijk ='),html.indexOf('// ── TabStand'));
   assert.match(form,/\(selectedShooter \|\| newShooter\).*shots===50/);
-  assert.match(form,/shooterId:selectedShooter\?\.id/);
+  assert.match(form,/let shooterId=selectedShooter\?\.id/);
+  assert.match(form,/roundId,expectedRevision:revision/);
   assert.doesNotMatch(form,/entryMode:"total"/);
 });
 
-test('loads club directory after password completion, not on each keystroke',()=>{
+test('loads club directory using the authenticated session, not each keystroke',()=>{
   const form=html.slice(html.indexOf('const TabLandelijk ='),html.indexOf('// ── TabStand'));
   assert.doesNotMatch(form,/Schutters van vereniging ophalen|onClick:loadDirectory/);
-  assert.match(form,/onBlur:\(\)=>setDirectoryPassword\(password\)/);
-  assert.match(form,/directoryPassword!==password/);
+  assert.doesNotMatch(form,/directoryPassword|Trainerwachtwoord voor offici/);
+  assert.match(form,/\},\[isTrainer\]\)/);
   assert.match(form,/return\(\)=>\{active=false;\}/);
 });

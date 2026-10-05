@@ -1,6 +1,7 @@
 // epp-platform: officiële landelijke score-invoer en ranking.
 // Alle mutaties lopen server-side: regels, bevoegdheid en auditlog worden hier afgedwongen.
 import { corsHeaders, json, serviceClient, checkPassword, isKnownClub } from "../_shared/epp.ts";
+import { requireAccount } from '../_shared/session.ts';
 
 const RULE_VERSION = "EPP_PISTOL_250_V1";
 const RANKING_VERSION = "BEST_SCORE_V1";
@@ -30,6 +31,11 @@ async function ensureSingle(db: any, table: string, match: Record<string, unknow
   if (sErr) throw sErr;
   if (existing?.[0]) return existing[0];
   const { data, error } = await db.from(table).insert(values).select().single();
+  if (error?.code === '23505') {
+    const {data: concurrent,error:retryError}=await db.from(table).select('*').match(match).single();
+    if(retryError)throw retryError;
+    return concurrent;
+  }
   if (error) throw error;
   return data;
 }
@@ -40,18 +46,7 @@ async function ensureContext(db: any, clubCode: string, clubLabel: string) {
   const season = await ensureSingle(db, "seasons", { naam: seasonName }, { naam: seasonName, start_date: bounds.start, end_date: bounds.end, ranking_version: RANKING_VERSION });
   const division = await ensureSingle(db, "divisions", { naam: DIVISION_NAME }, { naam: DIVISION_NAME, actief: true });
   const rule = await ensureSingle(db, "rule_profiles", { version: RULE_VERSION }, { version: RULE_VERSION, shot_count: 50, max_score: 250, zone_values: [5, 4, 3, 2, 0] });
-  const eventName = `Landelijke EPP ${seasonName}`;
-  const event = await ensureSingle(db, "events", { organizer_club_id: club.id, naam: eventName }, {
-    organizer_club_id: club.id,
-    season_id: season.id,
-    naam: eventName,
-    type: "wedstrijd",
-    local_date: localDateIso(),
-    rule_profile_id: rule.id,
-    ranking_eligible: true,
-  });
-  const round = await ensureSingle(db, "rounds", { event_id: event.id, label: "Ronde 1" }, { event_id: event.id, label: "Ronde 1" });
-  return { club, season, division, rule, event, round };
+  return { club, season, division, rule };
 }
 function validateCounted(input: any): { ok: true; counted: CountedInput; grossScore: number; finalScore: number } | { ok: false; error: string } {
   const counted = {
@@ -92,7 +87,7 @@ async function findOrCreateShooter(db: any, displayName: string, representedClub
   const query = db.from("shooters").select("*");
   const { data: found, error: fErr } = selectedId
     ? await query.eq("id", selectedId).limit(1)
-    : await query.ilike("display_name", name.replace(/[\\%_]/g, "\\$&")).limit(2);
+    : { data: [], error: null };
   if (fErr) throw fErr;
   if (selectedId && !found?.length) throw new Error("schutter_niet_gevonden");
   if (!selectedId && found?.length > 1) throw new Error("schutter_naam_niet_uniek");
@@ -102,7 +97,8 @@ async function findOrCreateShooter(db: any, displayName: string, representedClub
     if (error) throw error;
     shooter = data;
   }
-  await db.from("memberships").upsert({ shooter_id: shooter.id, club_id: representedClubId, valid_from: localDateIso() }, { onConflict: "shooter_id,club_id,valid_from", ignoreDuplicates: true });
+  const {error:membershipError}=await db.from("memberships").upsert({ shooter_id: shooter.id, club_id: representedClubId, valid_from: localDateIso() }, { onConflict: "shooter_id,club_id,valid_from", ignoreDuplicates: true });
+  if(membershipError)throw membershipError;
   return shooter;
 }
 async function loadRanking(db: any, ctx: any) {
@@ -184,51 +180,58 @@ Deno.serve(async (req) => {
 
   const db = serviceClient();
   try {
+    const actor=await requireAccount(body,['confirm_result','create_round','register_shooter'].includes(action));
     const ctx = await ensureContext(db, clubId, clubLabel || clubId.toUpperCase());
 
     if (action === "context") {
       const ranking = await loadRanking(db, ctx);
-      return json({ ok: true, context: ctx, ranking, updatedAt: new Date().toISOString() });
+      const {data:events,error:eventError}=await db.from('events').select('id,naam,local_date,registration_match_id,rounds(id,label)').eq('organizer_club_id',ctx.club.id).not('registration_match_id','is',null).order('local_date');if(eventError)throw eventError;
+      const {data:matches,error:matchError}=await db.from('epp_matches').select('id,organizer,match_date').eq('club_id',clubId).order('match_date');if(matchError)throw matchError;
+      return json({ ok: true, context: ctx, ranking, events, matches, updatedAt: new Date().toISOString() });
+    }
+
+    if(action==='create_round'){
+      const {data:match,error}=await db.from('epp_matches').select('*').eq('id',body.matchId).eq('club_id',actor.club_code).single();if(error||!match.match_date)throw new Error('wedstrijd_niet_gevonden');
+      const year=match.match_date.slice(0,4),bounds=seasonBounds(year);
+      const season=await ensureSingle(db,'seasons',{naam:year},{naam:year,start_date:bounds.start,end_date:bounds.end,ranking_version:RANKING_VERSION});
+      const event=await ensureSingle(db,'events',{registration_match_id:match.id},{registration_match_id:match.id,organizer_club_id:ctx.club.id,season_id:season.id,naam:match.organizer+' - '+match.match_date,type:'wedstrijd',local_date:match.match_date,rule_profile_id:ctx.rule.id,ranking_eligible:true});
+      const label=cleanText(body.label);if(!/^Ronde [1-9][0-9]?$/.test(label))throw new Error('ongeldige_ronde');
+      const round=await ensureSingle(db,'rounds',{event_id:event.id,label},{event_id:event.id,label});
+      return json({ok:true,event,round});
+    }
+
+    if(action==='get_result'){
+      await requireAccount(body,true);
+      const {data:round,error:roundError}=await db.from('rounds').select('id,events!inner(organizer_club_id)').eq('id',body.roundId).eq('events.organizer_club_id',ctx.club.id).single();if(roundError||!round)throw new Error('ongeldige_ronde');
+      const {data,error}=await db.from('results').select('*').eq('round_id',body.roundId).eq('shooter_id',body.shooterId).eq('division_id',ctx.division.id).maybeSingle();if(error)throw error;
+      return json({ok:true,result:data});
     }
 
     if (action === "list_shooters") {
-      if (!await checkPassword(clubId, String(body.password || ""), "TRAINER")) return json({ ok: false, error: "ongeldig_wachtwoord" }, 401);
+      await requireAccount(body,true);
       return json({ ok: true, shooters: await loadClubShooters(db, ctx.club.id) });
+    }
+    if(action==='register_shooter'){
+      const {data,error}=await db.rpc('epp_register_shooter',{p_actor:actor.id,p_id:body.shooterId,p_name:cleanText(body.shooterName)});
+      if(error)throw error;
+      return json({ok:true,shooter:data});
     }
 
     if (action === "confirm_result") {
-      const password = body.password;
-      const authOk = await checkPassword(clubId, String(password || ""), "TRAINER");
-      if (!authOk) return json({ ok: false, error: "ongeldig_wachtwoord" }, 401);
 
       const shooterName = cleanText(body.shooterName);
       if (!shooterName) return json({ ok: false, error: "schutter_naam_verplicht" }, 400);
-      const entryMode = body.entryMode === "total" ? "total" : "counted";
+      if(body.entryMode!=='counted')throw new Error('kaarttelling_verplicht');
+      const entryMode = 'counted';
       const idempotencyKey = cleanText(body.idempotencyKey) || crypto.randomUUID();
 
-      let row: Record<string, unknown>;
-      if (entryMode === "total") {
-        const finalScore = asInt(body.finalScore);
-        if (finalScore === null || finalScore < 0 || finalScore > 250) return json({ ok: false, error: "eindscore_0_tot_250" }, 400);
-        row = { entry_mode: "total", final_score: finalScore, status: "confirmed", confirmed_at: new Date().toISOString(), confirmed_by: null,
-          hits5: null, hits4: null, hits3: null, hits2: null, misses: null, gross_score: null, penalty_points: null };
-      } else {
-        const valid = validateCounted(body);
-        if (!valid.ok) return json({ ok: false, error: valid.error }, 400);
-        row = { entry_mode: "counted", hits5: valid.counted.hits5, hits4: valid.counted.hits4, hits3: valid.counted.hits3, hits2: valid.counted.hits2, misses: valid.counted.misses,
-          gross_score: valid.grossScore, penalty_points: valid.counted.penaltyPoints, final_score: valid.finalScore, status: "confirmed", confirmed_at: new Date().toISOString(), confirmed_by: null };
-      }
+      const valid = validateCounted(body);
+      if (!valid.ok) return json({ ok: false, error: valid.error }, 400);
 
-      const shooter = await findOrCreateShooter(db, shooterName, ctx.club.id, cleanText(body.shooterId) || undefined);
-      const base = { round_id: ctx.round.id, shooter_id: shooter.id, division_id: ctx.division.id, represented_club_id: ctx.club.id };
-      const { data: beforeRows, error: beforeErr } = await db.from("results").select("*").match(base).limit(1);
-      if (beforeErr) throw beforeErr;
-      const before = beforeRows?.[0] || null;
-      const revision = before ? Number(before.revision || 1) + 1 : 1;
-      const { data: result, error } = await db.from("results").upsert({ ...base, ...row, revision, idempotency_key: idempotencyKey }, { onConflict: "round_id,shooter_id,division_id" }).select().single();
+      if(!body.shooterId)throw new Error('selecteer_schutter');
+      const shooter = await findOrCreateShooter(db, shooterName, ctx.club.id, cleanText(body.shooterId));
+      const { data: result, error } = await db.rpc('epp_confirm_result',{p_actor:actor.id,p_club:ctx.club.id,p_round:body.roundId,p_shooter:shooter.id,p_division:ctx.division.id,p_counts:valid.counted,p_key:idempotencyKey,p_expected:body.expectedRevision||0,p_reason:cleanText(body.reason)});
       if (error) throw error;
-      const { error: auditErr } = await db.from("result_audit").insert({ result_id: result.id, action: before ? "corrected_or_reconfirmed" : "confirmed", before, after: result, reason: before ? "Nieuwe bevestiging via app" : "Eerste bevestiging via app" });
-      if (auditErr) throw auditErr;
       const ranking = await loadRanking(db, ctx);
       return json({ ok: true, result, shooter, ranking, updatedAt: new Date().toISOString() });
     }
@@ -236,6 +239,7 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "onbekende_actie" }, 400);
   } catch (e) {
     console.error("epp-platform error", e);
-    return json({ ok: false, error: String(e?.message || e || "server_fout") }, 500);
+    const message=String(e?.message || e || 'server_fout');
+    return json({ok:false,error:message},message.includes('conflict')?409:['sessie_verlopen','geen_toegang','geen_schrijfrechten'].includes(message)?401:400);
   }
 });
