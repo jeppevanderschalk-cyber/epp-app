@@ -10,6 +10,7 @@ try{
     try{
       await page.goto('https://epp-app.nl/?release=3cc5feb',{waitUntil:'domcontentloaded'});
       await page.locator('#loginClub').selectOption('mercurius75');
+      await page.locator('#loginRole').selectOption('trainer');
       await page.locator('#loginUsername').fill('beheer');
       await page.locator('#loginPassword').fill(process.env.EPP_TEST_PASSWORD);
       await page.locator('.login-submit').click();
