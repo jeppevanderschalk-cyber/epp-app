@@ -1436,18 +1436,22 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
   const [directory,setDirectory] = React.useState([]);
   const [directoryBusy,setDirectoryBusy] = React.useState(false);
   const [directoryStatus,setDirectoryStatus] = React.useState("");
+  const [directoryPassword,setDirectoryPassword] = React.useState(password);
   const [selectedShooter,setSelectedShooter] = React.useState(null);
   const [newShooter,setNewShooter] = React.useState(false);
   const [counts,setCounts] = React.useState(emptyCounts);
   React.useEffect(()=>{setDirectory([]);setSelectedShooter(null);setNewShooter(false);setDirectoryStatus("");},[password]);
-  const loadDirectory = async () => {
-    setDirectoryBusy(true);setDirectoryStatus("Schutters ophalen...");
-    try{
-      const r=await eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,password,action:"list_shooters"});
-      setDirectory(r.shooters||[]);setDirectoryStatus("Schutters van "+CLUB.label+" geladen");
-    }catch(e){setDirectoryStatus(eppPlatformError(e.message));}
-    finally{setDirectoryBusy(false);}
-  };
+  React.useEffect(()=>{
+    let active=true;
+    setDirectoryBusy(false);
+    if(!isTrainer || !directoryPassword || directoryPassword!==password)return;
+    setDirectoryBusy(true);setDirectoryStatus("Schutters laden...");
+    eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,password:directoryPassword,action:"list_shooters"})
+      .then(r=>{if(active){setDirectory(r.shooters||[]);setDirectoryStatus("");}})
+      .catch(e=>{if(active)setDirectoryStatus(eppPlatformError(e.message));})
+      .finally(()=>{if(active)setDirectoryBusy(false);});
+    return()=>{active=false;};
+  },[directoryPassword,password,isTrainer]);
   const load = React.useCallback(async ()=>{
     try{
       const r = await eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,action:"context"});
@@ -1465,7 +1469,7 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
   const search = shooterName.trim().toLocaleLowerCase("nl-NL");
   const matches = search ? candidates.filter(s=>(s.name+" "+s.club+" "+(s.publicId||"")).toLocaleLowerCase("nl-NL").includes(search)).slice(0,20) : [];
   const exactMatch = candidates.some(s=>s.name.toLocaleLowerCase("nl-NL")===search);
-  const canConfirm = isTrainer && password && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250;
+  const canConfirm = isTrainer && password && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250;
   const resetForm = () => {setShooterName("");setSelectedShooter(null);setNewShooter(false);setCounts(emptyCounts);};
   const confirm = async () => {
     if(!password)return flash("Vul eerst het trainerwachtwoord in");
@@ -1486,8 +1490,7 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
     isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Score bevestigen")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
-        h("input",{className:"txt-in",type:"password",placeholder:"Trainerwachtwoord voor officiële opslag",value:password,onChange:e=>setPassword(e.target.value)}),
-        h("button",{type:"button",className:"btn btn-ghost",disabled:!password||directoryBusy||busy,onClick:loadDirectory},directoryBusy?"Ophalen...":"Schutters van vereniging ophalen"),
+        h("input",{className:"txt-in",type:"password",placeholder:"Trainerwachtwoord voor officiële opslag",value:password,onChange:e=>setPassword(e.target.value),onBlur:()=>setDirectoryPassword(password),onKeyDown:e=>{if(e.key==="Enter"){e.preventDefault();setDirectoryPassword(password);}}}),
         directoryStatus && h("p",{className:"hint",role:"status"},directoryStatus),
         h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);}}),
         !selectedShooter && !newShooter && search && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
@@ -1495,7 +1498,7 @@ const TabLandelijk = ({isTrainer, password, setPassword, flash}) => {
             h("span",{style:{overflowWrap:"anywhere"}},s.name,h("small",{style:{display:"block",color:C.muted}},s.id?"Database · "+s.publicId:"Klassement 2026 · "+s.club))
           )),
           !matches.length && h("p",{className:"hint"},"Geen schutter gevonden."),
-          !exactMatch && h("button",{type:"button",className:"btn btn-ghost",style:{whiteSpace:"normal",overflowWrap:"anywhere"},onClick:()=>setNewShooter(true)},"+ Nieuwe schutter: ",shooterName.trim())
+          !exactMatch && !directoryBusy && h("button",{type:"button",className:"btn btn-ghost",style:{whiteSpace:"normal",overflowWrap:"anywhere"},onClick:()=>setNewShooter(true)},"+ Nieuwe schutter: ",shooterName.trim())
         ),
         (selectedShooter || newShooter) && h("p",{className:"hint"},newShooter?"Nieuwe schutter: "+shooterName:selectedShooter.id?"Geselecteerd: "+selectedShooter.name+" · "+selectedShooter.publicId:"Geselecteerd uit klassement 2026: "+selectedShooter.name),
         h("h3",{style:{margin:"8px 0",fontSize:16}},"Kaart tellen"),

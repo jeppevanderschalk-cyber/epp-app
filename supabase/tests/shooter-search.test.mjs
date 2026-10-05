@@ -42,3 +42,11 @@ test('score form requires explicit selection and keeps the 50-shot check',()=>{
   assert.match(form,/shooterId:selectedShooter\?\.id/);
   assert.doesNotMatch(form,/entryMode:"total"/);
 });
+
+test('loads club directory after password completion, not on each keystroke',()=>{
+  const form=html.slice(html.indexOf('const TabLandelijk ='),html.indexOf('// ── TabStand'));
+  assert.doesNotMatch(form,/Schutters van vereniging ophalen|onClick:loadDirectory/);
+  assert.match(form,/onBlur:\(\)=>setDirectoryPassword\(password\)/);
+  assert.match(form,/directoryPassword!==password/);
+  assert.match(form,/return\(\)=>\{active=false;\}/);
+});
