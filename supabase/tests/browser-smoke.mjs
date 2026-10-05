@@ -79,7 +79,7 @@ try{
     failSave=true;
     await score.fill('220');await score.press('Enter');
     await page.getByRole('status').filter({hasText:'nog niet online'}).waitFor({timeout:15000});
-    assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-data-v1-records-v3')).wanted.currentTraining.rounds.some(r=>r.score===220)));
+    assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-data-svbb-registration-v1-records-v3')).wanted.currentTraining.rounds.some(r=>r.score===220)));
     await page.reload();
     await page.getByText('Volledig Parcours',{exact:true}).waitFor();
     assert((await page.locator('body').innerText()).includes('220'));

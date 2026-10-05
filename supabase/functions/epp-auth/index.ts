@@ -1,6 +1,7 @@
 import {corsHeaders,json,serviceClient,isKnownClub,checkPassword,sha256Hex} from '../_shared/epp.ts';
 import {passwordHash,randomSalt} from '../_shared/trainer-auth.ts';
 import {requireAccount,createSession} from '../_shared/session.ts';
+import {memberNames,memberUsername} from '../_shared/member-account.ts';
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
@@ -12,6 +13,7 @@ Deno.serve(async req=>{
     if(body.action==='login'){
       if(typeof body.password!=='string'||body.password.length>256)return json({ok:false,error:'ongeldig_wachtwoord'},401);
       let username=String(body.username||'').trim().toLowerCase();
+      if(body.firstName!==undefined||body.lastName!==undefined)username=await memberUsername(body.firstName,body.lastName);
       if(!username){
         if(await checkPassword(body.clubId,body.password,'TRAINER'))username='beheer';
         else if(await checkPassword(body.clubId,body.password,'MEMBER'))username='kijker';
@@ -28,12 +30,23 @@ Deno.serve(async req=>{
       return json({ok:true,...await createSession(db,account)});
     }
     const actor=await requireAccount(body);
+    if(body.action==='register_member'){
+      if(actor.role!=='schutter'||actor.username!=='kijker')throw new Error('registratie_niet_toegestaan');
+      const names=memberNames(body.firstName,body.lastName);
+      if(typeof body.newPassword!=='string'||body.newPassword.length<10||body.newPassword.length>256)throw new Error('nieuw_wachtwoord_ongeldig');
+      const username=await memberUsername(names.firstName,names.lastName),salt=randomSalt();
+      const {data:id,error}=await db.rpc('epp_self_register_member',{p_actor:actor.id,p_username:username,p_first:names.firstName,p_last:names.lastName,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
+      if(error)throw error;
+      const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin').eq('id',id).single();if(accountError)throw accountError;
+      return json({ok:true,...await createSession(db,account)});
+    }
     if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin}});
     if(body.action==='logout'){
       const {error}=await db.from('app_sessions').delete().eq('token_hash',await sha256Hex(body.sessionToken));if(error)throw error;
       return json({ok:true});
     }
     if(body.action==='change_password'){
+      if(actor.role==='schutter'&&actor.username==='kijker')throw new Error('persoonlijk_account_verplicht');
       if(typeof body.newPassword!=='string'||body.newPassword.length<10||body.newPassword.length>256||body.newPassword===body.password)return json({ok:false,error:'nieuw_wachtwoord_ongeldig'},400);
       const {data:old,error}=await db.from('app_accounts').select('*').eq('id',actor.id).single();if(error)throw error;
       if(await passwordHash(String(body.password||''),old.password_salt,old.iterations)!==old.password_hash)return json({ok:false,error:'ongeldig_wachtwoord'},401);

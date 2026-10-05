@@ -39,6 +39,16 @@ try{
     const managementRequest=await page.evaluate(()=>window.loginRequest);
     assert.equal(managementRequest.payload.username,'beheer');
     assert.equal(managementRequest.payload.role,undefined);
+    await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
+    await page.getByLabel('Inloggen als').selectOption('schutter');
+    await page.getByRole('button',{name:'Inloggen met eigen account',exact:true}).click();
+    await page.getByLabel('Voornaam',{exact:true}).fill('Anne');
+    await page.getByLabel('Achternaam',{exact:true}).fill('de Vries');
+    await page.getByLabel('Wachtwoord',{exact:true}).fill('personal-password');
+    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+    const personalRequest=await page.evaluate(()=>window.loginRequest);
+    assert.equal(personalRequest.payload.username,undefined);
+    assert.equal(personalRequest.payload.firstName,'Anne');assert.equal(personalRequest.payload.lastName,'de Vries');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     assert.equal(await page.evaluate(()=>{const gate=document.getElementById('loginGate');return gate.scrollHeight<=gate.clientHeight||getComputedStyle(gate).overflowY==='auto';}),true);
     console.log('PASS login '+viewport.width+': no username field, shooter maps to kijker, management maps to beheer, server determines permissions');
