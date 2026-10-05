@@ -51,3 +51,10 @@ test('loads club directory using the authenticated session, not each keystroke',
   assert.match(form,/\},\[isTrainer\]\)/);
   assert.match(form,/return\(\)=>\{active=false;\}/);
 });
+test('official competition prepares its score entry automatically without round controls',()=>{
+  const form=html.slice(html.indexOf('const TabLandelijk ='),html.indexOf('// ── TabStand'));
+  assert.match(form,/action:"prepare_match",matchId/);
+  assert.match(form,/\[isTrainer,matchId\]/);
+  assert.match(form,/!matchLoading && !resultLoading/);
+  assert.doesNotMatch(form,/Rondenummer|Kies ronde|Ronde aanmaken|roundNumber/);
+});

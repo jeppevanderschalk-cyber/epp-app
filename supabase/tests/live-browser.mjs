@@ -8,7 +8,7 @@ try{
     const page=await context.newPage();
     page.on('pageerror',e=>errors.push(e.message));
     try{
-      await page.goto('https://epp-app.nl/?release=3cc5feb',{waitUntil:'domcontentloaded'});
+      await page.goto('https://epp-app.nl/?release=single-match-score',{waitUntil:'domcontentloaded'});
       await page.locator('#loginClub').selectOption('mercurius75');
       await page.locator('#loginRole').selectOption('trainer');
       await page.locator('#loginPassword').fill(process.env.EPP_TEST_PASSWORD);
@@ -24,10 +24,12 @@ try{
       await page.getByRole('button',{name:'Landelijk',exact:true}).click();
       await page.getByText('Score bevestigen',{exact:true}).waitFor();
       assert(await page.getByLabel('Wedstrijd',{exact:true}).count()>0);
+      assert.equal(await page.getByLabel('Ronde',{exact:true}).count(),0);
+      assert.equal(await page.getByText('Rondenummer',{exact:true}).count(),0);
       await page.getByRole('button',{name:'Meer',exact:true}).click();
       await page.getByRole('button',{name:'Inschrijven voor wedstrijden',exact:true}).click();
       await page.getByRole('button',{name:'Groepslijst',exact:true}).first().waitFor({timeout:30000});
-      console.log('PASS live browser '+viewport.width+': login, correct club, account management, backups, official round selection and registration calendar');
+      console.log('PASS live browser '+viewport.width+': login, correct club, accounts, backups, no round controls and registration calendar');
     }finally{
       await page.evaluate(async()=>{if(typeof eppCall==='function')try{await eppCall('epp-auth',{clubId:'mercurius75',action:'logout'});}catch{}}).catch(()=>{});
       await context.close();

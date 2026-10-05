@@ -2,6 +2,7 @@
 // Alle mutaties lopen server-side: regels, bevoegdheid en auditlog worden hier afgedwongen.
 import { corsHeaders, json, serviceClient, checkPassword, isKnownClub } from "../_shared/epp.ts";
 import { requireAccount } from '../_shared/session.ts';
+import { ensureMatchRound } from '../_shared/match-round.ts';
 
 const RULE_VERSION = "EPP_PISTOL_250_V1";
 const RANKING_VERSION = "BEST_SCORE_V1";
@@ -180,7 +181,7 @@ Deno.serve(async (req) => {
 
   const db = serviceClient();
   try {
-    const actor=await requireAccount(body,['confirm_result','create_round','register_shooter'].includes(action));
+    const actor=await requireAccount(body,['confirm_result','prepare_match','create_round','register_shooter'].includes(action));
     const ctx = await ensureContext(db, clubId, clubLabel || clubId.toUpperCase());
 
     if (action === "context") {
@@ -190,13 +191,13 @@ Deno.serve(async (req) => {
       return json({ ok: true, context: ctx, ranking, events, matches, updatedAt: new Date().toISOString() });
     }
 
-    if(action==='create_round'){
+    if(action==='prepare_match'||action==='create_round'){
+      if(action==='create_round'&&body.label&&body.label!=='Ronde 1')throw new Error('een_score_per_wedstrijd');
       const {data:match,error}=await db.from('epp_matches').select('*').eq('id',body.matchId).eq('club_id',actor.club_code).single();if(error||!match.match_date)throw new Error('wedstrijd_niet_gevonden');
       const year=match.match_date.slice(0,4),bounds=seasonBounds(year);
       const season=await ensureSingle(db,'seasons',{naam:year},{naam:year,start_date:bounds.start,end_date:bounds.end,ranking_version:RANKING_VERSION});
       const event=await ensureSingle(db,'events',{registration_match_id:match.id},{registration_match_id:match.id,organizer_club_id:ctx.club.id,season_id:season.id,naam:match.organizer+' - '+match.match_date,type:'wedstrijd',local_date:match.match_date,rule_profile_id:ctx.rule.id,ranking_eligible:true});
-      const label=cleanText(body.label);if(!/^Ronde [1-9][0-9]?$/.test(label))throw new Error('ongeldige_ronde');
-      const round=await ensureSingle(db,'rounds',{event_id:event.id,label},{event_id:event.id,label});
+      const round=await ensureMatchRound(db,event.id,ensureSingle);
       return json({ok:true,event,round});
     }
 

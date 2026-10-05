@@ -1461,11 +1461,10 @@ const TabLandelijk = ({isTrainer, flash}) => {
   const [directory,setDirectory] = React.useState([]);
   const [directoryBusy,setDirectoryBusy] = React.useState(false);
   const [directoryStatus,setDirectoryStatus] = React.useState("");
-  const [events,setEvents] = React.useState([]);
   const [matchesCalendar,setMatchesCalendar] = React.useState([]);
   const [matchId,setMatchId] = React.useState("");
   const [roundId,setRoundId] = React.useState("");
-  const [roundNumber,setRoundNumber] = React.useState(1);
+  const [matchLoading,setMatchLoading] = React.useState(false);
   const [revision,setRevision] = React.useState(0);
   const [reason,setReason] = React.useState("");
   const [resultLoading,setResultLoading] = React.useState(false);
@@ -1490,14 +1489,25 @@ const TabLandelijk = ({isTrainer, flash}) => {
     try{
       const r = await eppCall("epp-platform",{clubId:CLUB_ID,clubLabel:CLUB.label,action:"context"});
       setRanking(r.ranking||[]);
-      setEvents(r.events||[]);setMatchesCalendar(r.matches||[]);
+      setMatchesCalendar(r.matches||[]);
       setStatus("landelijke stand bijgewerkt");
     }catch(e){setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}
   },[]);
   React.useEffect(()=>{load();},[load]);
   React.useEffect(()=>{
+    let active=true;
+    setRoundId("");
+    if(!isTrainer||!matchId){setMatchLoading(false);return;}
+    setMatchLoading(true);
+    eppCall("epp-platform",{clubId:CLUB_ID,action:"prepare_match",matchId})
+      .then(r=>{if(active)setRoundId(r.round.id);})
+      .catch(e=>{if(active)setStatus("Wedstrijd laden mislukt: "+eppPlatformError(e.message));})
+      .finally(()=>{if(active)setMatchLoading(false);});
+    return()=>{active=false;};
+  },[isTrainer,matchId]);
+  React.useEffect(()=>{
     let active=true;requestKey.current=newId();setReason("");setRevision(0);
-    if(!roundId||!selectedShooter?.id){setCounts(emptyCounts);return;}
+    if(!roundId||!selectedShooter?.id){setCounts(emptyCounts);setResultLoading(false);return;}
     setResultLoading(true);
     eppCall("epp-platform",{clubId:CLUB_ID,action:"get_result",roundId,shooterId:selectedShooter.id})
       .then(r=>{if(!active)return;setRevision(r.result?.revision||0);setCounts(r.result?{hits5:String(r.result.hits5),hits4:String(r.result.hits4),hits3:String(r.result.hits3),hits2:String(r.result.hits2),misses:String(r.result.misses),penaltyPoints:String(r.result.penalty_points)}:emptyCounts);})
@@ -1515,15 +1525,8 @@ const TabLandelijk = ({isTrainer, flash}) => {
   const search = shooterName.trim().toLocaleLowerCase("nl-NL");
   const matches = search ? candidates.filter(s=>(s.name+" "+s.club+" "+(s.publicId||"")).toLocaleLowerCase("nl-NL").includes(search)).slice(0,20) : [];
   const exactMatch = candidates.some(s=>s.name.toLocaleLowerCase("nl-NL")===search);
-  const canConfirm = isTrainer && roundId && !resultLoading && validCounts && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250 && (!revision||reason.trim().length>=3);
+  const canConfirm = isTrainer && roundId && !matchLoading && !resultLoading && validCounts && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250 && (!revision||reason.trim().length>=3);
   const resetForm = () => {setShooterName("");setSelectedShooter(null);setNewShooter(false);setCounts(emptyCounts);setRevision(0);setReason("");requestKey.current=newId();newShooterId.current=newId();};
-  const createRound=async()=>{
-    if(!matchId||busy)return;
-    setBusy(true);
-    try{const r=await eppCall("epp-platform",{clubId:CLUB_ID,action:"create_round",matchId,label:"Ronde "+roundNumber});await load();setRoundId(r.round.id);}
-    catch(e){setStatus("Ronde aanmaken mislukt: "+e.message);}
-    finally{setBusy(false);}
-  };
   const confirm = async () => {
     if(!canConfirm)return flash("Controleer de invoer");
     setBusy(true);setStatus("officiële score opslaan...");
@@ -1549,11 +1552,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
         h("label",null,"Wedstrijd",h("select",{className:"txt-in","aria-label":"Wedstrijd",value:matchId,disabled:busy,onChange:e=>{setMatchId(e.target.value);setRoundId("");}},
           h("option",{value:""},"Kies wedstrijd"),matchesCalendar.map(m=>h("option",{key:m.id,value:m.id},m.match_date+" - "+m.organizer)))),
-        h("label",null,"Ronde",h("select",{className:"txt-in","aria-label":"Ronde",value:roundId,disabled:busy||!matchId,onChange:e=>setRoundId(e.target.value)},
-          h("option",{value:""},"Kies ronde"),events.filter(e=>e.registration_match_id===matchId).flatMap(e=>(e.rounds||[]).map(r=>h("option",{key:r.id,value:r.id},r.label))))),
-        h("div",{style:{display:"flex",gap:8,alignItems:"center"}},
-          h("label",null,"Rondenummer",h("input",{className:"set-in",type:"number",min:1,max:99,value:roundNumber,disabled:busy,onChange:e=>setRoundNumber(Number(e.target.value))})),
-          h("button",{className:"btn btn-ghost",disabled:busy||!matchId||!Number.isInteger(roundNumber)||roundNumber<1||roundNumber>99,onClick:createRound},"Ronde aanmaken")),
+        matchLoading && h("p",{className:"hint",role:"status"},"Wedstrijd laden..."),
         directoryStatus && h("p",{className:"hint",role:"status"},directoryStatus),
         h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);newShooterId.current=newId();}}),
         !selectedShooter && !newShooter && search && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
@@ -1569,13 +1568,13 @@ const TabLandelijk = ({isTrainer, flash}) => {
         h("div",null,
           scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,label)),
-            h("button",{className:"cal-btn",disabled:busy||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(Math.max(0,n(key)-1))}))},"−"),
-            h("input",{className:"set-in",disabled:busy||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts[key],onChange:e=>setCounts(p=>({...p,[key]:e.target.value}))}),
-            h("button",{className:"cal-btn",disabled:busy||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(n(key)+1)}))},"+")
+            h("button",{className:"cal-btn",disabled:busy||matchLoading||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(Math.max(0,n(key)-1))}))},"−"),
+            h("input",{className:"set-in",disabled:busy||matchLoading||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts[key],onChange:e=>setCounts(p=>({...p,[key]:e.target.value}))}),
+            h("button",{className:"cal-btn",disabled:busy||matchLoading||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(n(key)+1)}))},"+")
           )),
           h("div",{className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,"Strafpunten"),h("div",{className:"set-sub"},"Totale aftrek, standaard 0")),
-            h("input",{className:"set-in",disabled:busy||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts.penaltyPoints,onChange:e=>setCounts(p=>({...p,penaltyPoints:e.target.value}))})
+            h("input",{className:"set-in",disabled:busy||matchLoading||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts.penaltyPoints,onChange:e=>setCounts(p=>({...p,penaltyPoints:e.target.value}))})
           ),
           h("div",{className:"stat-grid"},
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},shots),h("div",{className:"stat-lbl"},"schoten")),

@@ -23,6 +23,7 @@ put('meta','currentTraining',{id:'test-training',mode:'parcours',stage:'s1',star
 put('meta','stageShots',{s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10});
 let failSave=false;
 const errors=[];
+let confirmed=null;
 const account={id:'test-account',username:'testtrainer',displayName:'Test Trainer',role:'trainer',clubId:'svbb',isAdmin:true};
 try{
   for(const viewport of [{width:390,height:844},{width:1440,height:1000}]){
@@ -37,7 +38,15 @@ try{
       const fn=route.request().url().split('/').pop();
       let response={ok:true},status=200;
       if(fn==='epp-auth')response={ok:true,account,accounts:[]};
-      if(fn==='epp-platform')response={ok:true,ranking:[],shooters:[],events:[],matches:[]};
+      if(fn==='epp-platform'){
+        response={ok:true,ranking:[],shooters:[{id:'00000000-0000-4000-8000-000000000001',display_name:'Test Schutter',public_id:'EPP-TEST'}],events:[],matches:[{id:'match-a',organizer:'Wedstrijd A',match_date:'2026-11-14'},{id:'match-b',organizer:'Wedstrijd B',match_date:'2026-12-14'}]};
+        if(body.action==='prepare_match'){
+          await new Promise(r=>setTimeout(r,body.matchId==='match-a'?300:30));
+          response={ok:true,round:{id:'round-'+body.matchId}};
+        }
+        if(body.action==='get_result')response={ok:true,result:body.roundId==='round-match-a'?{revision:2,hits5:40,hits4:10,hits3:0,hits2:0,misses:0,penalty_points:0}:null};
+        if(body.action==='confirm_result'){confirmed=body;response={ok:true,ranking:[]};}
+      }
       if(fn==='epp-training'){
         if(body.action==='save'){
           await new Promise(r=>setTimeout(r,250));
@@ -78,8 +87,26 @@ try{
     await page.getByRole('button',{name:'Meer',exact:true}).click();
     await page.getByRole('button',{name:'Nu synchroniseren',exact:true}).click();
     await page.getByRole('status').filter({hasText:'Online opgeslagen'}).first().waitFor({timeout:15000});
+    await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+    const match=page.getByLabel('Wedstrijd',{exact:true});
+    await match.selectOption('match-a');await match.selectOption('match-b');
+    await page.getByLabel('Schutter zoeken').fill('Test Schutter');
+    await page.getByRole('button',{name:/Test Schutter.*EPP-TEST/}).click();
+    await page.waitForTimeout(500);
+    assert.equal(await page.getByLabel('Ronde',{exact:true}).count(),0);
+    assert.equal(await page.getByText('Rondenummer',{exact:true}).count(),0);
+    await page.locator('.set-row input').first().fill('50');
+    await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).click();
+    await page.getByText('Landelijke score opgeslagen',{exact:true}).waitFor();
+    assert.equal(confirmed.roundId,'round-match-b');assert.equal(confirmed.hits5,50);
+    await match.selectOption('match-a');
+    await page.getByLabel('Schutter zoeken').fill('Test Schutter');
+    await page.getByRole('button',{name:/Test Schutter.*EPP-TEST/}).click();
+    await page.getByText('Reden van correctie',{exact:true}).waitFor();
+    assert.equal(await page.locator('.set-row input').first().inputValue(),'40');
+    await page.screenshot({path:'/private/tmp/epp-national-'+viewport.width+'.png',fullPage:true});
     await context.close();
   }
   assert.deepEqual(errors,[]);
-  console.log('PASS mobile/desktop rendering, score save, truthful failure status and offline reload retry');
+  console.log('PASS mobile/desktop, offline retry, automatic competition selection, stale response protection and existing score correction');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
