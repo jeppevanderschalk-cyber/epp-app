@@ -53,7 +53,6 @@
         <option value="trainer">Beheer</option>
       </select>
     </label>
-    <label><span>Gebruikersnaam</span><input id="loginUsername" autocomplete="username" value="kijker" required /></label>
     <label>
       <span>Wachtwoord</span>
       <input type="password" id="loginPassword" autocomplete="current-password" required />
@@ -111,10 +110,6 @@ function eppShowLoginGate(){
   pw.focus();
 }
 document.getElementById('loginRole').addEventListener('change',function(){
-  var username=document.getElementById('loginUsername');
-  if(['','beheer','kijker'].includes(username.value.trim().toLowerCase())){
-    username.value=this.value==='trainer'?'beheer':'kijker';
-  }
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 });
@@ -126,7 +121,8 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
   if(club){
     var submitButton=document.querySelector(".login-submit");
     submitButton.disabled=true;
-    eppRawCall("epp-auth",{clubId:club.id,action:"login",username:document.getElementById('loginUsername').value,password:entered}).then(function(result){
+    var username=document.getElementById('loginRole').value==='trainer'?'beheer':'kijker';
+    eppRawCall("epp-auth",{clubId:club.id,action:"login",username:username,password:entered}).then(function(result){
       localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
       localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
       localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);

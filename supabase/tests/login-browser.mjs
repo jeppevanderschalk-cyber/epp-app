@@ -19,27 +19,29 @@ try{
     await page.route('https://**/*',route=>route.abort());
     await page.goto('http://127.0.0.1:'+server.address().port);
     assert.equal(await page.getByLabel('Inloggen als').inputValue(),'schutter');
-    assert.equal(await page.getByLabel('Gebruikersnaam').inputValue(),'kijker');
+    assert.equal(await page.getByLabel('Gebruikersnaam').count(),0);
     assert.equal(await page.locator('.login-logo').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     await page.getByLabel('Inloggen als').selectOption('trainer');
-    assert.equal(await page.getByLabel('Gebruikersnaam').inputValue(),'beheer');
     await page.getByLabel('Wachtwoord',{exact:true}).fill('test-password');
     await page.getByLabel('Inloggen als').selectOption('schutter');
     assert.equal(await page.getByLabel('Wachtwoord',{exact:true}).inputValue(),'');
-    assert.equal(await page.getByLabel('Gebruikersnaam').inputValue(),'kijker');
     await page.screenshot({path:'/private/tmp/epp-login-'+viewport.width+'.png'});
-    await page.getByLabel('Gebruikersnaam').fill('persoonlijk-account');
-    await page.getByLabel('Inloggen als').selectOption('trainer');
-    assert.equal(await page.getByLabel('Gebruikersnaam').inputValue(),'persoonlijk-account');
     await page.evaluate(()=>{window.eppRawCall=(fn,payload)=>{window.loginRequest={fn,payload};return new Promise(()=>{});};});
     await page.getByLabel('Wachtwoord',{exact:true}).fill('test-password');
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     const request=await page.evaluate(()=>window.loginRequest);
-    assert.equal(request.payload.username,'persoonlijk-account');
+    assert.equal(request.payload.username,'kijker');
     assert.equal(request.payload.role,undefined);
+    await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
+    await page.getByLabel('Inloggen als').selectOption('trainer');
+    await page.getByLabel('Wachtwoord',{exact:true}).fill('trainer-password');
+    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+    const managementRequest=await page.evaluate(()=>window.loginRequest);
+    assert.equal(managementRequest.payload.username,'beheer');
+    assert.equal(managementRequest.payload.role,undefined);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     assert.equal(await page.evaluate(()=>{const gate=document.getElementById('loginGate');return gate.scrollHeight<=gate.clientHeight||getComputedStyle(gate).overflowY==='auto';}),true);
-    console.log('PASS login '+viewport.width+': shooter default, management dropdown, personal username retained, server determines permissions');
+    console.log('PASS login '+viewport.width+': no username field, shooter maps to kijker, management maps to beheer, server determines permissions');
     await page.close();
   }
 }finally{
