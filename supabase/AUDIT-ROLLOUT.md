@@ -1,8 +1,8 @@
 # EPP audit remediation
 
-Status: production migration and five authenticated functions deployed on 2026-10-05.
-The daily snapshot job is active. Frontend publication and legacy-access closure
-are the final cutover checks.
+Status: production migration, five authenticated functions and frontend deployed
+on 2026-10-05. The daily snapshot job is active. Legacy anonymous access is closed
+and a real anonymous read check returned 401. All temporary test data was removed.
 
 ## Safety gate
 
@@ -45,6 +45,8 @@ No new interpretation of the official national ranking rules is introduced here.
 - Live concurrency check: two temporary Gast trainer accounts saved independent
   rounds concurrently; both persisted. Concurrent correction returned 200/409.
   A temporary shooter account could read but not write. Test records were removed.
+- Original legacy payloads were rechecked at publication and remained unchanged
+  since the pre-migration export. No late entries were lost in the cutover window.
 
 ## Data Verification
 
