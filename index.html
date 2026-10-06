@@ -68,6 +68,9 @@
 </div>
 <div id="root" hidden></div>
 <script src="training-store.js"></script>
+<link rel="stylesheet" href="camera-series.css" />
+<script src="camera-series.js"></script>
+<script src="camera-series-ui.js"></script>
 <script>
 window.__eppError=function(msg){
   console.error("EPP runtime error",msg);
@@ -1129,207 +1132,8 @@ const TabInvoer = ({
 };
 
 // ── TabCamera ─────────────────────────────────────────────────────
-const frameStyle = f => ({left:`${f.x*100}%`,top:`${f.y*100}%`,width:`${f.w*100}%`,height:`${f.h*100}%`});
-const TargetOverlay = ({frame}) => h("svg",{className:"cam-overlay",style:frameStyle(frame),viewBox:"0 0 1 1",preserveAspectRatio:"none"},
-  h("polygon",{className:"cam-outline",points:EPP_OUTLINE.map(p=>p.join(",")).join(" ")}),
-  EPP_ZONES.map((z,i)=>z.type==="ellipse"
-    ? h("ellipse",{key:i,className:"cam-zone",cx:z.cx,cy:z.cy,rx:z.rx,ry:z.ry})
-    : h("polygon",{key:i,className:`cam-zone ${z.score<4?"mid":""}`,points:z.pts.map(p=>p.join(",")).join(" ")})
-  )
-);
 
-const TabCamera = ({shooters, cameraShots, setCameraShots, maxOf, flash, markShotsDeleted, addRound, removeRoundByReplaceKey,trainingId}) => {
-  const [sid,setSid] = React.useState(shooters[0]?.id || "");
-  const [stage,setStage] = React.useState("s1");
-  const [camOn,setCamOn] = React.useState(false);
-  const [status,setStatus] = React.useState("Camera klaar");
-  const [frame,setFrame] = React.useState(()=>{try{return {...DEFAULT_TARGET_FRAME,...JSON.parse(localStorage.getItem("epp-camera-frame")||"{}")};}catch(e){return DEFAULT_TARGET_FRAME;}});
-  const videoRef = React.useRef(null);
-  const streamRef = React.useRef(null);
-
-  React.useEffect(()=>{ if(!sid && shooters[0]) setSid(shooters[0].id); },[shooters,sid]);
-  React.useEffect(()=>()=>stopCamera(),[]);
-  React.useEffect(()=>{try{localStorage.setItem("epp-camera-frame",JSON.stringify(frame));}catch(e){}},[frame]);
-
-  const stageObj = STAGES.find(s=>s.key===stage);
-  const isCurrentShot = x => x.sid===sid && x.stage===stage && x.trainingId===trainingId;
-  const activeShots = cameraShots.filter(isCurrentShot);
-  const total = activeShots.reduce((a,s)=>a+s.score,0);
-  const maxShots = Math.max(1,Math.round(maxOf(stage)/5));
-  const missingShots = Math.max(0,maxShots-activeShots.length);
-
-  const updateStoredTotal = nextShots => {
-    const sum = nextShots.filter(isCurrentShot).reduce((a,s)=>a+s.score,0);
-    addRound({sid,type:"stage",stage,score:sum,source:"camera",replaceKey:`camera-${sid}-${stage}`});
-  };
-  const viewToTarget = p => ({x:(p.x-frame.x)/frame.w,y:(p.y-frame.y)/frame.h});
-  const inTarget = p => p.x>=0 && p.x<=1 && p.y>=0 && p.y<=1;
-  const moveFrame = (dx,dy,dw=0,dh=0) => setFrame(f=>{
-    const nf={x:f.x+dx,y:f.y+dy,w:f.w+dw,h:f.h+dh};
-    nf.w=Math.max(.18,Math.min(.98,nf.w));
-    nf.h=Math.max(.24,Math.min(.98,nf.h));
-    nf.x=Math.max(0,Math.min(1-nf.w,nf.x));
-    nf.y=Math.max(0,Math.min(1-nf.h,nf.y));
-    return nf;
-  });
-  const resizeFrame = (dw,dh) => moveFrame(-dw/2,-dh/2,dw,dh);
-  const registerShot = (viewPoint, source="tap") => {
-    if(!sid) return flash("Kies eerst een schutter");
-    if(activeShots.length>=maxShots) return flash("Maximum schoten voor deze stage bereikt");
-    if(activeShots.some(s=>dist(s,viewPoint)<.025)) return;
-    const targetPoint = viewToTarget(viewPoint);
-    const score = inTarget(targetPoint) ? scoreAtTargetPoint(targetPoint) : 0;
-    const shot = {id:newId(),sid,stage,period:SCORE_PERIOD,x:viewPoint.x,y:viewPoint.y,tx:targetPoint.x,ty:targetPoint.y,score,source,ts:Date.now()};
-    setCameraShots(prev=>{
-      const next=[...prev,shot];
-      setTimeout(()=>updateStoredTotal(next),0);
-      return next;
-    });
-    setStatus(`Schot ${activeShots.length+1}: ${score} punten`);
-  };
-  const addManualScore = score => {
-    if(!sid) return flash("Kies eerst een schutter");
-    if(activeShots.length>=maxShots) return flash("Maximum schoten voor deze stage bereikt");
-    const n = activeShots.length;
-    const shot = {id:newId(),sid,stage,period:SCORE_PERIOD,x:.12+(n%5)*.08,y:.96,score,source:"correctie",ts:Date.now()};
-    setCameraShots(prev=>{
-      const next=[...prev,shot];
-      setTimeout(()=>updateStoredTotal(next),0);
-      return next;
-    });
-    setStatus(`Handmatig toegevoegd: ${score} punten`);
-  };
-  const removeShot = id => {
-    markShotsDeleted([id]);
-    setCameraShots(prev=>{
-      const next=prev.filter(s=>s.id!==id);
-      setTimeout(()=>updateStoredTotal(next),0);
-      return next;
-    });
-    setStatus("Schot verwijderd");
-  };
-  const undoShot = () => {
-    const last = activeShots[activeShots.length-1];
-    if(!last) return;
-    removeShot(last.id);
-  };
-  const resetStageShots = () => {
-    if(!activeShots.length) return;
-    if(!confirm("Schoten voor deze schutter/stage wissen?")) return;
-    markShotsDeleted(activeShots.map(s=>s.id));
-    setCameraShots(prev=>{
-      const next=prev.filter(s=>!isCurrentShot(s));
-      setTimeout(()=>removeRoundByReplaceKey(`camera-${sid}-${stage}`),0);
-      return next;
-    });
-    setStatus("Stage gewist");
-  };
-  async function startCamera(){
-    try{
-      const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:1920}},audio:false});
-      streamRef.current = stream;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      setCamOn(true);
-      setStatus("Camera actief");
-    }catch(e){
-      setStatus("Camera niet beschikbaar");
-      flash("Geef cameratoegang in de browser");
-    }
-  }
-  function stopCamera(){
-    streamRef.current?.getTracks?.().forEach(t=>t.stop());
-    streamRef.current=null;
-    setCamOn(false);
-  }
-
-  const handleTap = e => {
-    const r=e.currentTarget.getBoundingClientRect();
-    registerShot({x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height},"tap");
-  };
-
-  if(!shooters.length) return h(Empty,{msg:"Voeg eerst een schutter toe via Parcours of Stages."});
-  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},
-        h("div",{className:"eyebrow"},"Camera scoring")
-      ),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
-        h("p",{className:"beta-note"},"Lijn het gele kader uit met de kaart en tik op de foto op de plek van elke inslag, of gebruik de handmatige score-knoppen hieronder."),
-        h("div",{className:"cam-stage-grid"},
-          h("select",{className:"cam-select",value:sid,onChange:e=>setSid(e.target.value)},
-            shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam))
-          )
-        ),
-        h(StageCarousel,{stageKey:stage,onSelect:setStage}),
-        h("div",{className:"stage-hdr"},
-          h("div",null,
-            h("div",{className:"stage-hdr-name"},stageObj.kort),
-            h("div",{className:"stage-hdr-sub"},stageObj.afstand," · ",activeShots.length,"/",maxShots," schoten",missingShots?` · ${missingShots} gemist = 0`:"")
-          )
-        )
-      )
-    ),
-    h("div",{className:"card"},
-      h("div",{className:"card-body"},
-        h("div",{className:"cam-target",onClick:handleTap},
-          h("video",{ref:videoRef,playsInline:true,muted:true}),
-          h("div",{className:"cam-frame",style:frameStyle(frame)}),
-          h(TargetOverlay,{frame}),
-          h("div",{className:"cam-cross"}),
-          activeShots.map((s,i)=>h("div",{key:s.id,className:"cam-shot",style:{left:`${s.x*100}%`,top:`${s.y*100}%`}},s.score))
-        ),
-        h("div",{className:"cam-toolbar"},
-          h("button",{className:"btn btn-gold",onClick:camOn?stopCamera:startCamera},camOn?"Stop camera":"Start camera"),
-          h("button",{className:"btn btn-ghost",onClick:undoShot},"Ongedaan")
-        ),
-        h("div",{className:"cal-grid"},
-          h("button",{className:"cal-btn",onClick:()=>moveFrame(0,-.015)},"↑"),
-          h("button",{className:"cal-btn",onClick:()=>moveFrame(0,.015)},"↓"),
-          h("button",{className:"cal-btn",onClick:()=>moveFrame(-.015,0)},"←"),
-          h("button",{className:"cal-btn",onClick:()=>moveFrame(.015,0)},"→"),
-          h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(-.03,-.03)},"Kleiner"),
-          h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(.03,.03)},"Groter"),
-          h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(-.03,0)},"Smaller"),
-          h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(.03,0)},"Breder"),
-          h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(0,-.03)},"Korter"),
-          h("button",{className:"cal-btn smalltxt",onClick:()=>resizeFrame(0,.03)},"Hoger"),
-          h("button",{className:"cal-btn",onClick:()=>setFrame(DEFAULT_TARGET_FRAME)},"Reset")
-        ),
-        h("div",{className:"manual-row"},
-          [0,2,3,4,5].map(v=>h("button",{key:v,className:"manual-score",onClick:()=>addManualScore(v)},"+",v))
-        ),
-        h("p",{className:"hint",style:{marginTop:10}},status," · Lijn het gele frame uit met de kaart. Schoten buiten de scorevlakken tellen als 0.")
-      )
-    ),
-    h("div",{className:"cam-total-row"},
-      h("div",{className:"cam-metric"},h("strong",null,total),h("span",null,"totaal")),
-      h("div",{className:"cam-metric"},h("strong",null,activeShots.length),h("span",null,"schoten")),
-      h("div",{className:"cam-metric"},h("strong",null,missingShots),h("span",null,"missers"))
-    ),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schoten")),
-      h("div",{className:"card-body"},
-        activeShots.length || missingShots
-          ? h("div",{className:"shot-list"},
-            activeShots.map((s,i)=>h("div",{key:s.id,className:"shot-pill"},
-              h("div",{className:"shot-num"},i+1),
-              h("div",{className:"shot-meta"},s.source==="auto"?"Automatisch":"Handmatig"),
-              h("div",{className:"shot-score"},s.score),
-              h("button",{className:"shot-rm",onClick:()=>removeShot(s.id),"aria-label":"Schot verwijderen"},"×")
-            )),
-            [...Array(missingShots)].map((_,i)=>h("div",{key:`miss-${i}`,className:"shot-pill"},
-              h("div",{className:"shot-num"},activeShots.length+i+1),
-              h("div",{className:"shot-meta"},"Nog niet geregistreerd"),
-              h("div",{className:"shot-score"},"0")
-            ))
-          )
-          : h("p",{className:"hint"},"Nog geen schoten geregistreerd."),
-        h("button",{className:"btn btn-danger btn-full",style:{marginTop:10},onClick:resetStageShots},"Wis deze stage")
-      )
-    )
-  );
-};
+const TabCamera = window.createEppSeriesCamera({React,h,STAGES,StageCarousel,scoreAtTargetPoint,newId});
 
 // ── TabTraining ───────────────────────────────────────────────────
 const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTrainer,archives=[]}) => {
@@ -2531,7 +2335,7 @@ function App() {
     : tab==="parcours" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"parcours"})
     : tab==="stages" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"stage"})
     : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab,isTrainer,archives})
-    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,markShotsDeleted,addRound,removeRoundByReplaceKey})
+    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
     : tab==="landelijk" ? h(TabLandelijk,{isTrainer,password:platformPassword,setPassword:setPlatformPassword,flash})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab,canRestore:!store.current.busy&&!store.current.conflict&&!EppStore.diff(store.current.base,makePayload()).length,onRestored:pullRemote})
