@@ -106,9 +106,13 @@ function eppRawCall(fn,payload){
   var key='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc296eGprbHRjbmV4cXBud2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDI3MTMsImV4cCI6MjEwNTQ3ODcxM30.xfgh12ksiCiSZGxXsrIF5HIiw6w418cECT476mBrUp0';
   return fetch('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/'+fn,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)}).then(async function(r){var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'server_fout');return d;});
 }
+var eppLoginGateInitialized=false;
+var eppAuthAttempt=0;
 function eppShowLoginGate(){
   document.getElementById("root").setAttribute("hidden","");
   document.getElementById("loginGate").removeAttribute("hidden");
+  if(eppLoginGateInitialized)return;
+  eppLoginGateInitialized=true;
   var lastClub=localStorage.getItem(EPP_AUTH_CLUB_KEY);
   var clubSel=document.getElementById("loginClub");
   if(lastClub) clubSel.value=lastClub;
@@ -132,7 +136,10 @@ function eppSetPersonalLogin(enabled){
 }
 document.getElementById('loginPersonalToggle').addEventListener('click',function(){eppSetPersonalLogin(!eppPersonalLogin);});
 if(sessionStorage.getItem('epp-personal-login')==='1'){sessionStorage.removeItem('epp-personal-login');eppSetPersonalLogin(true);}
+var eppSelectedLoginRole=document.getElementById('loginRole').value;
 document.getElementById('loginRole').addEventListener('change',function(){
+  if(this.value===eppSelectedLoginRole)return;
+  eppSelectedLoginRole=this.value;
   eppSetPersonalLogin(false);
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
@@ -143,6 +150,7 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
   var club=EPP_CLUBS.find(function(c){return c.id===clubId;});
   var entered=document.getElementById("loginPassword").value;
   if(club){
+    eppAuthAttempt++;
     var submitButton=document.querySelector(".login-submit");
     submitButton.disabled=true;
     var username=document.getElementById('loginRole').value==='trainer'?'beheer':'kijker';
@@ -165,11 +173,14 @@ var eppStoredClub=localStorage.getItem(EPP_AUTH_CLUB_KEY);
 var eppClubValid=EPP_CLUBS.some(function(c){return c.id===eppStoredClub;});
 var savedSession=eppSession();
 var eppAuthReady=Promise.resolve(false);
+eppShowLoginGate();
+var eppSessionAttempt=eppAuthAttempt;
 if(savedSession && eppClubValid){
   eppAuthReady=eppRawCall('epp-auth',{action:'session',clubId:eppStoredClub,sessionToken:savedSession.sessionToken}).then(function(result){
+    if(eppAuthAttempt!==eppSessionAttempt)return false;
     localStorage.setItem(EPP_SESSION_KEY,JSON.stringify({...savedSession,account:result.account}));
     localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);return true;
-  }).catch(function(){localStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();return false;});
+  }).catch(function(){if(eppAuthAttempt===eppSessionAttempt){localStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();}return false;});
 }else{eppShowLoginGate();}
 </script>
 <script>/* react */
