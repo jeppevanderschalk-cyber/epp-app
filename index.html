@@ -1084,7 +1084,7 @@ const RankList = ({items, max}) => {
 const TabInvoer = ({
   shooters, nieuw, setNieuw, addShooter, removeShooter,
   currentTraining, setTrainingMode, setTrainingStage, addRound,
-  setTab, maxOf, fixedMode="parcours"
+  setTab, maxOf, fixedMode="parcours", onOverview
 }) => {
   const mode = fixedMode;
   const stage = currentTraining.stage;
@@ -1119,12 +1119,9 @@ const TabInvoer = ({
         ),
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:0}},"Nog geen schutters toegevoegd.")
-          : h("div",{style:{display:"flex",flexWrap:"wrap",gap:8}},
-              shooters.map((s,i)=>h("span",{key:s.id,className:"shooter-chip"},
-                h("span",{className:"chip-dot",style:{background:kleur(i,shooters.length)}}),
-                s.naam,
-                h("button",{className:"chip-rm",onClick:()=>removeShooter(s.id)},"×")
-              ))
+          : h("div",{style:{display:"flex",gap:8,alignItems:"end"}},
+              h("label",{style:{flex:1,minWidth:0}},"Schutter",h("select",{className:"txt-in","aria-label":"Schutter voor score-invoer",value:activeSid,onChange:e=>setActiveSid(e.target.value)},shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam)))),
+              h("button",{className:"btn btn-danger",type:"button",title:"Geselecteerde schutter verwijderen","aria-label":"Geselecteerde schutter verwijderen",onClick:()=>removeShooter(activeSid)},"×")
             )
       )
     ),
@@ -1139,11 +1136,12 @@ const TabInvoer = ({
         ),
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Voeg eerst schutters toe.")
-          : shooters.map((s,i)=>{
+          : shooters.filter(s=>s.id===activeSid).map(s=>{
+              const i=shooters.findIndex(item=>item.id===s.id);
               const rounds = roundGroups(s.id);
               const average = avg(rounds.map(r=>r.score));
               const done = rounds.length>0;
-              return h("div",{key:s.id,className:"score-row","data-active":activeSid===s.id?"1":"0",onClick:()=>setActiveSid(s.id)},
+              return h("div",{key:s.id+stage,className:"score-row","data-active":activeSid===s.id?"1":"0"},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
@@ -1164,11 +1162,12 @@ const TabInvoer = ({
         ),
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Voeg eerst schutters toe.")
-          : shooters.map((s,i)=>{
+          : shooters.filter(s=>s.id===activeSid).map(s=>{
+              const i=shooters.findIndex(item=>item.id===s.id);
               const rounds = roundGroups(s.id);
               const best = rounds.length?Math.max(...rounds.map(r=>r.score)):null;
               const done = rounds.length>0;
-              return h("div",{key:s.id,className:"score-row","data-active":activeSid===s.id?"1":"0",onClick:()=>setActiveSid(s.id)},
+              return h("div",{key:s.id,className:"score-row","data-active":activeSid===s.id?"1":"0"},
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
@@ -1183,7 +1182,7 @@ const TabInvoer = ({
       h("div",{className:"card-body"},
         h("div",{className:"training-action"},
           h("p",{className:"hint"},"Rondes nu: ",trainingRounds.length,". Nog zonder ronde: ",missingCount,". Controleer en sluit af via de tab Training."),
-          h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("training")},"Naar huidige training")
+          h("button",{className:"btn btn-ghost btn-full",onClick:()=>onOverview?onOverview():setTab("training")},"Naar huidige training")
         )
       )
     )
@@ -1195,14 +1194,17 @@ const TabInvoer = ({
 const TabCamera = window.createEppSeriesCamera({React,h,STAGES,StageCarousel,scoreAtTargetPoint,newId});
 
 // ── TabTraining ───────────────────────────────────────────────────
-const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTrainer,archives=[]}) => {
-  if(!shooters.length) return h(Empty,{msg:"Voeg schutters en scores toe via Invoer."});
+const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTrainer,archives=[],onStageInput}) => {
+  const [selected,setSelected]=React.useState('');
+  React.useEffect(()=>{if(selected&&!shooters.some(s=>s.id===selected))setSelected('');},[shooters,selected]);
+  if(!shooters.length) return h(Empty,{msg:isTrainer?"Voeg schutters toe bij Parcours of Training → Stages.":"Nog geen training ingevoerd."});
   const mode = currentTraining.mode;
   const stageObj = STAGES.find(s=>s.key===currentTraining.stage);
   const trainingRounds = currentTraining.rounds || [];
   const roundsFor = sid => trainingRounds.filter(r=>r.sid===sid && r.type===mode && (mode==="parcours" || r.stage===currentTraining.stage));
   const missing = shooters.filter(s=>roundsFor(s.id).length===0);
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("label",null,"Schutter",h("select",{className:"txt-in","aria-label":"Schutter in trainingsoverzicht",value:selected,onChange:e=>setSelected(e.target.value)},h("option",{value:""},"Alle schutters"),shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam)))),
     h("div",{className:"stat-grid"},
       h("div",{className:"stat-card"},h("div",{className:"stat-val"},trainingRounds.length),h("div",{className:"stat-lbl"},"Rondes nu")),
       h("div",{className:"stat-card"},h("div",{className:"stat-val"},missing.length),h("div",{className:"stat-lbl"},"Nog invullen"))
@@ -1222,7 +1224,8 @@ const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTraine
           )
         ),
         missing.length>0 && h("p",{className:"beta-note"},"Nog zonder opgeslagen ronde: ",missing.map(s=>s.naam).join(", ")),
-        shooters.map((s,i)=>{
+        shooters.filter(s=>!selected||s.id===selected).map(s=>{
+          const i=shooters.findIndex(item=>item.id===s.id);
           const rounds = roundsFor(s.id);
           const value = mode==="parcours" ? (rounds.length?Math.max(...rounds.map(r=>r.score)):null) : avg(rounds.map(r=>r.score));
           return h("div",{key:s.id,className:"shooter-score-card"},
@@ -1236,14 +1239,24 @@ const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTraine
           );
         }),
         isTrainer && h("div",{className:"training-action"},
-          h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab(mode==="stage"?"stages":"parcours")},"Terug naar invoer"),
+          h("button",{className:"btn btn-ghost btn-full",onClick:()=>mode==="stage"?onStageInput():setTab("parcours")},"Terug naar invoer"),
           h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Training afsluiten en nieuwe starten")
         )
       )
     ),
     archives.length>0&&h("section",null,h("h3",null,"Trainingsarchief"),archives.map(t=>h("details",{key:t.id,style:{padding:"12px 0",borderBottom:"1px solid "+C.border}},
       h("summary",null,new Date(t.closedAt).toLocaleDateString("nl-NL")+" - "+(t.rounds||[]).length+" rondes"+(t.excludedFromStand?" - niet meegenomen":"")),
-      (t.rounds||[]).map(r=>h("p",{key:r.id},(shooters.find(s=>s.id===r.sid)?.naam||r.sid)+" - "+(r.type==="parcours"?"Parcours":r.stage)+": "+r.score)))))
+      (t.rounds||[]).filter(r=>!selected||r.sid===selected).map(r=>h("p",{key:r.id},(shooters.find(s=>s.id===r.sid)?.naam||r.sid)+" - "+(r.type==="parcours"?"Parcours":r.stage)+": "+r.score)))))
+  );
+};
+
+const TrainingHub = props => {
+  const view=props.trainingView,setView=props.setTrainingView;
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:12,minWidth:0}},
+    props.isTrainer&&h('div',{className:'sub-tab-row'},[['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
+    props.isTrainer&&view==='stages'
+      ?h(TabInvoer,{...props,fixedMode:'stage',onOverview:()=>setView('overview')})
+      :h(TabTraining,{...props,onStageInput:()=>setView('stages')})
   );
 };
 
@@ -2288,6 +2301,7 @@ with check (true);`)
 // ═══════════════════════════════════════════════════════════════════
 function App() {
   const isTrainer = eppSession()?.account?.role === "trainer";
+  const [trainingView,setTrainingView]=React.useState('stages');
   const accountClubId=eppSession()?.account?.clubId;
   const accountClubName=EPP_CLUBS.find(c=>c.id===accountClubId)?.label||accountClubId||"Vereniging";
   const [shooters,   setShooters]   = React.useState([]);
@@ -2518,7 +2532,6 @@ function App() {
 
   const navItems = (isTrainer ? [
     {key:"parcours",label:"Parcours",  icon:Icon.pencil},
-    {key:"stages",  label:"Stages",    icon:Icon.target},
     {key:"training",label:"Training",  icon:Icon.chart},
     {key:"stand",   label:"Stand",     icon:Icon.trophy},
     {key:"landelijk",label:"Landelijk",icon:Icon.target},
@@ -2532,9 +2545,8 @@ function App() {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="parcours" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"parcours"})
-    : tab==="stages" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"stage"})
-    : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab,isTrainer,archives})
+    : tab==="parcours" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"parcours",onOverview:()=>{setTrainingView('overview');setTab('training');}})
+    : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,archives,trainingView,setTrainingView})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
     : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:isTrainer?'individual':'signup'})
