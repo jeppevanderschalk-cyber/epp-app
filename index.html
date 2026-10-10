@@ -1046,6 +1046,7 @@ const RankList = ({items, max}) => {
           h("span",{className:"rank-score"},r.gem==null?"–":r.gem.toFixed(1))
         ),
         r.timed&&h("div",{className:"set-sub"},"Vijven: ",r.hits5??'Onbekend'," · 7 m: ",r.rapid_score??'Onbekend'," · ",EppScoreRanking.time(r.rapid_time_ms)," · Totaal: ",EppScoreRanking.time(r.total_time_ms),r.provisional?' · Voorlopig':''),
+        h(QualificationBadge,{qualification:r.qualification}),
         h("div",{className:"rank-bar"},
           h("div",{className:"rank-fill",style:{
             width:`${r.gem==null?0:r.gem/max*100}%`,
@@ -1227,9 +1228,19 @@ const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTraine
 // ── TabRanglijst ──────────────────────────────────────────────────
 const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
   const [stage,setStage] = React.useState("s1");
+  const [qualifications,setQualifications]=React.useState({});
+  React.useEffect(()=>{
+    let active=true;
+    const load=async()=>{
+      try{const r=await eppCall("epp-platform",{clubId:CLUB_ID,action:"list_qualifications",discipline:"pistool"});if(!active)return;
+        const byId={};for(const q of r.qualifications||[])if(!byId[q.shooter_id])byId[q.shooter_id]=q;setQualifications(byId);
+      }catch{ /* Preserve the last confirmed titles during a network interruption. */ }
+    };
+    load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};
+  },[]);
   const stageObj = STAGES.find(s=>s.key===stage);
-  const parcoursItems = EppScoreRanking.rank(shooters.filter(s=>bestParcours?.[s.id]).map((s,i)=>({...bestParcours[s.id],final_score:bestParcours[s.id].score,naam:s.naam,kleur:kleur(i,shooters.length),gem:bestParcours[s.id].score,max:250,timed:true})));
-  const stageItems = shooters.map((s,i)=>({naam:s.naam,kleur:kleur(i,shooters.length),gem:bestStageAverages?.[stage]?.[s.id]?.avg,max:maxOf(stage)})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
+  const parcoursItems = EppScoreRanking.rank(shooters.filter(s=>bestParcours?.[s.id]).map((s,i)=>({...bestParcours[s.id],final_score:bestParcours[s.id].score,naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestParcours[s.id].score,max:250,timed:true})));
+  const stageItems = shooters.map((s,i)=>({naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestStageAverages?.[stage]?.[s.id]?.avg,max:maxOf(stage)})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Parcours stand · hoogste score")),
@@ -1258,6 +1269,50 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
 const scoreFields = [
   ["hits5","5 punten"],["hits4","4 punten"],["hits3","3 punten"],["hits2","2 punten"],["misses","0 punten"]
 ];
+const QualificationBadge=({qualification})=>qualification?.title
+  ? h("span",{title:"Officiële onderscheiding · "+qualification.qualification_year+" · "+qualification.source,style:{display:"inline-block",fontSize:12,fontWeight:800,color:C.goldLt,border:"1px solid "+C.border,borderRadius:4,padding:"3px 6px",marginTop:5}},qualification.title," · ",qualification.qualification_year)
+  : null;
+
+const QualificationEditor=({shooterId,discipline,onSaved})=>{
+  const currentYear=new Date().getFullYear();
+  const [year,setYear]=React.useState(currentYear-1),[title,setTitle]=React.useState(""),[source,setSource]=React.useState(""),[average,setAverage]=React.useState("");
+  const [revision,setRevision]=React.useState(0),[busy,setBusy]=React.useState(false),[loading,setLoading]=React.useState(true),[checked,setChecked]=React.useState(false),[status,setStatus]=React.useState("");
+  const [reload,setReload]=React.useState(0);
+  React.useEffect(()=>{
+    let active=true;setLoading(true);setChecked(false);setTitle("");setSource("");setAverage("");setRevision(0);setStatus("");
+    eppCall("epp-platform",{clubId:CLUB_ID,action:"get_qualification",shooterId,discipline,year})
+      .then(r=>{if(!active)return;const q=r.qualification;if(q){setTitle(q.active?q.title:"");setSource(q.source);setAverage(q.average_score==null?"":String(q.average_score));setRevision(q.revision);}})
+      .catch(e=>{if(active)setStatus("Ophalen mislukt: "+e.message);})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[shooterId,discipline,year,reload]);
+  const avg=average.trim()===""?null:Number(average.replace(",","."));
+  const minimum={Marksman:191,Expert:215,Master:228}[title];
+  const validAverage=avg===null||(Number.isFinite(avg)&&avg>=0&&avg<=250&&(!minimum||avg>=minimum));
+  const save=async()=>{
+    if(!checked||!validAverage||source.trim().length<3||loading||busy)return;
+    setBusy(true);setStatus("Kwalificatie opslaan...");
+    try{
+      const r=await eppCall("epp-platform",{clubId:CLUB_ID,action:"set_qualification",shooterId,discipline,year,title,source,average:avg,expectedRevision:revision});
+      setRevision(r.qualification.revision);setStatus("Kwalificatie opgeslagen");setChecked(false);onSaved();
+    }catch(e){setStatus(e.message==="kwalificatie_conflict"?"De kwalificatie is elders gewijzigd. Open deze opnieuw voordat je opslaat.":"Opslaan mislukt: "+e.message);}
+    finally{setBusy(false);}
+  };
+  return h("details",null,
+    h("summary",{style:{fontWeight:800,padding:"12px 0"}},"Officiële kwalificatie"),
+    h("fieldset",{disabled:busy||loading,style:{minWidth:0,border:0,padding:0,margin:0,display:"grid",gap:10}},
+      h("label",null,"Jaar onderscheiding",h("select",{className:"txt-in","aria-label":"Jaar onderscheiding",value:year,onChange:e=>setYear(Number(e.target.value))},Array.from({length:currentYear-1979},(_,i)=>h("option",{key:currentYear-i,value:currentYear-i},currentYear-i)))),
+      h("label",null,"Kwalificatie",h("select",{className:"txt-in","aria-label":"Kwalificatie",value:title,onChange:e=>setTitle(e.target.value)},h("option",{value:""},"Geen onderscheiding"),["Marksman","Expert","Master"].map(t=>h("option",{key:t,value:t},t)))),
+      h("label",null,"Officieel gemiddelde (optioneel)",h("input",{className:"txt-in",inputMode:"decimal",value:average,onChange:e=>setAverage(e.target.value)})),
+      !validAverage&&h("p",{className:"hint",role:"alert"},"Gemiddelde moet minimaal ",minimum," punten zijn voor ",title,"."),
+      h("label",null,"Bron officiële onderscheiding",h("input",{className:"txt-in",value:source,onChange:e=>setSource(e.target.value)})),
+      h("label",{className:"chk-row"},h("input",{type:"checkbox",checked,onChange:e=>setChecked(e.target.checked)}),"Officiële onderscheiding gecontroleerd"),
+      h("button",{type:"button",className:"btn btn-ghost",disabled:!checked||!validAverage||source.trim().length<3,onClick:save},busy?"Opslaan...":"Kwalificatie opslaan")
+    ),
+    h("p",{className:"hint",role:"status"},loading?"Kwalificatie laden...":status),
+    !loading&&!busy&&status&&status!=="Kwalificatie opgeslagen"&&h("button",{type:"button",className:"btn btn-ghost",onClick:()=>{if(confirm("Niet opgeslagen kwalificatiewijzigingen vervallen. Opnieuw ophalen?"))setReload(n=>n+1);}},"Opnieuw ophalen")
+  );
+};
 const RankingTable = ({items}) => !items?.length
   ? h("p",{className:"hint"},"Nog geen bevestigde landelijke scores.")
   : h("div",{style:{display:"flex",flexDirection:"column",gap:8}},
@@ -1266,7 +1321,8 @@ const RankingTable = ({items}) => !items?.length
         h("div",{className:"pos"},item.position),
         h("div",{style:{flex:1,minWidth:0}},
           h("div",{style:{fontWeight:900,color:C.ink,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},item.name),
-          h("div",{className:"set-sub"},item.club," · ",item.publicId)
+          h("div",{className:"set-sub"},item.club," · ",item.publicId),
+          h(QualificationBadge,{qualification:item.qualification})
         ),
         h("div",{className:"ssc-total"},item.score)
       ),
@@ -1452,6 +1508,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
           !exactMatch && !directoryBusy && h("button",{type:"button",className:"btn btn-ghost",style:{whiteSpace:"normal",overflowWrap:"anywhere"},onClick:()=>setNewShooter(true)},"+ Nieuwe schutter: ",shooterName.trim())
         ),
         (selectedShooter || newShooter) && h("p",{className:"hint"},newShooter?"Nieuwe schutter: "+shooterName:selectedShooter.id?"Geselecteerd: "+selectedShooter.name+" · "+selectedShooter.publicId:"Geselecteerd uit klassement 2026: "+selectedShooter.name),
+        selectedShooter?.id&&eppSession()?.account?.isAdmin&&h(QualificationEditor,{key:selectedShooter.id+discipline,shooterId:selectedShooter.id,discipline,onSaved:load}),
         revision>0&&h("label",null,"Reden van correctie",h("input",{className:"txt-in",value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
         !allowedDiscipline&&h("p",{className:"hint",role:"alert"},"Open is niet aangeboden bij deze wedstrijd."),
         h("h3",{style:{margin:"8px 0",fontSize:16}},resultLoading?"Score ophalen...":"Snelvuur 7 meter · 10 schoten"),

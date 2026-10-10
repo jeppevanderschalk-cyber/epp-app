@@ -107,12 +107,14 @@ async function findOrCreateShooter(db: any, displayName: string, representedClub
   return shooter;
 }
 async function loadRanking(db: any, ctx: any, matchId?: string) {
+  let qualificationYear=Number(ctx.season.naam);
   let eventQuery = db
     .from("events")
     .select("id")
     .eq("ranking_eligible", true);
   if(matchId){
     const {data:match,error}=await db.from('epp_matches').select('organizer,match_date').eq('id',matchId).single();if(error)throw error;
+    qualificationYear=Number(match.match_date.slice(0,4));
     const {data:copies,error:copyError}=await db.from('epp_matches').select('id').eq('organizer',match.organizer).eq('match_date',match.match_date);if(copyError)throw copyError;
     eventQuery=eventQuery.in('registration_match_id',copies.map((m:any)=>m.id));
   }else eventQuery=eventQuery.eq('season_id',ctx.season.id);
@@ -143,6 +145,10 @@ async function loadRanking(db: any, ctx: any, matchId?: string) {
   if (cErr) throw cErr;
   const shooterMap = new Map((shooters || []).map((s: any) => [s.id, s]));
   const clubMap = new Map((clubs || []).map((c: any) => [c.id, c]));
+  const {data:qualifications,error:qualificationError}=await db.from('shooter_qualifications').select('shooter_id,title,qualification_year,source,average_score').in('shooter_id',shooterIds).eq('division_id',ctx.division.id).eq('active',true).lte('qualification_year',qualificationYear).order('qualification_year',{ascending:false});
+  if(qualificationError)throw qualificationError;
+  const qualificationMap=new Map();
+  for(const q of qualifications||[])if(!qualificationMap.has(q.shooter_id))qualificationMap.set(q.shooter_id,q);
 
   const best = new Map<string, any>();
   for (const row of results || []) {
@@ -156,6 +162,7 @@ async function loadRanking(db: any, ctx: any, matchId?: string) {
     const club = clubMap.get(row.represented_club_id);
     return {
       position: row.position,
+      qualification: qualificationMap.get(row.shooter_id)||null,
       provisional: row.provisional,
       hits5: row.hits5,
       rapidScore: row.rapid_score,
@@ -184,8 +191,29 @@ Deno.serve(async (req) => {
 
   const db = serviceClient();
   try {
-    const actor=await requireAccount(body,['confirm_result','prepare_match','create_round','register_shooter'].includes(action));
+    const actor=await requireAccount(body,['confirm_result','prepare_match','create_round','register_shooter','set_qualification','get_qualification'].includes(action));
     const ctx = await ensureContext(db, clubId, clubLabel || clubId.toUpperCase(),body.discipline||'pistool');
+
+    if(action==='list_qualifications'){
+      const shooters=await loadClubShooters(db,ctx.club.id);
+      if(!shooters.length)return json({ok:true,qualifications:[]});
+      const {data,error}=await db.from('shooter_qualifications').select('shooter_id,title,qualification_year,source,average_score').in('shooter_id',shooters.map((s:any)=>s.id)).eq('division_id',ctx.division.id).eq('active',true).lte('qualification_year',Number(ctx.season.naam)).order('qualification_year',{ascending:false});
+      if(error)throw error;
+      return json({ok:true,qualifications:data});
+    }
+
+    if(action==='get_qualification'){
+      if(!actor.is_admin)throw new Error('geen_beheerrechten');
+      const {data:member,error:memberError}=await db.from('memberships').select('shooter_id').eq('shooter_id',body.shooterId).eq('club_id',ctx.club.id).limit(1);
+      if(memberError)throw memberError;if(!member?.length)throw new Error('schutter_niet_van_vereniging');
+      const {data,error}=await db.from('shooter_qualifications').select('*').eq('shooter_id',body.shooterId).eq('division_id',ctx.division.id).eq('qualification_year',body.year).maybeSingle();if(error)throw error;
+      return json({ok:true,qualification:data});
+    }
+    if(action==='set_qualification'){
+      const {data,error}=await db.rpc('epp_set_qualification',{p_actor:actor.id,p_club:ctx.club.id,p_shooter:body.shooterId,p_division:ctx.division.id,p_year:body.year,p_title:cleanText(body.title),p_source:cleanText(body.source),p_average:body.average==null?null:Number(body.average),p_expected:body.expectedRevision||0});
+      if(error)throw error;
+      return json({ok:true,qualification:data});
+    }
 
     if (action === "context") {
       const ranking = await loadRanking(db, ctx);

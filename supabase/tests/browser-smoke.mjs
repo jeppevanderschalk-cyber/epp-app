@@ -21,9 +21,11 @@ const put=(kind,id,data)=>entities.set(kind+'|'+id,{kind,id,data});
 put('shooter','00000000-0000-4000-8000-000000000001',{id:'00000000-0000-4000-8000-000000000001',naam:'Test Schutter'});
 put('meta','currentTraining',{id:'test-training',mode:'parcours',stage:'s1',startedAt:1});
 put('meta','stageShots',{s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10});
+put('parcoursBest','00000000-0000-4000-8000-000000000001',{score:240});
 let failSave=false;
 const errors=[];
 let confirmed=null;
+const qualifications=new Map();
 const account={id:'test-account',username:'testtrainer',displayName:'Test Trainer',role:'trainer',clubId:'svbb',isAdmin:true};
 try{
   for(const viewport of [{width:390,height:844},{width:1440,height:1000}]){
@@ -46,6 +48,19 @@ try{
         }
         if(body.action==='get_result')response={ok:true,result:body.roundId==='round-match-a'?{revision:2,hits5:40,hits4:10,hits3:0,hits2:0,misses:0,penalty_points:0}:null};
         if(body.action==='confirm_result'){confirmed=body;response={ok:true,ranking:[]};}
+        const qualificationKey=[body.shooterId,body.discipline,body.year].join('|');
+        if(body.action==='get_qualification')response={ok:true,qualification:qualifications.get(qualificationKey)||null};
+        if(body.action==='set_qualification'){
+          const previous=qualifications.get(qualificationKey);
+          assert.equal(body.expectedRevision,previous?.revision||0);
+          const qualification={shooter_id:body.shooterId,title:body.title,qualification_year:body.year,source:body.source,average_score:body.average,revision:(previous?.revision||0)+1,active:!!body.title};
+          qualifications.set(qualificationKey,qualification);response={ok:true,qualification};
+        }
+        if(body.action==='context'){
+          const qualification=[...qualifications.entries()].find(([key])=>key.includes('|'+body.discipline+'|'))?.[1];
+          if(qualification){const items=[{position:1,publicId:'EPP-TEST',name:'Test Schutter',club:'SVBB',score:240,hits5:40,rapidScore:48,rapidTimeMs:12400,totalTimeMs:280000,qualification}];response={...response,ranking:items,matchRanking:items};}
+        }
+        if(body.action==='list_qualifications')response={ok:true,qualifications:[...qualifications.entries()].filter(([key])=>key.includes('|'+body.discipline+'|')).map(([,q])=>q)};
       }
       if(fn==='epp-training'){
         if(body.action==='save'){
@@ -117,6 +132,16 @@ try{
     await page.getByText('Reden van correctie',{exact:true}).waitFor();
     assert.equal(await page.getByLabel('Overige 5 punten',{exact:true}).inputValue(),'40');
     assert.equal(await page.getByLabel('Snelvuurtijd (seconden)',{exact:true}).inputValue(),'');
+    await page.getByText('Officiële kwalificatie',{exact:true}).click();
+    await page.getByLabel('Kwalificatie',{exact:true}).selectOption('Master');
+    await page.getByLabel('Officieel gemiddelde (optioneel)',{exact:true}).fill('227');
+    await page.getByLabel('Bron officiële onderscheiding',{exact:true}).fill('Officiële uitslag 2025');
+    await page.getByLabel('Officiële onderscheiding gecontroleerd',{exact:true}).check();
+    assert(await page.getByRole('button',{name:'Kwalificatie opslaan',exact:true}).isDisabled());
+    await page.getByLabel('Officieel gemiddelde (optioneel)',{exact:true}).fill('228');
+    await page.getByRole('button',{name:'Kwalificatie opslaan',exact:true}).click();
+    await page.getByText('Kwalificatie opgeslagen',{exact:true}).waitFor();
+    await page.getByText('Master · '+(new Date().getFullYear()-1),{exact:true}).first().waitFor();
     await page.screenshot({path:'/private/tmp/epp-national-'+viewport.width+'.png',fullPage:true});
     await page.evaluate(()=>window.scrollTo(0,0));
     await page.screenshot({path:'/private/tmp/epp-national-viewport-'+viewport.width+'.png'});
@@ -124,8 +149,12 @@ try{
     await page.waitForTimeout(500);
     assert((await page.locator('body').innerText()).includes('Open is niet aangeboden bij deze wedstrijd.'));
     assert(await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).isDisabled());
+    await page.getByRole('button',{name:'Stand',exact:true}).click();
+    await page.getByText('Master · '+(new Date().getFullYear()-1),{exact:true}).first().waitFor();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.screenshot({path:'/private/tmp/epp-qualification-stand-'+viewport.width+'.png'});
     await context.close();
   }
   assert.deepEqual(errors,[]);
-  console.log('PASS mobile/desktop, offline retry, automatic competition selection, stale response protection and existing score correction');
+  console.log('PASS mobile/desktop, offline retry, competition selection, stale responses, score correction, qualification validation and badges in official/training standings');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
