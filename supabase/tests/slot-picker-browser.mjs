@@ -20,7 +20,7 @@ try{
       if(body.action==='catalog')response={ok:true,matches:[planned]};
       if(body.action==='list_shooters')response={ok:true,shooters:[{id:'member',naam:'Test Schutter'}]};
       if(body.action==='my_signups')response={ok:true,signups:[]};
-      if(body.action==='book'){choices=body.choices;revision++;response={ok:true};}
+      if(body.action==='book'){for(const s of slots)s.booked-=choices.filter(c=>c.slotId===s.id).length;choices=body.choices;for(const s of slots)s.booked+=choices.filter(c=>c.slotId===s.id).length;revision++;response={ok:true};}
       if(body.action==='view')response={ok:true,match:planned,planner:{published:true,opens_at:'2020-01-01T00:00:00Z',closes_at:'2027-05-27T18:00:00Z'},profile:{id:'member'},managing:false,slots,mine:{revision,choices},roster:[],audit:[]};
       await route.fulfill({contentType:'application/json',body:JSON.stringify(response)});
     });
@@ -36,12 +36,20 @@ try{
     await group.waitFor();assert.equal(await group.locator('select').count(),0);
     assert.equal(await group.getByRole('radio',{name:'28 mei 2027 · 09:10 · Vol',exact:true}).isDisabled(),true);
     await group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true}).click();
+    await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
+    await page.getByText('Je gekozen tijdsloten zijn gereserveerd.',{exact:true}).waitFor();
+    await group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true}).getByText('Gereserveerd',{exact:true}).waitFor();
     await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
     await group.getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).click();
+    await page.getByText('Bevestig je nieuwe tijdslot. Daarna komt je oude tijdslot automatisch vrij.',{exact:true}).waitFor();
+    assert.equal(slots[0].booked,1,'old booking stays safe until confirmation');
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Je gekozen tijdsloten zijn gereserveerd.',{exact:true}).waitFor();
     assert.deepEqual(choices,[{discipline:'pistool',slotId:'b'}]);
     assert.equal(await page.getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).getAttribute('aria-checked'),'true');
+    assert.equal(slots[0].booked,0,'old booking released after confirmation');
+    await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'28 mei 2027',exact:true}).click();
+    await group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true}).getByText('2 vrij',{exact:true}).waitFor();
     await page.screenshot({path:'/private/tmp/epp-slot-picker-'+width+'.png',fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
     await page.close();console.log('PASS '+width+': one sorted list below identity, Doe mee card, days, full-slot guard, reservation confirmed');

@@ -23,6 +23,7 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const open=view.managing||(view.planner.published&&Date.now()>=Date.parse(view.planner.opens_at)&&Date.now()<=Date.parse(view.planner.closes_at));
   const canBook=target||view.profile;
   const selected=Object.values(choices).some(Boolean);
+  const changed=view.match.offered_disciplines.some(d=>(choices[d]||'')!==(mine.choices.find(c=>c.discipline===d)?.slotId||''));
   const save=async cancel=>{
     if(busy||!open||!canBook||(!cancel&&!selected))return;setBusy(true);setStatus('');onEdited?.();
     try{
@@ -44,7 +45,8 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
         h('div',{role:'group','aria-label':'Wedstrijddag '+d,style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}},dates.map(date=>h('button',{key:date,type:'button','aria-pressed':date===day,className:'btn '+(date===day?'btn-gold':'btn-ghost'),style:{padding:'10px 12px',fontSize:14},onClick:()=>setDays(p=>({...p,[d]:date}))},date))),
         h('div',{role:'radiogroup','aria-label':'Tijdslot '+d,style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(105px,1fr))',gap:8}},view.slots.filter(s=>plannerDay(s.starts_at)===day).map(s=>{
           const own=mine.choices.some(c=>c.slotId===s.id),full=s.booked>=s.capacity&&!own,past=Date.parse(s.starts_at)<=Date.now(),selected=choices[d]===s.id;
-          return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'aria-label':plannerSlot(s.starts_at)+(full?' · Vol':past?' · Verstreken':''),disabled:full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:72,padding:'12px 8px',borderRadius:8,opacity:full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},full?'Vol':past?'Verstreken':selected?'Gekozen':Math.max(0,s.capacity-s.booked)+' vrij'));
+          const reserved=mine.choices.some(c=>c.discipline===d&&c.slotId===s.id);
+          return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'aria-label':plannerSlot(s.starts_at)+(full?' · Vol':past?' · Verstreken':''),disabled:full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:72,padding:'12px 8px',borderRadius:8,opacity:full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},full?'Vol':past?'Verstreken':reserved?'Gereserveerd':selected?'Nog bevestigen':Math.max(0,s.capacity-s.booked)+' vrij'));
         })),
         !dates.length&&h('p',{className:'hint'},'Nog geen tijdsloten beschikbaar.'),
         chosen&&h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10}},h('span',{style:{fontSize:14,fontWeight:700}},plannerSlot(chosen.starts_at)+' – '+plannerClock(chosen.ends_at)),h('button',{type:'button',className:'btn btn-ghost',style:{padding:'8px 10px',fontSize:12},onClick:()=>choose('')},'Niet deelnemen'))
@@ -52,6 +54,7 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
     }),
     target&&h('label',null,'Reden wijziging',h('input',{className:'txt-in',value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
     !selected&&open&&canBook&&h('p',{className:'hint',role:'status',style:{margin:0}},'Nog geen tijdslot gekozen.'),
+    changed&&mine.choices.length>0&&h('p',{className:'hint',role:'status',style:{margin:0}},'Bevestig je nieuwe tijdslot. Daarna komt je oude tijdslot automatisch vrij.'),
     h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':'Tijdsloten bevestigen'),
     mine.choices.length>0&&h('button',{className:'btn btn-danger',disabled:busy||!open||(target&&reason.trim().length<3),onClick:()=>{if(confirm('Deze wedstrijdinschrijving afmelden?'))save(true);}},'Afmelden'),
     (status||saveNotice)&&h('p',{className:'hint',role:'status'},status||saveNotice),

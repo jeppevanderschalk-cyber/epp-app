@@ -33,6 +33,8 @@ begin
   rejected:=false;begin perform epp_signup_save(member_id,'gast',match_id,s1,'[]',true);exception when others then if sqlerrm='gebruik_wedstrijdplanner' then rejected:=true;else raise;end if;end;assert rejected,'legacy bypass';
   perform epp_planner_book(member_id,match_id,s1,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot1)),0);
   perform epp_planner_book(admin_id,match_id,s1,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot2)),1,'Verzoek schutter');
+  assert not exists(select 1 from epp_signup_disciplines where slot_id=slot1),'moving releases the old slot';
+  assert (select count(*) from epp_signup_disciplines where slot_id=slot2)=1,'moving reserves only the new slot';
   rejected:=false;begin perform epp_planner_book(member_id,match_id,s1,'[]',1);exception when others then if sqlerrm='boeking_conflict' then rejected:=true;else raise;end if;end;assert rejected,'revision';
   perform epp_planner_book(member_id,match_id,s1,'[]',2);
   perform epp_planner_book(member2,match_id,s2,jsonb_build_array(jsonb_build_object('discipline','optiek','slotId',slot1)),0);
