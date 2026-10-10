@@ -116,6 +116,28 @@ try{
     console.log('PASS delayed session '+(succeeds?'success after new login':'failure while typing')+': entered password preserved');
     await context.close();
   }
+  for(const width of [390,1440]){
+    const page=await browser.newPage({viewport:{width,height:850}});
+    let loginBody;
+    await page.route('https://**/*',async route=>{
+      if(!route.request().url().includes('/epp-auth')){await route.abort();return;}
+      loginBody=route.request().postDataJSON();
+      await route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({ok:false,error:'ongeldig_wachtwoord'})});
+    });
+    await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.locator('#loginEmail').fill('hoofdbeheer');
+    await page.locator('#loginRole').selectOption('hoofdbeheer');
+    for(const id of ['loginEmail','loginFirstName','loginLastName'])assert.equal(await page.locator('#'+id).isDisabled(),true);
+    await page.locator('#loginPassword').fill('test-head-password');
+    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+    await page.waitForFunction(()=>document.getElementById('loginError').textContent.length>0);
+    assert.equal(loginBody.clubId,'eppnationaal');assert.equal(loginBody.username,'hoofdbeheer');assert.equal(loginBody.email,undefined);
+    await page.locator('#loginRole').selectOption('schutter');
+    for(const id of ['loginEmail','loginFirstName','loginLastName'])assert.equal(await page.locator('#'+id).isEnabled(),true);
+    assert.equal(await page.locator('#loginEmail').inputValue(),'hoofdbeheer');
+    console.log('PASS hidden invalid email does not block head login at '+width+'px; member fields restored');
+    await page.close();
+  }
 }finally{
   if(browser)await browser.close();
   await new Promise(resolve=>server.close(resolve));
