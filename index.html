@@ -18,7 +18,7 @@
 <style>html,body{margin:0;padding:0;background:#0a1128}*{box-sizing:border-box}</style>
 <style>
 .login-gate{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px;background:linear-gradient(180deg,#0d1f6e 0%,#0a1128 100%)}
-.login-gate[hidden]{display:none}
+.login-gate[hidden]{display:none;pointer-events:none}
 .login-card{width:min(100%,380px);margin:auto 0;flex-shrink:0;display:grid;gap:16px;padding:28px 24px;border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(170deg,#15224e 0%,#0d1737 100%);box-shadow:0 18px 40px rgba(3,8,26,.5);text-align:center;font-family:'Archivo',system-ui,sans-serif;color:#ffffff}
 .login-logo{width:64px;height:64px;margin:0 auto;border-radius:14px;object-fit:contain}
 .login-card h2{margin:0}
@@ -117,7 +117,10 @@ function eppSha256Hex(text){
   });
 }
 function eppShowApp(){
-  document.getElementById("loginGate").setAttribute("hidden","");
+  var gate=document.getElementById("loginGate");
+  if(gate.contains(document.activeElement))document.activeElement.blur();
+  gate.setAttribute("inert","");
+  gate.setAttribute("hidden","");
   document.getElementById("root").removeAttribute("hidden");
 }
 var EPP_SESSION_KEY='epp-session-v2';
@@ -131,6 +134,7 @@ var eppAuthAttempt=0;
 function eppShowLoginGate(){
   document.getElementById("root").setAttribute("hidden","");
   document.getElementById("loginGate").removeAttribute("hidden");
+  document.getElementById("loginGate").removeAttribute("inert");
   if(eppLoginGateInitialized)return;
   eppLoginGateInitialized=true;
   var lastClub=localStorage.getItem(EPP_AUTH_CLUB_KEY);
@@ -823,7 +827,7 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .head-club-selector{flex:0 1 130px;min-width:0;max-width:32%;display:grid;gap:4px;font-size:.65rem;font-weight:800;color:${C.navy}}
 .head-club-selector select{width:100%;min-width:0;height:36px;border:1px solid rgba(10,17,40,.3);border-radius:6px;background:rgba(255,255,255,.16);color:${C.navy};font:inherit;font-size:.75rem;padding:0 4px;text-overflow:ellipsis}
 .gold-stripe{display:none}
-.bottomnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,430px);display:grid;grid-template-columns:repeat(5,1fr);background:rgba(9,15,36,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid ${C.border};z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
+.bottomnav{position:fixed;bottom:0;left:0;right:0;margin:0 auto;width:min(100%,430px);display:grid;grid-template-columns:repeat(5,1fr);background:#090f24;border-top:1px solid ${C.border};z-index:200;isolation:isolate;pointer-events:auto;touch-action:manipulation;padding-bottom:env(safe-area-inset-bottom,0)}
 .bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px 10px;background:none;border:none;cursor:pointer;color:${C.muted};font-family:'Archivo',sans-serif;font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;transition:color .15s;min-width:0;position:relative}
 .bnav-btn svg{width:22px;height:22px;flex-shrink:0;transition:transform .15s}
 .bnav-btn[data-on="1"]{color:${C.goldLt}}
