@@ -73,7 +73,7 @@
     <p class="login-error" id="loginError" role="alert"></p>
     <p id="loginStatus" role="status" style="color:#e9efff;margin:0"></p>
     <button class="login-submit" type="submit">Inloggen</button>
-    <button class="login-personal-toggle" id="loginPersonalToggle" type="button">Inloggen met eigen account</button>
+    <button class="login-personal-toggle" id="loginPersonalToggle" type="button">Ik heb nog geen account</button>
   </form>
 </div>
 <div id="root" hidden></div>
@@ -159,18 +159,38 @@ function eppSetPersonalLogin(enabled){
   });
   var toggle=document.getElementById('loginPersonalToggle');
   toggle.hidden=document.getElementById('loginRole').value==='hoofdbeheer';
-  toggle.textContent=eppPersonalLogin?'Nieuw account aanmaken':'Inloggen met eigen account';
+  toggle.textContent=document.getElementById('loginRole').value==='schutter'?'Ik heb nog geen account':eppPersonalLogin?'Inloggen met verenigingsaccount':'Inloggen met eigen account';
   document.getElementById('loginClubLabel').hidden=document.getElementById('loginRole').value==='hoofdbeheer'||(document.getElementById('loginRole').value==='schutter'&&!eppPersonalLogin);
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 }
-document.getElementById('loginPersonalToggle').addEventListener('click',function(){eppSetPersonalLogin(!eppPersonalLogin);});
-if(sessionStorage.getItem('epp-personal-login')==='1'||localStorage.getItem('epp-personal-login-preferred')==='1'){sessionStorage.removeItem('epp-personal-login');eppSetPersonalLogin(true);}
+document.getElementById('loginPersonalToggle').addEventListener('click',async function(){
+  if(document.getElementById('loginRole').value!=='schutter'){eppSetPersonalLogin(!eppPersonalLogin);return;}
+  var button=this;
+  if(button.disabled)return;
+  eppAuthAttempt++;
+  button.disabled=true;
+  document.querySelector('.login-submit').disabled=true;
+  document.getElementById('loginError').textContent='';
+  try{
+    var result=await eppRawCall('epp-auth',{clubId:'svbb',action:'login',username:'kijker',password:'Welkom123'});
+    localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
+    localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
+    localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
+    location.reload();
+  }catch(error){
+    document.getElementById('loginError').textContent='Account aanmaken is tijdelijk niet beschikbaar. Probeer het later opnieuw.';
+    button.disabled=false;
+    document.querySelector('.login-submit').disabled=false;
+  }
+});
+sessionStorage.removeItem('epp-personal-login');
+eppSetPersonalLogin(true);
 var eppSelectedLoginRole=document.getElementById('loginRole').value;
 document.getElementById('loginRole').addEventListener('change',function(){
   if(this.value===eppSelectedLoginRole)return;
   eppSelectedLoginRole=this.value;
-  eppSetPersonalLogin(false);
+  eppSetPersonalLogin(this.value==='schutter');
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 });

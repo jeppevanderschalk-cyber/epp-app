@@ -24,8 +24,6 @@ try{
     await context.addInitScript(account=>{
       if(sessionStorage.getItem('registration-test-initialized'))return;
       sessionStorage.setItem('registration-test-initialized','1');
-      if(!localStorage.getItem('epp-session-v2'))localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account}));
-      if(!localStorage.getItem('epp-app-club-v1'))localStorage.setItem('epp-app-club-v1','svbb');localStorage.setItem('epp-app-role-v1','schutter');
     },shared);
     await context.route('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/**',async route=>{
       const body=route.request().postDataJSON(),fn=route.request().url().split('/').pop();
@@ -37,7 +35,7 @@ try{
           if(registrationError)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:registrationError})});
           registration=body;response={ok:true,account:{clubId:personal.clubId}};
         }
-        if(body.action==='login'){response={ok:true,account:personal,sessionToken:'b'.repeat(64)};}
+        if(body.action==='login'){response=body.username==='kijker'?{ok:true,account:shared,sessionToken:'a'.repeat(64)}:{ok:true,account:personal,sessionToken:'b'.repeat(64)};}
       }
       if(fn==='epp-training')response={ok:true,entities:[]};
       if(fn==='epp-planner')response={ok:true,matches:[]};
@@ -51,6 +49,13 @@ try{
     });
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.locator('#loginFirstName').waitFor({state:'visible'});
+    assert.equal(await page.locator('#loginPassword').inputValue(),'');
+    await page.locator('#loginRole').selectOption('hoofdbeheer');
+    assert.equal(await page.locator('#loginFirstName').isVisible(),false);
+    await page.locator('#loginRole').selectOption('schutter');
+    assert.equal(await page.locator('#loginFirstName').isVisible(),true);
+    await page.getByRole('button',{name:'Ik heb nog geen account',exact:true}).click();
     await page.getByText('Eigen account aanmaken',{exact:true}).waitFor();
     assert.equal(await page.getByRole('combobox',{name:'Vereniging',exact:true}).inputValue(),'');
     assert.equal(await page.getByRole('button',{name:'Training',exact:true}).count(),0);
