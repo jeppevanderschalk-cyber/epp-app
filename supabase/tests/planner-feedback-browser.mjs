@@ -32,6 +32,19 @@ try{
     });
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.evaluate(()=>{window.feedbackRoot=ReactDOM.createRoot(document.getElementById('root'));window.feedbackRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(MatchPlanner,{matchId:'fixture',manage:true}))));eppShowApp();});
+    for(const [label,value] of [['Rondeduur (minuten)','7'],['Wisseltijd (minuten)','3'],['Schietplaatsen per ronde','2'],['Minimale pauze tussen deelnames (minuten)','0']]){
+      const input=page.getByLabel(label,{exact:true});
+      await input.fill('');
+      assert.equal(await input.inputValue(),'','number input stays empty after clearing');
+      assert.equal(await input.evaluate(el=>el.validity.valueMissing),true,'empty required number cannot be saved');
+      await input.fill(value);
+      assert.equal(await input.inputValue(),value,'replacement has no leading zero');
+    }
+    await page.getByRole('button',{name:'+ Afwijkende capaciteit',exact:true}).click();
+    const override=page.getByLabel('Schietplaatsen',{exact:true});
+    await override.fill('');assert.equal(await override.inputValue(),'');
+    await override.fill('2');
+    await page.getByRole('button',{name:'Verwijder overrides 1',exact:true}).click();
     await page.getByLabel('Laatste ronde start uiterlijk',{exact:true}).fill('16:05');
     await page.getByText('Laatste ronde: 16:00 – 16:07',{exact:true}).waitFor();
     await page.getByLabel('Onze vereniging organiseert deze wedstrijd').check();
