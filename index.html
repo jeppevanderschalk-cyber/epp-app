@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-Whle1uYNV2EdP73OvhdW2u484YIpsakJBKcw4bsL/kA=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-jyR840/22VUVLfj/zymt4qwmeN7eL5maWafFjTN/lsg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-nQrAq9FuByMF2mL7TLvIytESfB+ja21XqxZlC+YFfaI=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-s3JBTnuOUxdIEFtohZ+x+o3UtomoGH4NZSwe+I/LCGo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -85,7 +85,7 @@
     </label>
     <label id="loginFirstLabel" hidden><span>Voornaam</span><input id="loginFirstName" autocomplete="given-name" maxlength="70" /></label>
     <label id="loginLastLabel" hidden><span>Achternaam</span><input id="loginLastName" autocomplete="family-name" maxlength="70" /></label>
-    <label id="loginEmailLabel" hidden><span>E-mailadres (nieuwe accounts)</span><input id="loginEmail" type="email" autocomplete="username" maxlength="254" /></label>
+    <label id="loginEmailLabel" hidden><span>E-mailadres van je account</span><input id="loginEmail" type="email" autocomplete="username" maxlength="254" /></label>
     <label>
       <span>Wachtwoord</span>
       <span class="login-password-wrap">
@@ -200,25 +200,11 @@ function eppSetPersonalLogin(enabled){
 }
 function eppApplyLoginEmail(){['First','Last'].forEach(function(part){document.getElementById('login'+part+'Name').required=eppPersonalLogin&&!document.getElementById('loginEmail').value.trim();});}
 document.getElementById('loginEmail').addEventListener('input',eppApplyLoginEmail);
-document.getElementById('loginPersonalToggle').addEventListener('click',async function(){
+document.getElementById('loginPersonalToggle').addEventListener('click',function(){
   if(document.getElementById('loginRole').value!=='schutter')return;
-  var button=this;
-  if(button.disabled)return;
   eppAuthAttempt++;
-  button.disabled=true;
-  document.querySelector('.login-submit').disabled=true;
-  document.getElementById('loginError').textContent='';
-  try{
-    var result=await eppRawCall('epp-auth',{clubId:'svbb',action:'login',username:'kijker',password:'Welkom123'});
-    sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
-    localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
-    localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
-    location.reload();
-  }catch(error){
-    document.getElementById('loginError').textContent='Account aanmaken is tijdelijk niet beschikbaar. Probeer het later opnieuw.';
-    button.disabled=false;
-    document.querySelector('.login-submit').disabled=false;
-  }
+  sessionStorage.removeItem(EPP_SESSION_KEY);
+  location.hash='account-aanmaken';location.reload();
 });
 sessionStorage.removeItem('epp-personal-login');
 eppSetPersonalLogin(true);
@@ -258,6 +244,7 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
       location.reload();
     }).catch(function(error){
       if(error.message==='vereniging_goedkeuring_nodig'){document.getElementById('loginError').textContent='Je account wacht op goedkeuring door je vereniging. Neem contact op met je verenigingsbeheerder.';return;}
+      if(error.message==='email_verplicht_bij_naamgenoten'){document.getElementById('loginError').textContent='Er zijn meerdere accounts met deze naam. Log in met het e-mailadres van je account.';return;}
       document.getElementById("loginError").textContent=error.message==="ongeldig_wachtwoord"?(role==='schutter'&&!eppPersonalLogin?'Dit is de toegang voor nieuwe schutters. Heb je al een account? Kies hieronder Inloggen met eigen account en vul je vereniging, naam en eigen wachtwoord in.':'Inloggen niet gelukt. Controleer je vereniging, naam en wachtwoord. Na meerdere pogingen kan de toegang tijdelijk geblokkeerd zijn.') :"Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw.";
     }).finally(function(){submitButton.disabled=false;});
     return;
@@ -617,7 +604,11 @@ const STAGES = [
 const DEFAULT_SHOTS = {s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10};
 const CLUB_ID = localStorage.getItem(EPP_AUTH_CLUB_KEY) || "svbb";
 const CLUB = EPP_CLUBS.find(c=>c.id===CLUB_ID) || EPP_CLUBS[0];
-const KEY = CLUB_ID==="svbb" ? "epp-data-svbb-registration-v1" : ("epp-data-v1-"+CLUB_ID);
+if(!localStorage.getItem('epp-reset-20261011')){
+  Object.keys(localStorage).filter(key=>key.startsWith('epp-data')).forEach(key=>localStorage.removeItem(key));
+  localStorage.setItem('epp-reset-20261011','1');
+}
+const KEY = "epp-data-reset-20261011-"+CLUB_ID;
 const SYNC_KEY = "epp-sync-v1";
 const CENTRAL_SYNC = {
   enabled:true,
@@ -1816,6 +1807,7 @@ const MemberRegistration = () => {
       sessionStorage.removeItem(EPP_SESSION_KEY);
       localStorage.removeItem(EPP_AUTH_STORAGE_KEY);
       localStorage.removeItem(EPP_AUTH_ROLE_KEY);
+      history.replaceState(null,'',location.pathname+location.search);
       location.reload();
     }catch(e){
       const message=(e.message||'').replace('voornaam_achternaam_verplicht','naam_ongeldig');
@@ -1826,7 +1818,7 @@ const MemberRegistration = () => {
   const existing=async()=>{
     if(busy)return;setBusy(true);
     try{await eppCall('epp-auth',{clubId:CLUB_ID,action:'logout'});}catch{}
-    sessionStorage.removeItem(EPP_SESSION_KEY);sessionStorage.setItem('epp-personal-login','1');location.reload();
+    sessionStorage.removeItem(EPP_SESSION_KEY);sessionStorage.setItem('epp-personal-login','1');history.replaceState(null,'',location.pathname+location.search);location.reload();
   };
   return h("section",{className:"card"},
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Eigen account aanmaken")),
@@ -2677,6 +2669,7 @@ function App({headClubs,onHeadClubChange}={}) {
 }
 
 eppAuthReady.then(function(verified){
+  if(location.hash==='#account-aanmaken'){ReactDOM.createRoot(document.getElementById('root')).render(h(RegistrationWorkspace));eppShowApp();return;}
   if(!verified)return;
   try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.username==='kijker'?h(RegistrationWorkspace):eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{sessionStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
   catch(e){if(window.__eppError)window.__eppError(e?.stack||String(e));}
