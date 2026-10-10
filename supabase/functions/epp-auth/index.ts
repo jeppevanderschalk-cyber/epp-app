@@ -19,10 +19,14 @@ Deno.serve(async req=>{
         else if(await checkPassword(body.clubId,body.password,'MEMBER'))username='kijker';
         else return json({ok:false,error:'ongeldig_wachtwoord'},401);
       }
-      const {data:account,error}=await db.from('app_accounts').select('*').eq('club_code',body.clubId).eq('username',username).maybeSingle();
+      const headLogin=body.clubId==='eppnationaal'&&username==='hoofdbeheer';
+      const accountQuery=db.from('app_accounts').select('*');
+      const {data:account,error}=await (headLogin
+        ? accountQuery.eq('active',true).eq('is_platform_admin',true)
+        : accountQuery.eq('club_code',body.clubId).eq('username',username)).maybeSingle();
       if(error)throw error;
       if(!account?.active || account.locked_until && Date.parse(account.locked_until)>Date.now())return json({ok:false,error:'ongeldig_wachtwoord'},401);
-      const valid=account.legacy ? await checkPassword(body.clubId,body.password,account.role==='trainer'?'TRAINER':'MEMBER') : await passwordHash(body.password,account.password_salt,account.iterations)===account.password_hash;
+      const valid=account.legacy ? await checkPassword(account.club_code,body.password,account.role==='trainer'?'TRAINER':'MEMBER') : await passwordHash(body.password,account.password_salt,account.iterations)===account.password_hash;
       if(!valid){await db.rpc('epp_account_failure',{p_id:account.id});return json({ok:false,error:'ongeldig_wachtwoord'},401);}
       const salt=account.legacy?randomSalt():account.password_salt;
       const {error:updateError}=await db.from('app_accounts').update({legacy:false,password_salt:salt,password_hash:account.legacy?await passwordHash(body.password,salt):account.password_hash,failed_attempts:0,locked_until:null}).eq('id',account.id);

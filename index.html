@@ -162,7 +162,7 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
       localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
       localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
       localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
-      localStorage.setItem(EPP_AUTH_CLUB_KEY,club.id);
+      localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       location.reload();
     }).catch(function(error){
       document.getElementById("loginError").textContent=error.message==="ongeldig_wachtwoord"?"Onjuist wachtwoord of tijdelijk geblokkeerd. Probeer het later opnieuw.":"Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw.";

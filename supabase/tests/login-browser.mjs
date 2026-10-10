@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'/private/tmp/epp-audit-tools/node_modules/playwright/index.mjs');
 const html=await readFile(new URL('../../index.html',import.meta.url));
+assert.match(html.toString(),/localStorage\.setItem\(EPP_AUTH_CLUB_KEY,result\.account\.clubId\)/);
 const logo=await readFile(new URL('../../epp-logo.png',import.meta.url));
 const store=await readFile(new URL('../../training-store.js',import.meta.url));
 const root=resolve(import.meta.dirname,'../..');
@@ -19,7 +20,7 @@ const server=createServer(async(req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;
 try{
-  browser=await chromium.launch({headless:true});
+  browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{})});
   for(const viewport of [{width:390,height:844},{width:375,height:667},{width:1440,height:1000}]){
     const page=await browser.newPage({viewport});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -59,6 +60,14 @@ try{
     const personalRequest=await page.evaluate(()=>window.loginRequest);
     assert.equal(personalRequest.payload.username,undefined);
     assert.equal(personalRequest.payload.firstName,'Anne');assert.equal(personalRequest.payload.lastName,'de Vries');
+    await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
+    await page.getByLabel('Inloggen als').selectOption('hoofdbeheer');
+    await page.getByLabel('Wachtwoord',{exact:true}).fill('personal-password');
+    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+    const headRequest=await page.evaluate(()=>window.loginRequest);
+    assert.equal(headRequest.payload.username,'hoofdbeheer');
+    assert.equal(headRequest.payload.clubId,'eppnationaal');
+    assert.equal(headRequest.payload.firstName,undefined);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     assert.equal(await page.evaluate(()=>{const gate=document.getElementById('loginGate');return gate.scrollHeight<=gate.clientHeight||getComputedStyle(gate).overflowY==='auto';}),true);
     assert.deepEqual(errors,[]);
