@@ -157,12 +157,25 @@ const MatchPlannerCatalog=({excludeIds=[]})=>{
   return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.filter(m=>!excludeIds.includes(m.id)).map(m=>h(PlannerMatchCard,{key:m.id,match:m})));
 };
 
+const PendingMembershipNotice=({onReview})=>{
+  const [count,setCount]=React.useState(0);
+  React.useEffect(()=>{
+    const account=eppSession()?.account;if(!account?.isAdmin)return;
+    let active=true;
+    const load=async()=>{try{const r=await eppCall('epp-auth',{clubId:account.clubId,action:account.isPlatformAdmin?'list_club_access':'list_accounts'});if(active)setCount((r.accounts||[]).filter(a=>a.membership_approved===false&&a.active!==false).length);}catch{ /* Account management retains its own loading errors. */ }};
+    load();const timer=setInterval(load,60000);
+    window.addEventListener('focus',load);window.addEventListener('epp-membership-approved',load);
+    return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',load);window.removeEventListener('epp-membership-approved',load);};
+  },[]);
+  if(!count)return null;
+  return h('section',{role:'status','aria-label':'Accounts wachten op goedkeuring',style:{borderLeft:'4px solid '+C.gold,padding:'12px 16px',marginBottom:16}},h('strong',null,count===1?'Een nieuw account wacht op jouw goedkeuring.':count+' nieuwe accounts wachten op jouw goedkeuring.'),h('button',{className:'btn btn-gold',style:{display:'block',marginTop:12},onClick:onReview},'Aanvragen bekijken'));
+};
 const MembershipApproval=({account,onApproved})=>{
   const [busy,setBusy]=React.useState(false),[status,setStatus]=React.useState('');
   if(account.membership_approved!==false)return null;
   return h('div',{style:{flexBasis:'100%'}},h('p',{className:'hint'},'Lidmaatschap nog niet goedgekeurd',account.email?' · '+account.email:''),h('button',{className:'btn btn-gold',disabled:busy||account.active===false,onClick:async()=>{
     if(busy||!confirm('Bevestig dat '+account.display_name+' lid is van deze vereniging. Daarna krijgt dit account toegang.'))return;
-    setBusy(true);setStatus('');try{await eppCall('epp-auth',{clubId:CLUB_ID,action:'approve_member',accountId:account.id});await onApproved();}catch(e){setStatus('Goedkeuring niet opgeslagen. Controleer je verbinding en rechten.');}finally{setBusy(false);}
+    setBusy(true);setStatus('');try{await eppCall('epp-auth',{clubId:CLUB_ID,action:'approve_member',accountId:account.id});window.dispatchEvent(new Event('epp-membership-approved'));await onApproved();}catch(e){setStatus('Goedkeuring niet opgeslagen. Controleer je verbinding en rechten.');}finally{setBusy(false);}
   }},busy?'Goedkeuren...':'Lidmaatschap goedkeuren'),status&&h('p',{role:'alert',className:'hint'},status));
 };
 const PlatformAccessManagement=()=>{
@@ -199,7 +212,7 @@ const PlatformAccessManagement=()=>{
       setStatus('Account verwijderd. Scores en inschrijvingen zijn behouden.');await load();
     }}catch(e){setStatus(e.message);}finally{setBusy(false);}
   };
-  return h('section',null,h('div',{className:'card-head'},h('div',{className:'eyebrow'},head?'Hoofdbeheer · verenigingsrechten':'Scoorderrechten')),h('div',{className:'card-body',style:{display:'grid',gap:12}},
+  return h('section',{id:'membership-management',style:{scrollMarginTop:160}},h('div',{className:'card-head'},h('div',{className:'eyebrow'},head?'Hoofdbeheer · verenigingsrechten':'Scoorderrechten')),h('div',{className:'card-body',style:{display:'grid',gap:12}},
     head&&h('label',null,'Vereniging',h('select',{className:'txt-in','aria-label':'Vereniging voor beheerrechten',value:club,disabled:busy,onChange:e=>setClub(e.target.value)},clubs.map(c=>h('option',{key:c.code,value:c.code},c.naam)))),
     h('label',null,'Wedstrijd voor scoorderrechten',h('select',{className:'txt-in','aria-label':'Wedstrijd voor scoorderrechten',value:match,disabled:busy,onChange:e=>{setStatus('');setMatch(e.target.value);}},h('option',{value:''},'Kies wedstrijd'),matches.map(m=>h('option',{key:m.id,value:m.id},eppFmtDate(m.match_date)+' · '+m.organizer+(m.closed?' · Definitief':''))))),
     h('button',{className:'btn btn-ghost',disabled:busy,onClick:refreshMatches},'Wedstrijden verversen'),

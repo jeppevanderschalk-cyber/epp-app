@@ -13,7 +13,7 @@ const accounts=[{id:'member',display_name:'Test Schutter',club_code:'svbb',is_ad
 const errors=[];
 try{
   for(const head of [true,false])for(const width of [390,1440]){
-    let revision=1,assigned=false,conflict=false,adminCalls=0,newMatch=false;
+    let revision=1,assigned=false,conflict=false,adminCalls=0,newMatch=false,approved=false;
     const page=await browser.newPage({viewport:{width,height:950}});
     page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
     const sessionAccount={...account,isPlatformAdmin:head};
@@ -22,7 +22,8 @@ try{
       const b=route.request().postDataJSON(),fn=route.request().url().split('/').pop();let r={ok:true},status=200;
       if(fn==='epp-auth'){
         if(b.action==='list_club_access')assert.equal(head,true);
-        r=['list_club_access','list_accounts'].includes(b.action)?{ok:true,clubs:[{code:'svbb',naam:'SVBB'}],accounts:accounts.map(a=>head?a:({...a,club_code:undefined}))}:{ok:true,account:sessionAccount};
+        r=['list_club_access','list_accounts'].includes(b.action)?{ok:true,clubs:[{code:'svbb',naam:'SVBB'}],accounts:[...accounts,{id:'pending',display_name:'Nieuw Lid',club_code:'svbb',active:true,membership_approved:approved}].map(a=>head?a:({...a,club_code:undefined}))}:{ok:true,account:sessionAccount};
+        if(b.action==='approve_member'){assert.equal(b.accountId,'pending');approved=true;}
         if(b.action==='set_club_admin')adminCalls++;
       }
       if(fn==='epp-training')r={ok:true,entities:[]};
@@ -41,6 +42,10 @@ try{
       await route.fulfill({status,contentType:'application/json',body:JSON.stringify(r)});
     });
     await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.getByRole('button',{name:'Aanvragen bekijken',exact:true}).click();
+    await page.getByRole('button',{name:'Lidmaatschap goedkeuren',exact:true}).first().click();
+    await page.getByRole('status',{name:'Accounts wachten op goedkeuring'}).waitFor({state:'detached'});
+    assert.equal(approved,true);
     // Mount the real management component without navigating unrelated settings.
     await page.evaluate(()=>{ReactDOM.render(h('div',{className:'app'},h('style',null,CSS),h('main',{style:{padding:16}},h(PlatformAccessManagement))),document.getElementById('root'));});
     const member=page.getByRole('group',{name:'Test Schutter',exact:true});
