@@ -35,6 +35,19 @@
     const n=Math.round(Number(text)*1000);
     return Number.isSafeInteger(n)&&n>0?n:NaN;
   }
+  function parcoursMilliseconds(value){
+    if(value===''||value==null)return null;
+    const match=String(value).trim().match(/^(\d+)[:,.](\d{1,2})(?:[.,](\d{1,3}))?$/);
+    if(!match||Number(match[2])>=60)return NaN;
+    const n=(Number(match[1])*60+Number(match[2]))*1000+Number((match[3]||'').padEnd(3,'0'));
+    return Number.isSafeInteger(n)&&n>0?n:NaN;
+  }
+  function parcoursTime(value){
+    if(value==null)return 'Onbekend';
+    const seconds=Math.floor(value/1000);
+    const fraction=value%1000;
+    return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0')+(fraction?'.'+String(fraction).padStart(3,'0'):'');
+  }
   function counted(rapid,rest,rapidTime,totalTime,penalty=0,penaltyTime=0,reason=''){
     const keys=['hits5','hits4','hits3','hits2','misses'];
     const valid=(part,count)=>keys.every(k=>Number.isSafeInteger(Number(part[k]))&&Number(part[k])>=0)&&keys.reduce((sum,k)=>sum+Number(part[k]),0)===count;
@@ -48,7 +61,7 @@
     if(score<0||score>250)throw new Error('Eindscore buiten bereik.');
     return {...total,final_score:score,rapid_score:keys.reduce((sum,k,i)=>sum+Number(rapid[k])*[5,4,3,2,0][i],0),rapid_counts:rapid,rapid_time_ms:rt,measured_total_time_ms:tt,total_time_ms:tt+pt,penalty_points:pen,penalty_time_ms:pt,penalty_reason:reason,scoring_version:'EPP_TIEBREAK_V2'};
   }
-  const api={compare,rank,best,time,milliseconds,counted};
+  const api={compare,rank,best,time,milliseconds,parcoursMilliseconds,parcoursTime,counted};
   root.EppScoreRanking=api;
   if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -68,7 +68,7 @@
 </div>
 <div id="root" hidden></div>
 <script src="training-store.js"></script>
-<script src="score-ranking.js"></script>
+<script src="score-ranking.js?v=minutes-seconds-1"></script>
 <link rel="stylesheet" href="camera-series.css" />
 <script src="camera-series.js"></script>
 <script src="camera-series-ui.js"></script>
@@ -1017,13 +1017,13 @@ const ParcoursDetails=({onChange,onValidity})=>{
   const [enabled,setEnabled]=React.useState(false),[rapid,setRapid]=React.useState(empty),[rest,setRest]=React.useState(empty);
   const [rt,setRt]=React.useState(''),[tt,setTt]=React.useState(''),[pen,setPen]=React.useState('0'),[pt,setPt]=React.useState('0'),[reason,setReason]=React.useState('');
   let data=null,error='';
-  if(enabled)try{data=EppScoreRanking.counted(rapid,rest,rt,tt,pen,pt,reason);}catch(e){error=e.message;}
+  if(enabled)try{data=EppScoreRanking.counted(rapid,rest,rt,EppScoreRanking.parcoursMilliseconds(tt)/1000,pen,pt,reason);}catch(e){error=e.message;}
   React.useEffect(()=>{onChange(data);onValidity(!enabled||!!data);},[enabled,JSON.stringify(data)]);
   return h('div',null,
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:enabled,onChange:e=>setEnabled(e.target.checked)}),'Kaarttelling en tijden'),
     enabled&&h('div',{style:{display:'grid',gap:10}},
       [['Snelvuur 7 m · 10 schoten',rapid,setRapid],['Overige parcours · 40 schoten',rest,setRest]].map(([title,part,set])=>h('fieldset',{key:title,style:{minWidth:0,border:'none',padding:0,margin:0}},h('legend',null,title),keys.map((key,i)=>h('label',{key,className:'set-row'},[5,4,3,2,0][i]+' punten',h('input',{className:'set-in',type:'number',min:0,inputMode:'numeric',value:part[key],onChange:e=>set(p=>({...p,[key]:e.target.value}))}))))),
-      [['Snelvuurtijd (seconden)',rt,setRt],['Totale parcoursduur (seconden)',tt,setTt],['Strafpunten',pen,setPen],['Straftijd (seconden)',pt,setPt],['Reden strafcorrectie',reason,setReason]].map(([label,value,set])=>h('label',{key:label},label,h('input',{className:'txt-in',value,inputMode:label==='Reden strafcorrectie'?'text':'decimal',onChange:e=>set(e.target.value)}))),
+      [['Snelvuurtijd (seconden en honderdsten)',rt,setRt],['Eindtijd (minuten:seconden, inclusief snelvuur)',tt,setTt],['Strafpunten',pen,setPen],['Straftijd (seconden)',pt,setPt],['Reden strafcorrectie',reason,setReason]].map(([label,value,set])=>h('label',{key:label},label,h('input',{className:'txt-in',value,placeholder:set===setTt?'4:53':set===setRt?'12,40':undefined,inputMode:label==='Reden strafcorrectie'?'text':'decimal',onChange:e=>set(e.target.value)}))),
       error&&h('p',{className:'hint',role:'status'},error)));
 };
 
@@ -1045,7 +1045,7 @@ const RankList = ({items, max}) => {
           h("span",{className:"rank-name"},r.naam),
           h("span",{className:"rank-score"},r.gem==null?"–":r.gem.toFixed(1))
         ),
-        r.timed&&h("div",{className:"set-sub"},"Vijven: ",r.hits5??'Onbekend'," · 7 m: ",r.rapid_score??'Onbekend'," · ",EppScoreRanking.time(r.rapid_time_ms)," · Totaal: ",EppScoreRanking.time(r.total_time_ms),r.provisional?' · Voorlopig':''),
+        r.timed&&h("div",{className:"set-sub"},"Vijven: ",r.hits5??'Onbekend'," · 7 m: ",r.rapid_score??'Onbekend'," · ",EppScoreRanking.time(r.rapid_time_ms)," · Totaal: ",EppScoreRanking.parcoursTime(r.total_time_ms),r.provisional?' · Voorlopig':''),
         h(QualificationBadge,{qualification:r.qualification}),
         h("div",{className:"rank-bar"},
           h("div",{className:"rank-fill",style:{
@@ -1327,7 +1327,7 @@ const RankingTable = ({items}) => !items?.length
         h("div",{className:"ssc-total"},item.score)
       ),
       h("div",{className:"set-sub",style:{whiteSpace:"normal",paddingTop:8}},
-        "Vijven: ",item.hits5??"Onbekend"," · 7 m: ",item.rapidScore??"Onbekend"," · Snelvuur: ",EppScoreRanking.time(item.rapidTimeMs)," · Totaal: ",EppScoreRanking.time(item.totalTimeMs),
+        "Vijven: ",item.hits5??"Onbekend"," · 7 m: ",item.rapidScore??"Onbekend"," · Snelvuur: ",EppScoreRanking.time(item.rapidTimeMs)," · Totaal: ",EppScoreRanking.parcoursTime(item.totalTimeMs),
         item.provisional?" · Gedeelde voorlopige positie":"")
     ))
   );
@@ -1444,7 +1444,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
     if(!roundId||!selectedShooter?.id){setCounts(emptyCounts);setResultLoading(false);return;}
     setResultLoading(true);
     eppCall("epp-platform",{clubId:CLUB_ID,action:"get_result",roundId,shooterId:selectedShooter.id,discipline})
-      .then(r=>{if(!active)return;const x=r.result;setRevision(x?.revision||0);setCounts(x?{hits5:String(x.hits5??""),hits4:String(x.hits4??""),hits3:String(x.hits3??""),hits2:String(x.hits2??""),misses:String(x.misses??""),penaltyPoints:String(x.penalty_points??0)}:emptyCounts);if(x){setRapid(x.rapid_counts||emptyRapid);setRapidTime(x.rapid_time_ms==null?"":String(x.rapid_time_ms/1000));setTotalTime(x.measured_total_time_ms==null?"":String(x.measured_total_time_ms/1000));setPenaltyTime(String((x.penalty_time_ms||0)/1000));setPenaltyReason(x.penalty_reason||"");}})
+      .then(r=>{if(!active)return;const x=r.result;setRevision(x?.revision||0);setCounts(x?{hits5:String(x.hits5??""),hits4:String(x.hits4??""),hits3:String(x.hits3??""),hits2:String(x.hits2??""),misses:String(x.misses??""),penaltyPoints:String(x.penalty_points??0)}:emptyCounts);if(x){setRapid(x.rapid_counts||emptyRapid);setRapidTime(x.rapid_time_ms==null?"":String(x.rapid_time_ms/1000));setTotalTime(x.measured_total_time_ms==null?"":EppScoreRanking.parcoursTime(x.measured_total_time_ms));setPenaltyTime(String((x.penalty_time_ms||0)/1000));setPenaltyReason(x.penalty_reason||"");}})
       .catch(e=>{if(active)setStatus("Score ophalen mislukt: "+e.message);})
       .finally(()=>{if(active)setResultLoading(false);});
     return()=>{active=false;};
@@ -1458,7 +1458,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
   const rapidShots=scoreFields.reduce((sum,[k])=>sum+Number(rapid[k]||0),0);
   const rapidScore=scoreFields.reduce((sum,[k],i)=>sum+Number(rapid[k]||0)*[5,4,3,2,0][i],0);
   const validRapid=rapidShots===10&&scoreFields.every(([k])=>Number.isInteger(Number(rapid[k]||0))&&Number(rapid[k]||0)>=0&&Number(rapid[k]||0)<=n(k));
-  const rapidTimeMs=EppScoreRanking.milliseconds(rapidTime),totalTimeMs=EppScoreRanking.milliseconds(totalTime);
+  const rapidTimeMs=EppScoreRanking.milliseconds(rapidTime),totalTimeMs=EppScoreRanking.parcoursMilliseconds(totalTime);
   const penaltyTimeMs=String(penaltyTime).trim()==="0"?0:EppScoreRanking.milliseconds(penaltyTime);
   const validTimes=Number.isSafeInteger(rapidTimeMs)&&Number.isSafeInteger(totalTimeMs)&&totalTimeMs>=rapidTimeMs&&Number.isSafeInteger(penaltyTimeMs)&&penaltyTimeMs>=0;
   const selectedMatch=matchesCalendar.find(m=>m.id===matchId);
@@ -1530,7 +1530,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
           h("button",{type:"button",className:"cal-btn","aria-label":"Snelvuur "+label+" verhogen",disabled:busy||matchLoading||resultLoading||rapidShots>=10,style:{minHeight:44,width:48},onClick:()=>changeRapid(key,Number(rapid[key]||0)+1)},"+")
         )),
         h("p",{className:"hint"},"Snelvuurscore: ",rapidScore,"/50 punten · ",rapidShots,"/10 schoten"),
-        h("label",null,"Snelvuurtijd (seconden)",h("input",{className:"txt-in",inputMode:"decimal",value:rapidTime,disabled:busy||resultLoading,onChange:e=>setRapidTime(e.target.value)})),
+        h("label",null,"Snelvuurtijd (seconden en honderdsten)",h("input",{className:"txt-in",inputMode:"decimal",placeholder:"12,40",value:rapidTime,disabled:busy||resultLoading,onChange:e=>setRapidTime(e.target.value)})),
         h("h3",{style:{margin:"8px 0",fontSize:16}},"Overige parcours · 40 schoten"),
         h("div",null,
           scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
@@ -1540,7 +1540,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
             h("button",{type:"button",className:"cal-btn","aria-label":"Overige "+label+" verhogen",disabled:busy||matchLoading||resultLoading||shots-rapidShots>=40,style:{minHeight:44,width:48},onClick:()=>changeRest(key,n(key)-Number(rapid[key]||0)+1)},"+")
           )),
           h("p",{className:"hint"},shots-rapidShots,"/40 schoten"),
-          h("label",null,"Totale parcoursduur (seconden, inclusief snelvuur)",h("input",{className:"txt-in",inputMode:"decimal",value:totalTime,disabled:busy||resultLoading,onChange:e=>setTotalTime(e.target.value)})),
+          h("label",null,"Eindtijd (minuten:seconden, inclusief snelvuur)",h("input",{className:"txt-in",inputMode:"decimal",placeholder:"4:53",value:totalTime,disabled:busy||resultLoading,onChange:e=>setTotalTime(e.target.value)})),
           h("h3",{style:{fontSize:16}},"Strafcorrecties"),
           h("div",{className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,"Strafpunten"),h("div",{className:"set-sub"},"Totale aftrek, standaard 0")),
@@ -1554,7 +1554,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},countedFinal),h("div",{className:"stat-lbl"},"eindscore"))
           ),
           (!validRapid||shots!==50) && h("p",{className:"hint",style:{color:C.red}},"Vereist: 10 snelvuurschoten + 40 overige schoten."),
-          !validTimes&&h("p",{className:"hint",style:{color:C.red}},"Vul beide tijden in; de totaaltijd kan niet korter zijn dan de snelvuurtijd.")
+          !validTimes&&h("p",{className:"hint",style:{color:C.red}},!Number.isSafeInteger(totalTimeMs)?"Vul de eindtijd in als minuten:seconden, bijvoorbeeld 4:53. Seconden mogen niet hoger zijn dan 59.":"Controleer snelvuurtijd en straftijd; de eindtijd kan niet korter zijn dan de snelvuurtijd.")
         ),
         h("button",{className:"btn btn-gold btn-full",disabled:busy||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan"),
         h("p",{className:"hint",role:"status"},status)

@@ -46,7 +46,7 @@ try{
           await new Promise(r=>setTimeout(r,body.matchId==='match-a'?300:30));
           response={ok:true,round:{id:'round-'+body.matchId}};
         }
-        if(body.action==='get_result')response={ok:true,result:body.roundId==='round-match-a'?{revision:2,hits5:40,hits4:10,hits3:0,hits2:0,misses:0,penalty_points:0}:null};
+        if(body.action==='get_result')response={ok:true,result:body.roundId==='round-match-a'?{revision:2,hits5:40,hits4:10,hits3:0,hits2:0,misses:0,penalty_points:0,measured_total_time_ms:293000}:null};
         if(body.action==='confirm_result'){confirmed=body;response={ok:true,ranking:[]};}
         const qualificationKey=[body.shooterId,body.discipline,body.year].join('|');
         if(body.action==='get_qualification')response={ok:true,qualification:qualifications.get(qualificationKey)||null};
@@ -88,8 +88,8 @@ try{
     await page.getByLabel('Kaarttelling en tijden',{exact:true}).check();
     await page.locator('fieldset').filter({hasText:'Snelvuur 7 m'}).getByRole('spinbutton').first().fill('10');
     await page.locator('fieldset').filter({hasText:'Overige parcours'}).getByRole('spinbutton').first().fill('40');
-    await page.getByLabel('Snelvuurtijd (seconden)',{exact:true}).fill('12.40');
-    await page.getByLabel('Totale parcoursduur (seconden)',{exact:true}).fill('280');
+    await page.getByLabel('Snelvuurtijd (seconden en honderdsten)',{exact:true}).fill('12.40');
+    await page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).fill('4:40');
     await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
     await page.waitForTimeout(1500);
     await page.getByRole('status').filter({hasText:'Online opgeslagen'}).waitFor({timeout:15000});
@@ -145,21 +145,24 @@ try{
     await page.getByLabel('Snelvuur 5 punten',{exact:true}).fill('99');
     assert.equal(await page.getByLabel('Snelvuur 5 punten',{exact:true}).inputValue(),'10');
     assert.equal(await page.getByLabel('Overige 5 punten',{exact:true}).inputValue(),'40');
-    await page.getByLabel('Snelvuurtijd (seconden)',{exact:true}).fill('12,40');
-    await page.getByLabel('Totale parcoursduur (seconden, inclusief snelvuur)',{exact:true}).fill('280');
+    await page.getByLabel('Snelvuurtijd (seconden en honderdsten)',{exact:true}).fill('12,40');
+    await page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).fill('4,75');
+    assert(await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).isDisabled());
+    await page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).fill('4,53');
     await page.waitForTimeout(650);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.getByText('Snelvuurscore · 7 meter · 2 × 5 schoten',{exact:true}).scrollIntoViewIfNeeded();
     await page.screenshot({path:'/private/tmp/epp-shot-controls-'+viewport.width+'.png',fullPage:true});
     await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).click();
     await page.getByText('Landelijke score opgeslagen',{exact:true}).waitFor();
-    assert.equal(confirmed.roundId,'round-match-b');assert.equal(confirmed.hits5,50);assert.equal(confirmed.rapid.hits5,10);assert.equal(confirmed.rapidTimeMs,12400);assert.equal(confirmed.totalTimeMs,280000);
+    assert.equal(confirmed.roundId,'round-match-b');assert.equal(confirmed.hits5,50);assert.equal(confirmed.rapid.hits5,10);assert.equal(confirmed.rapidTimeMs,12400);assert.equal(confirmed.totalTimeMs,293000);
     await match.selectOption('match-a');
     await page.getByLabel('Schutter zoeken').fill('Test Schutter');
     await page.getByRole('button',{name:/Test Schutter.*EPP-TEST/}).click();
     await page.getByText('Reden van correctie',{exact:true}).waitFor();
     assert.equal(await page.getByLabel('Overige 5 punten',{exact:true}).inputValue(),'40');
-    assert.equal(await page.getByLabel('Snelvuurtijd (seconden)',{exact:true}).inputValue(),'');
+    assert.equal(await page.getByLabel('Snelvuurtijd (seconden en honderdsten)',{exact:true}).inputValue(),'');
+    assert.equal(await page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).inputValue(),'4:53');
     await page.getByText('Officiële kwalificatie',{exact:true}).click();
     await page.getByLabel('Kwalificatie',{exact:true}).selectOption('Master');
     await page.getByLabel('Officieel gemiddelde (optioneel)',{exact:true}).fill('227');
