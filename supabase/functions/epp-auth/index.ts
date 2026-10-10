@@ -43,7 +43,7 @@ Deno.serve(async req=>{
       const {data:id,error}=await db.rpc('epp_register_member_at_club',{p_actor:actor.id,p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
       if(error)throw error;
       const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin').eq('id',id).single();if(accountError)throw accountError;
-      return json({ok:true,...await createSession(db,account)});
+      return json({ok:true,account:{clubId:account.club_code}});
     }
     if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin,isPlatformAdmin:actor.is_platform_admin,mustChangePassword:actor.must_change_password}});
     if(body.action==='logout'){

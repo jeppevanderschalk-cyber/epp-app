@@ -71,6 +71,7 @@
       <input type="password" id="loginPassword" autocomplete="current-password" required />
     </label>
     <p class="login-error" id="loginError" role="alert"></p>
+    <p id="loginStatus" role="status" style="color:#e9efff;margin:0"></p>
     <button class="login-submit" type="submit">Inloggen</button>
     <button class="login-personal-toggle" id="loginPersonalToggle" type="button">Inloggen met eigen account</button>
   </form>
@@ -141,6 +142,11 @@ function eppShowLoginGate(){
   var pw=document.getElementById("loginPassword");
   pw.value="";
   document.getElementById("loginError").textContent="";
+  var registration=sessionStorage.getItem('epp-registration-login');
+  if(registration){
+    try{var details=JSON.parse(registration);clubSel.value=details.clubId;document.getElementById('loginFirstName').value=details.firstName;document.getElementById('loginLastName').value=details.lastName;document.getElementById('loginStatus').textContent='Account aangemaakt. Log in met je eigen wachtwoord.';}catch{}
+    sessionStorage.removeItem('epp-registration-login');
+  }
   pw.focus();
 }
 var eppPersonalLogin=false;
@@ -1701,13 +1707,17 @@ const MemberRegistration = () => {
     if(form.password!==form.repeat){setError("De wachtwoorden zijn niet gelijk.");return;}
     setBusy(true);setError("");
     try{
-      const result=await eppCall("epp-auth",{clubId:CLUB_ID,action:"register_member",registrationClubId:form.clubId,firstName:form.firstName,lastName:form.lastName,newPassword:form.password});
-      localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
-      localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
+      const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,firstName:form.firstName,lastName:form.lastName,newPassword:form.password});
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
+      sessionStorage.setItem('epp-personal-login','1');
+      sessionStorage.setItem('epp-registration-login',JSON.stringify({clubId:result.account.clubId,firstName:form.firstName.trim(),lastName:form.lastName.trim()}));
+      localStorage.removeItem(EPP_SESSION_KEY);
+      localStorage.removeItem(EPP_AUTH_STORAGE_KEY);
+      localStorage.removeItem(EPP_AUTH_ROLE_KEY);
       location.reload();
     }catch(e){
-      setError(e.message.includes("persoonlijk_account_bestaat_al")?"Je hebt al een persoonlijk account bij een vereniging. Log in bij die vereniging; een tweede account is niet toegestaan.":e.message.includes("naam_al_geregistreerd")?"Met deze naam bestaat al een account. Log daarmee in of neem contact op met beheer.":e.message.includes("registratielimiet")?"Registreren is tijdelijk niet beschikbaar. Neem contact op met beheer.":"Account aanmaken is niet gelukt. Controleer je gegevens en verbinding.");
+      const message=(e.message||'').replace('voornaam_achternaam_verplicht','naam_ongeldig');
+      setError(message.includes('persoonlijk_account_bestaat_al')||message.includes('naam_al_geregistreerd')||message.includes('gebruikersnaam_bestaat')?'Met deze naam bestaat al een account. Log in met je eigen account of neem contact op met beheer.':message.includes('registratielimiet')?'Er zijn te veel registratiepogingen. Probeer later opnieuw of neem contact op met beheer.':message.includes('nieuw_wachtwoord_ongeldig')?'Gebruik een eigen wachtwoord van minimaal 10 en maximaal 256 tekens.':message.includes('naam_ongeldig')?'Vul een geldige voornaam en achternaam in.':message.includes('vereniging_verplicht')?'Kies je vereniging voordat je het account opslaat.':message.includes('sessie_verlopen')||message.includes('registratie_niet_toegestaan')?'Je registratiesessie is verlopen. Ga via "Ik heb al een account" terug naar inloggen en start de registratie opnieuw.':'De opslag kon niet worden bevestigd. Controleer je internetverbinding. Probeer eerst inloggen met je eigen account; mogelijk is het account al aangemaakt. Je invoer blijft hier staan.');
     }finally{setBusy(false);}
   };
   const existing=async()=>{

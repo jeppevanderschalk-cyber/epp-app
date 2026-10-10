@@ -20,8 +20,10 @@ const personal={id:'personal',username:'lid.test',displayName:'Anne de Vries',ro
 const errors=[];
 try{
   for(const viewport of [{width:390,height:844},{width:1440,height:1000}]){
-    const context=await browser.newContext({viewport});let signup=null,registration=null;const sharedDataRequests=[];
+    const context=await browser.newContext({viewport});let signup=null,registration=null,registrationError='';const sharedDataRequests=[];
     await context.addInitScript(account=>{
+      if(sessionStorage.getItem('registration-test-initialized'))return;
+      sessionStorage.setItem('registration-test-initialized','1');
       if(!localStorage.getItem('epp-session-v2'))localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account}));
       if(!localStorage.getItem('epp-app-club-v1'))localStorage.setItem('epp-app-club-v1','svbb');localStorage.setItem('epp-app-role-v1','schutter');
     },shared);
@@ -31,7 +33,11 @@ try{
       let response={ok:true};
       if(fn==='epp-auth'){
         response={ok:true,account:body.sessionToken==='b'.repeat(64)?personal:shared};
-        if(body.action==='register_member'){registration=body;response={ok:true,account:personal,sessionToken:'b'.repeat(64)};}
+        if(body.action==='register_member'){
+          if(registrationError)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:registrationError})});
+          registration=body;response={ok:true,account:{clubId:personal.clubId}};
+        }
+        if(body.action==='login'){response={ok:true,account:personal,sessionToken:'b'.repeat(64)};}
       }
       if(fn==='epp-training')response={ok:true,entities:[]};
       if(fn==='epp-planner')response={ok:true,matches:[]};
@@ -58,8 +64,24 @@ try{
     await page.getByRole('button',{name:'Account aanmaken',exact:true}).click();
     await page.getByText('De wachtwoorden zijn niet gelijk.',{exact:true}).waitFor();assert.equal(registration,null);
     await page.getByLabel('Herhaal wachtwoord',{exact:true}).fill('SafePassword123!');
+    for(const [code,text] of [['persoonlijk_account_bestaat_al','Met deze naam bestaat al een account.'],['nieuw_wachtwoord_ongeldig','Gebruik een eigen wachtwoord'],['voornaam_achternaam_verplicht','Vul een geldige voornaam'],['vereniging_verplicht','Kies je vereniging'],['registratielimiet','Er zijn te veel registratiepogingen.'],['sessie_verlopen','Je registratiesessie is verlopen.'],['server_fout','De opslag kon niet worden bevestigd.']]){
+      registrationError=code;await page.getByRole('button',{name:'Account aanmaken',exact:true}).click();
+      await page.getByRole('alert').filter({hasText:text}).waitFor();
+      assert.equal(await page.getByRole('textbox',{name:'Voornaam',exact:true}).inputValue(),'Anne');
+      assert.equal(await page.getByLabel('Eigen wachtwoord',{exact:true}).inputValue(),'SafePassword123!');
+      assert.equal(registration,null);
+    }
+    registrationError='';
     await page.screenshot({path:'/private/tmp/epp-member-register-'+viewport.width+'.png'});
     await page.getByRole('button',{name:'Account aanmaken',exact:true}).click();
+    await page.getByText('Account aangemaakt. Log in met je eigen wachtwoord.',{exact:true}).waitFor();
+    assert.equal(await page.locator('#loginClub').inputValue(),'apgs');
+    assert.equal(await page.locator('#loginFirstName').inputValue(),'Anne');
+    assert.equal(await page.locator('#loginLastName').inputValue(),'de Vries');
+    assert.equal(await page.locator('#loginPassword').inputValue(),'');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('epp-session-v2')),null);
+    await page.locator('#loginPassword').fill('SafePassword123!');
+    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Landelijk',exact:true}).getAttribute('data-on'),'1');
     assert.equal(await page.getByRole('button',{name:'Inschrijven wedstrijd',exact:true}).getAttribute('data-on'),'1');

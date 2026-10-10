@@ -15,14 +15,15 @@ async function call(fn,body,sessionToken=token,status=200){
 }
 try{
   sql("insert into app_sessions(token_hash,account_id,expires_at) select "+quote(tokenHash)+",id,now()+interval '1 hour' from app_accounts where club_code='svbb' and username='kijker' and active");
-  const created=await call('epp-auth',{action:'register_member',firstName:first,lastName:last,newPassword:password,role:'trainer',isAdmin:true});
-  accountId=created.account.id;tokens.push(created.sessionToken);
-  assert.equal(created.account.role,'schutter');assert.equal(created.account.isAdmin,false);
-  const directory=await call('epp-signup',{action:'list_shooters'},created.sessionToken);
+  const created=await call('epp-auth',{action:'register_member',registrationClubId:'svbb',firstName:first,lastName:last,newPassword:password,role:'trainer',isAdmin:true});
+  assert.equal(created.sessionToken,undefined);assert.equal(created.account.clubId,'svbb');
+  accountId=sql('select id from app_accounts where display_name='+quote(first+' '+last)+' and club_code=\'svbb\'')[0].id;
+  const logged=await call('epp-auth',{action:'login',firstName:first.toLowerCase(),lastName:last,password});tokens.push(logged.sessionToken);
+  assert.equal(logged.account.role,'schutter');assert.equal(logged.account.isAdmin,false);
+  const directory=await call('epp-signup',{action:'list_shooters'},logged.sessionToken);
   assert.equal(directory.shooters.length,1);shooterId=directory.shooters[0].id;
   assert.equal(directory.shooters[0].naam,first+' '+last);
-  await call('epp-auth',{action:'register_member',firstName:first,lastName:last,newPassword:password},token,400);
-  const logged=await call('epp-auth',{action:'login',firstName:first.toLowerCase(),lastName:last,password});tokens.push(logged.sessionToken);
+  await call('epp-auth',{action:'register_member',registrationClubId:'svbb',firstName:first,lastName:last,newPassword:password},token,400);
   assert.equal(logged.account.id,accountId);
   await call('epp-training',{action:'save',ops:[]},logged.sessionToken,401);
   await call('epp-signup',{action:'my_signups',shooterId:'00000000-0000-4000-8000-000000000001'},logged.sessionToken,401);
