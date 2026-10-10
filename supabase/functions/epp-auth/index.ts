@@ -22,7 +22,7 @@ Deno.serve(async req=>{
       const headLogin=body.clubId==='eppnationaal'&&username==='hoofdbeheer';
       const accountQuery=db.from('app_accounts').select('*');
       const {data:account,error}=await (headLogin
-        ? accountQuery.eq('active',true).eq('is_platform_admin',true)
+        ? accountQuery.eq('club_code','eppnationaal').eq('username','hoofdbeheer').eq('active',true).eq('role','trainer').eq('is_admin',true).eq('is_platform_admin',true)
         : accountQuery.eq('club_code',body.clubId).eq('username',username)).maybeSingle();
       if(error)throw error;
       if(!account?.active || account.locked_until && Date.parse(account.locked_until)>Date.now())return json({ok:false,error:'ongeldig_wachtwoord'},401);
