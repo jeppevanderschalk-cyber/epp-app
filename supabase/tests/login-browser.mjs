@@ -35,6 +35,8 @@ try{
     assert.equal(await page.locator('.login-wordmark').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     const panel=await page.locator('.login-card').boundingBox();
     assert.ok(panel.x>=32&&viewport.width-(panel.x+panel.width)>=32);
+    const badge=await page.locator('.login-logo').boundingBox(),wordmark=await page.locator('.login-wordmark').boundingBox();
+    assert.ok(badge.width>=180&&wordmark.width/badge.width<1.2);
     assert.deepEqual(await page.locator('#loginRole option').evaluateAll(options=>options.map(option=>option.value)),['schutter','hoofdbeheer']);
     await page.getByLabel('Inloggen als').selectOption('hoofdbeheer');
     await page.getByLabel('Wachtwoord',{exact:true}).fill('VisibilityTest123');
