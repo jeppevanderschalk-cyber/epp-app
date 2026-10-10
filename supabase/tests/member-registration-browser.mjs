@@ -56,6 +56,16 @@ try{
     await page.screenshot({path:'/private/tmp/epp-member-register-'+viewport.width+'.png'});
     await page.getByRole('button',{name:'Account aanmaken',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Landelijk',exact:true}).getAttribute('data-on'),'1');
+    assert.equal(await page.getByRole('button',{name:'Inschrijven wedstrijd',exact:true}).getAttribute('data-on'),'1');
+    await page.getByRole('button',{name:'Individueel',exact:true}).click();
+    await page.getByLabel('Wedstrijd',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Inschrijven wedstrijd',exact:true}).click();
+    await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Meer',exact:true}).click();
+    assert.equal(await page.getByRole('button',{name:'Inschrijven voor wedstrijden',exact:true}).count(),0);
+    await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+    await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
     assert.equal(registration.firstName,'Anne');assert.equal(registration.lastName,'de Vries');
     assert.equal(registration.clubId,'svbb');assert.equal(registration.registrationClubId,'apgs');
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-app-club-v1')),'apgs');

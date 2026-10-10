@@ -1395,8 +1395,8 @@ const shooterCandidates = (directory, published) => {
   return result.sort((a,b)=>a.name.localeCompare(b.name,"nl"));
 };
 
-const TabLandelijk = ({isTrainer, flash}) => {
-  const [view,setView]=React.useState('individual');
+const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, initialView='individual'}) => {
+  const [view,setView]=React.useState(initialView);
   const emptyCounts = {hits5:"",hits4:"",hits3:"",hits2:"",misses:"",penaltyPoints:"0"};
   const emptyRapid={hits5:"",hits4:"",hits3:"",hits2:"",misses:""};
   const [rapid,setRapid]=React.useState(emptyRapid);
@@ -1540,7 +1540,8 @@ const TabLandelijk = ({isTrainer, flash}) => {
     }catch(e){setStatus("Opslaan mislukt: "+(scoringMatch?.scoring?scoringError(e):eppPlatformError(e.message)));}
     finally{setBusy(false);}
   };
-  const navigation=h('div',{className:'sub-tab-row'},[['individual','Individueel'],['teams','Teams'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
+  const navigation=h('div',{className:'sub-tab-row',style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))'}},[['individual','Individueel'],['teams','Teams'],['shooters','Schutters'],['signup','Inschrijven wedstrijd']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
+  if(view==='signup')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash}));
   if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters'}));
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},navigation,
     h("label",null,"Discipline",h("select",{className:"txt-in","aria-label":"Discipline",value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setRanking([]);setMatchRanking([]);resetForm();}},h("option",{value:"pistool"},"EPP pistool"),h("option",{value:"optiek"},"Open (Optics)"))),
@@ -2026,11 +2027,9 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
   );
 };
 
-const TabInschrijven = ({isTrainer, shooters, eppPassword, setEppPassword, flash, setTab}) => {
-  const terug = h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("instel")},"← Terug naar Meer");
+const TabInschrijven = ({isTrainer, shooters, eppPassword, setEppPassword, flash}) => {
   const onAuthFail = () => {flash("Laden mislukt; controleer je verbinding of log opnieuw in.");};
   return h("div",{style:{display:"flex",flexDirection:"column",gap:12}},
-    terug,
     isTrainer
       ? h(TabInschrijvenTrainer,{password:eppPassword,onAuthFail,flash})
       : h(TabInschrijvenLid,{shooters,password:eppPassword,onAuthFail,flash})
@@ -2163,13 +2162,6 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
     eppSession()?.account?.isPlatformAdmin&&h(PlatformAccessManagement),
     eppSession()?.account?.isAdmin && h(AccountManagement),
     eppSession()?.account?.isAdmin && h(BackupManagement,{canRestore,onRestored}),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"EPP-wedstrijden")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h("p",{className:"hint"},isTrainer?"Beheer wedstrijden, bekijk groepslijsten en stel de mail naar het inschrijfbureau op.":"Meld je aan voor EPP-wedstrijden met je disciplines en voorkeurstijd."),
-        h("button",{className:"btn btn-gold btn-full",onClick:()=>setTab("inschrijven")},"Inschrijven voor wedstrijden")
-      )
-    ),
     isTrainer && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Camera beta")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
@@ -2313,7 +2305,7 @@ function App() {
     try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
-  const [tab,        setTab]        = React.useState(isTrainer ? "parcours" : "inschrijven");
+  const [tab,        setTab]        = React.useState(isTrainer ? "parcours" : "landelijk");
   const [eppPassword,setEppPassword]= React.useState("");
   const [platformPassword,setPlatformPassword]= React.useState("");
   const [nieuw,      setNieuw]      = React.useState("");
@@ -2545,9 +2537,8 @@ function App() {
     : tab==="training" ? h(TabTraining,{shooters,currentTraining,finishTraining,setTab,isTrainer,archives})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
-    : tab==="landelijk" ? h(TabLandelijk,{isTrainer,password:platformPassword,setPassword:setPlatformPassword,flash})
+    : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:isTrainer?'individual':'signup'})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab,canRestore:!store.current.busy&&!store.current.conflict&&!EppStore.diff(store.current.base,makePayload()).length,onRestored:pullRemote})
-    : tab==="inschrijven" ? h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash,setTab})
     : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
 
   return h("div",{className:"app"},

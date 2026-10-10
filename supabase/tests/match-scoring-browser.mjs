@@ -38,6 +38,7 @@ async function open(account,viewport){
   });
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);
   await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+  await page.getByRole('button',{name:'Individueel',exact:true}).click();
   await page.getByLabel('Wedstrijd',{exact:true}).selectOption('match');
   return {page,context};
 }
