@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-ENJ01ojp07BZAC6zcLDRChrgaFRJddHGkWEzxqfnn4I=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-jyR840/22VUVLfj/zymt4qwmeN7eL5maWafFjTN/lsg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-Whle1uYNV2EdP73OvhdW2u484YIpsakJBKcw4bsL/kA=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-jyR840/22VUVLfj/zymt4qwmeN7eL5maWafFjTN/lsg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -19,28 +19,45 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&display=swap" />
 <style>html,body{margin:0;padding:0;background:#0a1128}*{box-sizing:border-box}</style>
 <style>
-.login-gate{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px;background:linear-gradient(180deg,#0d1f6e 0%,#0a1128 100%)}
+.login-gate{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:32px 20px;background:#031329 url('epp-login-background.png') center top/cover no-repeat}
 .login-gate[hidden]{display:none;pointer-events:none}
-.login-card{width:min(100%,380px);margin:auto 0;flex-shrink:0;display:grid;gap:16px;padding:28px 24px;border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(170deg,#15224e 0%,#0d1737 100%);box-shadow:0 18px 40px rgba(3,8,26,.5);text-align:center;font-family:'Archivo',system-ui,sans-serif;color:#ffffff}
-.login-logo{width:64px;height:64px;margin:0 auto;border-radius:14px;object-fit:contain}
-.login-card h2{margin:0}
-.login-card p{margin:0;color:rgba(214,226,255,.52);font-size:.9rem;font-weight:600}
+.login-card{width:min(100%,560px);margin:auto 0;flex-shrink:0;display:grid;gap:18px;padding:32px 44px;border:1px solid #bfa152;border-radius:22px;background:rgba(0,10,25,.8);box-shadow:0 24px 80px #0008,inset 0 1px 0 #f7dc8a40;text-align:center;font-family:'Archivo',system-ui,sans-serif;color:#f9efd6}
+.login-logo{width:164px;height:164px;margin:0 auto;object-fit:contain;mix-blend-mode:screen}
+.login-brand{display:grid;gap:4px;margin-bottom:8px}
+.login-card h2{margin:0;font-size:72px;line-height:1;font-weight:900;color:#efc451;background:linear-gradient(#fff0ac,#d9a82c);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-card .login-subtitle{font-size:12px;color:#edcf76;font-weight:600;text-transform:uppercase}
+.login-card h3{margin:12px 0 0;font-size:30px;font-weight:600}
+.login-card p{margin:0;color:#b1b7c6;font-size:.9rem;font-weight:400;line-height:1.5}
 .login-card label{display:grid;gap:8px;text-align:left}
-.login-card label span{color:rgba(214,226,255,.52);font-size:.85rem;font-weight:700}
-.login-card input,.login-card select{min-height:56px;border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:0 14px;background:#081026;color:#ffffff;font-size:1rem;font-weight:800;outline:none}
+.login-card label span{color:#b8bcc9;font-size:.95rem;font-weight:400}
+.login-card input,.login-card select{width:100%;min-width:0;min-height:52px;border:1px solid #c6a247;border-radius:14px;padding:0 16px;background:#020d1e;color:#f9efd6;font-family:inherit;font-size:1rem;font-weight:600;outline:none}
+.login-card select{color-scheme:dark}
+.login-card input::placeholder{color:#747b8f;font-weight:400}
+.login-password-wrap{position:relative;display:block}
+.login-password-wrap input{padding-right:58px}
+.login-eye{position:absolute;right:4px;top:4px;width:44px;height:44px;display:grid;place-items:center;background:transparent;border:0;color:#edc459;cursor:pointer;border-radius:10px}
+.login-eye svg{width:24px;height:24px}
+.login-eye:focus-visible,.login-personal-toggle:focus-visible{outline:2px solid #f0cc60;outline-offset:3px}
 .login-card input:focus,.login-card select:focus{border-color:#e4bb4a;box-shadow:inset 0 0 0 2px #e4bb4a}
-.login-error{min-height:18px;color:#ff6b5d;font-size:.85rem;font-weight:600}
+.login-card .login-error{color:#ffab9d;font-size:.85rem;font-weight:600}
+.login-error:empty,#loginStatus:empty{display:none}
 .login-card label[hidden]{display:none}
-.login-personal-toggle{border:0;background:none;color:#f0cc60;font:inherit;min-height:44px;cursor:pointer}
-.login-submit{min-height:58px;border:0;border-radius:18px;background:linear-gradient(165deg,#f0cc60 0%,#c8a030 100%);color:#0a1128;font-size:1rem;font-weight:900;cursor:pointer;box-shadow:0 12px 28px rgba(200,160,48,.28)}
+.login-personal-toggle{border:0;background:none;color:#f0cc60;font:inherit;min-height:44px;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.login-submit{margin-top:6px;min-height:62px;border:1px solid #ffe995;border-radius:16px;background:linear-gradient(150deg,#ffe791 0%,#e3b83e 55%,#c89424 100%);color:#050b17;font-family:inherit;font-size:1.2rem;font-weight:800;cursor:pointer;box-shadow:0 8px 32px #d6ab2c30,inset 0 1px 2px #fff7c1}
+.login-card .login-footer{margin-top:6px;font-size:10px;color:#9a9aaa;text-transform:uppercase}
+.login-help[hidden]{display:none}
+@media(max-width:480px){.login-gate{padding:16px 14px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom))}.login-card{padding:26px 22px;gap:16px}.login-logo{width:128px;height:128px}.login-card h2{font-size:60px}.login-card h3{font-size:26px}.login-card .login-subtitle{font-size:10px}}
 </style>
 </head>
 <body>
 <div class="login-gate" id="loginGate">
   <form class="login-card" id="loginForm">
-    <img src="epp-logo.png" alt="" class="login-logo" />
-    <h2>EPP</h2>
-    <p>Europees Praktijk Parcours</p>
+    <div class="login-brand">
+      <img src="epp-logo.png" alt="" class="login-logo" />
+      <h2>EPP</h2>
+      <p class="login-subtitle">Europees Praktijk Parcours</p>
+    </div>
+    <h3>Welkom</h3>
     <p>Log in om de app te gebruiken.</p>
     <label id="loginClubLabel" hidden>
       <span>Vereniging</span>
@@ -70,12 +87,20 @@
     <label id="loginEmailLabel" hidden><span>E-mailadres (nieuwe accounts)</span><input id="loginEmail" type="email" autocomplete="username" maxlength="254" /></label>
     <label>
       <span>Wachtwoord</span>
-      <input type="password" id="loginPassword" autocomplete="current-password" required />
+      <span class="login-password-wrap">
+        <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="Vul je wachtwoord in" />
+        <button class="login-eye" id="loginPasswordToggle" type="button" aria-label="Wachtwoord tonen" aria-pressed="false" title="Wachtwoord tonen">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="lucide lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </span>
     </label>
     <p class="login-error" id="loginError" role="alert"></p>
     <p id="loginStatus" role="status" style="color:#e9efff;margin:0"></p>
     <button class="login-submit" type="submit">Inloggen</button>
     <button class="login-personal-toggle" id="loginPersonalToggle" type="button">Ik heb nog geen account</button>
+    <button class="login-personal-toggle" id="loginHelpToggle" type="button" aria-expanded="false" aria-controls="loginHelp">Wachtwoord vergeten?</button>
+    <p class="login-help" id="loginHelp" hidden>Neem contact op met je verenigingsbeheerder of hoofdbeheer voor hulp bij je account.</p>
+    <p class="login-footer">EPP · Europees Praktijk Parcours</p>
   </form>
 </div>
 <div id="root" hidden></div>
@@ -153,7 +178,7 @@ function eppShowLoginGate(){
     try{var details=JSON.parse(registration);clubSel.value=details.clubId;document.getElementById('loginFirstName').value=details.firstName;document.getElementById('loginLastName').value=details.lastName;document.getElementById('loginEmail').value=details.email||'';document.getElementById('loginStatus').textContent=details.pendingApproval?'Account aangemaakt. Je vereniging moet je lidmaatschap eerst goedkeuren. Daarna kun je inloggen.':'Account aangemaakt. Log in met je eigen wachtwoord.';eppApplyLoginEmail();}catch{}
     sessionStorage.removeItem('epp-registration-login');
   }
-  pw.focus();
+  pw.focus({preventScroll:true});
 }
 var eppPersonalLogin=false;
 function eppSetPersonalLogin(enabled){
@@ -203,6 +228,14 @@ document.getElementById('loginRole').addEventListener('change',function(){
   eppSetPersonalLogin(this.value==='schutter');
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
+});
+document.getElementById('loginPasswordToggle').addEventListener('click',function(){
+  var pw=document.getElementById('loginPassword'),show=pw.type==='password';
+  pw.type=show?'text':'password';this.setAttribute('aria-pressed',String(show));
+  this.setAttribute('aria-label',show?'Wachtwoord verbergen':'Wachtwoord tonen');this.title=show?'Wachtwoord verbergen':'Wachtwoord tonen';
+});
+document.getElementById('loginHelpToggle').addEventListener('click',function(){
+  var help=document.getElementById('loginHelp');help.hidden=!help.hidden;this.setAttribute('aria-expanded',String(!help.hidden));
 });
 document.getElementById("loginForm").addEventListener("submit",function(event){
   event.preventDefault();
