@@ -1463,7 +1463,18 @@ const TabLandelijk = ({isTrainer, flash}) => {
   const validTimes=Number.isSafeInteger(rapidTimeMs)&&Number.isSafeInteger(totalTimeMs)&&totalTimeMs>=rapidTimeMs&&Number.isSafeInteger(penaltyTimeMs)&&penaltyTimeMs>=0;
   const selectedMatch=matchesCalendar.find(m=>m.id===matchId);
   const allowedDiscipline=discipline!=="optiek"||selectedMatch?.offered_disciplines?.includes("optiek");
-  const changeRapid=(key,value)=>{const old=Number(rapid[key]||0);setRapid(p=>({...p,[key]:value}));setCounts(p=>({...p,[key]:String(Number(p[key]||0)-old+Number(value||0))}));};
+  const boundedShotValue=(value,available)=>value===""?"":String(Math.min(Math.max(0,available),Math.max(0,Math.trunc(Number(value)||0))));
+  const changeRapid=(key,value)=>{
+    const old=Number(rapid[key]||0);
+    const next=boundedShotValue(value,10-rapidShots+old);
+    setRapid(p=>({...p,[key]:next}));
+    setCounts(p=>({...p,[key]:String(Number(p[key]||0)-old+Number(next||0))}));
+  };
+  const changeRest=(key,value)=>setCounts(p=>{
+    const otherShots=scoreFields.reduce((sum,[k])=>sum+(k===key?0:Number(p[k]||0)-Number(rapid[k]||0)),0);
+    const next=boundedShotValue(value,40-otherShots);
+    return {...p,[key]:String(Number(next||0)+Number(rapid[key]||0))};
+  });
   const candidates = shooterCandidates(directory,PUBLISHED_STANDINGS_2026);
   const search = shooterName.trim().toLocaleLowerCase("nl-NL");
   const matches = search ? candidates.filter(s=>(s.name+" "+s.club+" "+(s.publicId||"")).toLocaleLowerCase("nl-NL").includes(search)).slice(0,20) : [];
@@ -1511,17 +1522,22 @@ const TabLandelijk = ({isTrainer, flash}) => {
         selectedShooter?.id&&eppSession()?.account?.isAdmin&&h(QualificationEditor,{key:selectedShooter.id+discipline,shooterId:selectedShooter.id,discipline,onSaved:load}),
         revision>0&&h("label",null,"Reden van correctie",h("input",{className:"txt-in",value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
         !allowedDiscipline&&h("p",{className:"hint",role:"alert"},"Open is niet aangeboden bij deze wedstrijd."),
-        h("h3",{style:{margin:"8px 0",fontSize:16}},resultLoading?"Score ophalen...":"Snelvuur 7 meter · 10 schoten"),
-        scoreFields.map(([key,label])=>h("label",{key,className:"set-row"},label,h("input",{className:"set-in","aria-label":"Snelvuur "+label,type:"number",inputMode:"numeric",min:0,max:10,value:rapid[key],disabled:busy||resultLoading,onChange:e=>changeRapid(key,e.target.value)}))),
-        h("p",{className:"hint"},rapidShots,"/10 schoten · ",rapidScore,"/50 punten"),
+        h("h3",{style:{margin:"8px 0",fontSize:18}},resultLoading?"Score ophalen...":"Snelvuurscore · 7 meter · 2 × 5 schoten"),
+        scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
+          h("div",{className:"set-lbl"},label),
+          h("button",{type:"button",className:"cal-btn","aria-label":"Snelvuur "+label+" verminderen",disabled:busy||matchLoading||resultLoading||Number(rapid[key]||0)<=0,style:{minHeight:44,width:48},onClick:()=>changeRapid(key,Number(rapid[key]||0)-1)},"−"),
+          h("input",{className:"set-in","aria-label":"Snelvuur "+label,type:"number",inputMode:"numeric",min:0,max:Math.max(0,10-rapidShots+Number(rapid[key]||0)),value:rapid[key],disabled:busy||matchLoading||resultLoading,onChange:e=>changeRapid(key,e.target.value)}),
+          h("button",{type:"button",className:"cal-btn","aria-label":"Snelvuur "+label+" verhogen",disabled:busy||matchLoading||resultLoading||rapidShots>=10,style:{minHeight:44,width:48},onClick:()=>changeRapid(key,Number(rapid[key]||0)+1)},"+")
+        )),
+        h("p",{className:"hint"},"Snelvuurscore: ",rapidScore,"/50 punten · ",rapidShots,"/10 schoten"),
         h("label",null,"Snelvuurtijd (seconden)",h("input",{className:"txt-in",inputMode:"decimal",value:rapidTime,disabled:busy||resultLoading,onChange:e=>setRapidTime(e.target.value)})),
         h("h3",{style:{margin:"8px 0",fontSize:16}},"Overige parcours · 40 schoten"),
         h("div",null,
           scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,label)),
-            h("button",{className:"cal-btn",disabled:busy||matchLoading||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(Math.max(Number(rapid[key]||0),n(key)-1))}))},"−"),
-            h("input",{className:"set-in","aria-label":"Overige "+label,disabled:busy||matchLoading||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts[key]===""?"":n(key)-Number(rapid[key]||0),onChange:e=>setCounts(p=>({...p,[key]:String(Number(e.target.value||0)+Number(rapid[key]||0))}))}),
-            h("button",{className:"cal-btn",disabled:busy||matchLoading||resultLoading,style:{minHeight:44,width:48},onClick:()=>setCounts(p=>({...p,[key]:String(n(key)+1)}))},"+")
+            h("button",{type:"button",className:"cal-btn","aria-label":"Overige "+label+" verminderen",disabled:busy||matchLoading||resultLoading||n(key)<=Number(rapid[key]||0),style:{minHeight:44,width:48},onClick:()=>changeRest(key,n(key)-Number(rapid[key]||0)-1)},"−"),
+            h("input",{className:"set-in","aria-label":"Overige "+label,disabled:busy||matchLoading||resultLoading,type:"number",inputMode:"numeric",min:0,max:Math.max(0,40-(shots-rapidShots)+n(key)-Number(rapid[key]||0)),value:counts[key]===""?"":n(key)-Number(rapid[key]||0),onChange:e=>changeRest(key,e.target.value)}),
+            h("button",{type:"button",className:"cal-btn","aria-label":"Overige "+label+" verhogen",disabled:busy||matchLoading||resultLoading||shots-rapidShots>=40,style:{minHeight:44,width:48},onClick:()=>changeRest(key,n(key)-Number(rapid[key]||0)+1)},"+")
           )),
           h("p",{className:"hint"},shots-rapidShots,"/40 schoten"),
           h("label",null,"Totale parcoursduur (seconden, inclusief snelvuur)",h("input",{className:"txt-in",inputMode:"decimal",value:totalTime,disabled:busy||resultLoading,onChange:e=>setTotalTime(e.target.value)})),
