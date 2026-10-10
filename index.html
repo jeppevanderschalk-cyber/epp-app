@@ -71,6 +71,7 @@
 <script src="training-store.js"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
 <script src="match-planner-ui.js?v=1"></script>
+<script src="club-teams-ui.js?v=1"></script>
 <link rel="stylesheet" href="camera-series.css" />
 <script src="camera-series.js"></script>
 <script src="camera-series-ui.js"></script>
@@ -1376,6 +1377,7 @@ const shooterCandidates = (directory, published) => {
 };
 
 const TabLandelijk = ({isTrainer, flash}) => {
+  const [view,setView]=React.useState('individual');
   const emptyCounts = {hits5:"",hits4:"",hits3:"",hits2:"",misses:"",penaltyPoints:"0"};
   const emptyRapid={hits5:"",hits4:"",hits3:"",hits2:"",misses:""};
   const [rapid,setRapid]=React.useState(emptyRapid);
@@ -1512,7 +1514,9 @@ const TabLandelijk = ({isTrainer, flash}) => {
     }catch(e){setStatus("Opslaan mislukt: "+eppPlatformError(e.message));}
     finally{setBusy(false);}
   };
-  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+  const navigation=h('div',{className:'sub-tab-row'},[['individual','Individueel'],['teams','Teams'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label)));
+  if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters'}));
+  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},navigation,
     h("label",null,"Discipline",h("select",{className:"txt-in","aria-label":"Discipline",value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setRanking([]);setMatchRanking([]);resetForm();}},h("option",{value:"pistool"},"EPP pistool"),h("option",{value:"optiek"},"Open (Optics)"))),
     h("label",null,"Wedstrijd",h("select",{className:"txt-in","aria-label":"Wedstrijd",value:matchId,disabled:busy,onChange:e=>{setMatchId(e.target.value);setRoundId("");setMatchRanking([]);}},h("option",{value:""},"Kies wedstrijd"),matchesCalendar.map(m=>h("option",{key:m.id,value:m.id},m.match_date+" - "+m.organizer)))),
     isTrainer && h("div",{className:"card"},
