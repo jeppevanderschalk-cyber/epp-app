@@ -1657,7 +1657,7 @@ const MemberRegistration = () => {
       localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
       location.reload();
     }catch(e){
-      setError(e.message.includes("naam_al_geregistreerd")?"Met deze naam bestaat al een account. Log daarmee in of neem contact op met beheer.":e.message.includes("registratielimiet")?"Registreren is tijdelijk niet beschikbaar. Neem contact op met beheer.":"Account aanmaken is niet gelukt. Controleer je gegevens en verbinding.");
+      setError(e.message.includes("persoonlijk_account_bestaat_al")?"Je hebt al een persoonlijk account bij een vereniging. Log in bij die vereniging; een tweede account is niet toegestaan.":e.message.includes("naam_al_geregistreerd")?"Met deze naam bestaat al een account. Log daarmee in of neem contact op met beheer.":e.message.includes("registratielimiet")?"Registreren is tijdelijk niet beschikbaar. Neem contact op met beheer.":"Account aanmaken is niet gelukt. Controleer je gegevens en verbinding.");
     }finally{setBusy(false);}
   };
   const existing=async()=>{

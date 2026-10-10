@@ -10,6 +10,8 @@ begin
   insert into platform_users(id,auth_provider_id) values(member_id,'test:'||member_id),(member2,'test:'||member2),(admin_id,'test:'||admin_id);
   insert into shooters(display_name,linked_user_id)values('Planner Test Een',member_id) returning id into s1;
   insert into shooters(display_name,linked_user_id)values('Planner Test Twee',member2) returning id into s2;
+  insert into memberships(shooter_id,club_id) select s1,id from clubs where code='gast';
+  insert into memberships(shooter_id,club_id) select s2,id from clubs where code='svbb';
   insert into epp_matches(club_id,organizer,match_date,offered_disciplines)values('gast','Planner Test','2030-11-14',array['pistool','optiek']) returning id into match_id;
   cfg:=jsonb_build_object('first','09:00','last','11:00','duration',30,'changeover',0,'capacity',1,'gap',0,'opens','2020-01-01T00:00:00Z','closes','2030-11-13T00:00:00Z','published',true,'breaks',jsonb_build_array(jsonb_build_object('start','10:00','end','10:30')),'overrides',jsonb_build_array(jsonb_build_object('start','11:00','capacity',2)));
   insert into epp_signups(match_id,shooter_id,shooter_name)values(match_id,s1,'Planner Test Een') returning id into legacy_signup;

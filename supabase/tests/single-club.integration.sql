@@ -1,0 +1,30 @@
+begin;
+do $$
+declare actor1 uuid;actor2 uuid;account_id uuid;sid uuid;c1 uuid;c2 uuid;rejected boolean;season uuid;rule uuid;ev uuid;rd uuid;div uuid;chosen_username text:='lid.'||substr(replace(gen_random_uuid()::text,'-','')||replace(gen_random_uuid()::text,'-',''),1,40);
+begin
+  select id into c1 from clubs where code='gast';select id into c2 from clubs where code='svbb';
+  insert into app_accounts(club_code,username,display_name,role)values('gast','kijker','Registratie test','schutter') on conflict(club_code,username)do update set active=true returning id into actor1;
+  select id into actor2 from app_accounts where club_code='svbb' and username='kijker' and active;
+  account_id:=epp_self_register_member(actor1,chosen_username,'Een','Vereniging',repeat('b',48),repeat('c',64));
+  select id into sid from shooters where linked_user_id=account_id;
+  assert (select home_club_id=c1 from shooters where id=sid),'home club set';
+  rejected:=false;begin perform epp_self_register_member(actor2,chosen_username,'Een','Vereniging',repeat('b',48),repeat('c',64));exception when others then if sqlerrm='persoonlijk_account_bestaat_al' then rejected:=true;else raise;end if;end;assert rejected,'second club account blocked';
+  rejected:=false;begin insert into app_accounts(club_code,username,display_name,role)values('svbb','alias-'||gen_random_uuid(),'  een   vereniging  ','schutter');exception when others then if sqlerrm='persoonlijk_account_bestaat_al' then rejected:=true;else raise;end if;end;assert rejected,'manual alias cannot create second account';
+  rejected:=false;begin insert into memberships(shooter_id,club_id)values(sid,c2);exception when others then if sqlerrm='schutter_vereniging_vast' then rejected:=true;else raise;end if;end;assert rejected,'second membership blocked';
+  rejected:=false;begin update app_accounts set club_code='svbb' where id=account_id;exception when others then if sqlerrm='schutter_vereniging_vast' then rejected:=true;else raise;end if;end;assert rejected,'account club fixed';
+  rejected:=false;begin update shooters set home_club_id=c2 where id=sid;exception when others then if sqlerrm='schutter_vereniging_vast' then rejected:=true;else raise;end if;end;assert rejected,'profile club fixed';
+  delete from memberships where shooter_id=sid;
+  rejected:=false;begin insert into memberships(shooter_id,club_id)values(sid,c2);exception when others then if sqlerrm='schutter_vereniging_vast' then rejected:=true;else raise;end if;end;assert rejected,'deleting membership cannot switch club';
+  insert into memberships(shooter_id,club_id)values(sid,c1);
+  assert (select count(*) from app_accounts where username=chosen_username and active)=1,'one account preserved';
+  rejected:=false;begin insert into shooters(display_name,linked_user_id,home_club_id)values('Tweede profiel',account_id,c1);exception when unique_violation then rejected:=true;end;assert rejected,'one shooter profile per account';
+  insert into seasons(naam,start_date,end_date)values('Single club test '||sid,current_date,current_date+365) returning id into season;
+  insert into rule_profiles(version)values('Single club test '||sid) returning id into rule;
+  insert into divisions(naam)values('EPP pistool') on conflict(naam)do nothing;select id into div from divisions where naam='EPP pistool';
+  insert into events(organizer_club_id,season_id,naam,type,rule_profile_id)values(c2,season,'Other organizer '||sid,'wedstrijd',rule) returning id into ev;
+  insert into rounds(event_id)values(ev) returning id into rd;
+  rejected:=false;begin insert into results(round_id,shooter_id,division_id,represented_club_id,entry_mode,final_score,status)values(rd,sid,div,c2,'total',250,'confirmed');exception when others then if sqlerrm='alleen_eigen_vereniging' then rejected:=true;else raise;end if;end;assert rejected,'cannot represent other club';
+  insert into results(round_id,shooter_id,division_id,represented_club_id,entry_mode,final_score,status)values(rd,sid,div,c1,'total',250,'confirmed');
+  assert exists(select 1 from results where shooter_id=sid and represented_club_id=c1),'own club at another organizer allowed';
+end $$;
+rollback;
