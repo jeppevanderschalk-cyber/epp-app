@@ -2,6 +2,7 @@
 // Mutations require an active trainer session for this club.
 import { corsHeaders, json, serviceClient, isKnownClub, DISCIPLINES } from "../_shared/epp.ts";
 import { requireAccount } from '../_shared/session.ts';
+import { matchDates } from '../_shared/match-dates.ts';
 
 function isValidDate(s: unknown): s is string {
   return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -65,6 +66,7 @@ Deno.serve(async (req) => {
 
     if (action === "create_match") {
       const m = body.match || {};
+      const dates=m.match_dates!==undefined?matchDates(m.match_dates):m.match_date?matchDates([m.match_date]):[];
       if (typeof m.organizer !== "string" || !m.organizer.trim()) {
         return json({ ok: false, error: "organizer_verplicht" }, 400);
       }
@@ -84,7 +86,8 @@ Deno.serve(async (req) => {
           club_id: clubId,
           organizer: m.organizer.trim(),
           location: m.location ?? null,
-          match_date: m.match_date ?? null,
+          match_date: dates[0] ?? null,
+          match_dates: dates,
           deadline: m.deadline ?? null,
           organizer_email: m.organizer_email ?? null,
           offered_disciplines: offered,
@@ -102,6 +105,7 @@ Deno.serve(async (req) => {
       if (typeof id !== "string") return json({ ok: false, error: "id_verplicht" }, 400);
 
       const patch: Record<string, unknown> = {};
+      if(m.match_dates!==undefined){const dates=matchDates(m.match_dates);patch.match_dates=dates;patch.match_date=dates[0];}
       if (m.organizer !== undefined) {
         if (typeof m.organizer !== "string" || !m.organizer.trim()) {
           return json({ ok: false, error: "organizer_verplicht" }, 400);
@@ -109,7 +113,7 @@ Deno.serve(async (req) => {
         patch.organizer = m.organizer.trim();
       }
       if (m.location !== undefined) patch.location = m.location;
-      if (m.match_date !== undefined) {
+      if (m.match_date !== undefined && m.match_dates===undefined) {
         if (m.match_date != null && !isValidDate(m.match_date)) {
           return json({ ok: false, error: "ongeldige_match_date" }, 400);
         }
@@ -161,7 +165,7 @@ Deno.serve(async (req) => {
       if (mErr) throw mErr;
       const { data: signups, error: sErr } = await db
         .from("epp_signups")
-        .select("id, shooter_id, shooter_name, updated_at, epp_signup_disciplines(discipline, time_block, specific_time)")
+        .select("id, shooter_id, shooter_name, updated_at, epp_signup_disciplines(discipline, time_block, specific_time, slot:epp_match_slots(starts_at,ends_at))")
         .eq("match_id", matchId)
         .order("shooter_name", { ascending: true });
       if (sErr) throw sErr;

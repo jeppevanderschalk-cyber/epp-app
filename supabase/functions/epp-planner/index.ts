@@ -11,11 +11,11 @@ Deno.serve(async req=>{
   try{
     const body=await req.json();const actor=await requireAccount(body);const db=serviceClient();
     if(body.action==='catalog'){
-      const matches=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,offered_disciplines)').eq('published',true).order('match_id'));
+      const matches=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,match_dates,offered_disciplines)').eq('published',true).order('match_id'));
       const {data:profile,error:profileError}=await db.from('shooters').select('id').eq('linked_user_id',actor.id).maybeSingle();if(profileError)throw profileError;
       if(profile){
         const mine=await allRows(()=>db.from('epp_signups').select('match_id').eq('shooter_id',profile.id).order('id'));
-        if(mine.length){const unpublished=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,offered_disciplines)').eq('published',false).in('match_id',mine.map(m=>m.match_id)).order('match_id'));matches.push(...unpublished);}
+        if(mine.length){const unpublished=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,match_dates,offered_disciplines)').eq('published',false).in('match_id',mine.map(m=>m.match_id)).order('match_id'));matches.push(...unpublished);}
       }
       return json({ok:true,matches:matches.map(p=>p.match).filter(Boolean).sort((a,b)=>String(a.match_date).localeCompare(String(b.match_date)))});
     }
@@ -49,7 +49,7 @@ Deno.serve(async req=>{
         const {data,error}=await db.from('epp_planner_audit').select('id,action,actor_id,reason,created_at').eq('match_id',match.id).order('created_at',{ascending:false}).limit(20);if(error)throw error;audit=data;
       }
       const mine=signups.find(s=>s.shooter_id===profile?.id);
-      return json({ok:true,match:{id:match.id,organizer:match.organizer,location:match.location,match_date:match.match_date,deadline:match.deadline,offered_disciplines:match.offered_disciplines},planner,managing,profile,slots:slots.map(s=>({...s,booked:counts.get(s.id)||0})),mine:{revision:mine?.planner_revision||0,choices:(mine?.epp_signup_disciplines||[]).map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))},roster,audit});
+      return json({ok:true,match:{id:match.id,organizer:match.organizer,location:match.location,match_date:match.match_date,match_dates:match.match_dates,deadline:match.deadline,offered_disciplines:match.offered_disciplines},planner,managing,profile,slots:slots.map(s=>({...s,booked:counts.get(s.id)||0})),mine:{revision:mine?.planner_revision||0,choices:(mine?.epp_signup_disciplines||[]).map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))},roster,audit});
     }
     return json({ok:false,error:'onbekende_actie'},400);
   }catch(e){return json({ok:false,error:e.message||'server_fout'},['sessie_verlopen','geen_toegang','geen_beheerrechten','alleen_eigen_inschrijving'].includes(e.message)?401:400);}

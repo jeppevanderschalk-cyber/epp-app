@@ -1,4 +1,6 @@
 const plannerClock=value=>new Intl.DateTimeFormat('nl-NL',{timeZone:'Europe/Amsterdam',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(value));
+const plannerDay=value=>new Intl.DateTimeFormat('nl-NL',{timeZone:'Europe/Amsterdam',day:'numeric',month:'short',year:'numeric'}).format(new Date(value));
+const plannerSlot=value=>plannerDay(value)+' · '+plannerClock(value);
 const plannerConfigErrors={laatste_ronde_sluit_niet_aan:'De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',ongeldige_capaciteit:'Kies een bestaande ronde en een capaciteit van 1 tot 100.',ongeldige_planning:'Controleer de starttijden, rondeduur, capaciteit en inschrijfperiode.'};
 const plannerError=e=>({tijdslot_vol:'Dit tijdslot is net volgeboekt. Kies een andere tijd.',overlappende_boeking:'Deze deelnames overlappen of hebben onvoldoende pauze ertussen.',planning_conflict:'De planning is elders gewijzigd. Haal de nieuwste versie op.',boeking_conflict:'Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.',bestaande_inschrijvingen_eerst_plannen:'Er zijn bestaande inschrijvingen zonder tijdslot. Deze moeten eerst gecontroleerd worden verwerkt; de app verplaatst ze niet automatisch.',geboekte_tijdsloten_behouden:'Deze wijziging zou bestaande boekingen veranderen of de capaciteit overschrijden.',geen_beheerrechten:'Je hebt geen beheerrechten voor deze vereniging.',inschrijving_gesloten:'De inschrijving is gesloten.',persoonlijk_schutterprofiel_verplicht:'Gebruik een persoonlijk account met schutter-ID.'}[e.message]||e.message);
 
@@ -23,7 +25,7 @@ const PlannerBooking=({view,target,onSaved,onReload})=>{
       h('select',{className:'txt-in','aria-label':'Tijdslot '+d,disabled:busy||!open||!canBook,value:choices[d]||'',onChange:e=>setChoices(p=>({...p,[d]:e.target.value}))},
         h('option',{value:''},'Niet deelnemen'),view.slots.map(s=>{
           const own=mine.choices.some(c=>c.slotId===s.id);const full=s.booked>=s.capacity&&!own;
-          return h('option',{key:s.id,value:s.id,disabled:full||Date.parse(s.starts_at)<=Date.now()},plannerClock(s.starts_at)+' – '+plannerClock(s.ends_at)+' · '+(full?'Vol':Math.max(0,s.capacity-s.booked)+' plekken vrij'));
+          return h('option',{key:s.id,value:s.id,disabled:full||Date.parse(s.starts_at)<=Date.now()},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)+' · '+(full?'Vol':Math.max(0,s.capacity-s.booked)+' plekken vrij'));
         })))),
     target&&h('label',null,'Reden wijziging',h('input',{className:'txt-in',value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
     h('button',{className:'btn btn-gold',disabled:busy||!open||!canBook||!Object.values(choices).some(Boolean)||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':'Tijdsloten bevestigen'),
@@ -48,7 +50,7 @@ const PlannerEditor=({view,onSaved,onReload})=>{
     e.preventDefault();if(busy||!confirmed)return;setBusy(true);setStatus('');
     try{await eppCall('epp-planner',{clubId:CLUB_ID,action:'configure',matchId:m.id,config,expectedRevision:revision});await onSaved();setStatus('Planning online opgeslagen');}
     catch(error){setStatus(plannerConfigErrors[error.message]||plannerError(error));setConflict(error.message==='planning_conflict');}finally{setBusy(false);}
-  }},h('h3',{style:{fontSize:18}},'Planning instellen'),h('fieldset',{disabled:busy,style:{border:0,padding:0,minWidth:0,display:'grid',gap:12}},
+  }},h('h3',{style:{fontSize:18}},'Planning instellen'),h('p',{className:'hint'},eppFmtMatchDates(m)),h('fieldset',{disabled:busy,style:{border:0,padding:0,minWidth:0,display:'grid',gap:12}},
     field('first','Eerste ronde start','time'),field('last','Laatste ronde start','time'),field('duration','Rondeduur (minuten)','number'),field('changeover','Wisseltijd (minuten)','number'),field('capacity','Schietplaatsen per ronde','number'),field('gap','Minimale pauze tussen deelnames (minuten)','number'),dateField('opens','Inschrijving opent'),dateField('closes','Inschrijving sluit'),
     list('breaks',[['start','Pauze vanaf','time'],['end','Pauze tot','time']]),list('overrides',[['start','Start ronde','time'],['capacity','Schietplaatsen','number']]),
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:config.published,onChange:e=>setConfig(p=>({...p,published:e.target.checked}))}),'Planner publiceren'),
@@ -71,11 +73,11 @@ const MatchPlanner=({matchId,manage=false})=>{
       manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:saved,onReload:reload}),
       view.planner&&h(React.Fragment,null,
         h('h3',{style:{fontSize:18,margin:0}},'Tijdsloten'),
-        h('div',{style:{display:'grid',gap:6}},view.slots.map(s=>h('div',{key:s.id,style:{display:'flex',gap:8,justifyContent:'space-between',borderBottom:'1px solid '+C.border,padding:'8px 0'}},h('span',null,plannerClock(s.starts_at)+' – '+plannerClock(s.ends_at)),h('span',null,s.booked+'/'+s.capacity)))),
+        h('div',{style:{display:'grid',gap:6}},view.slots.map(s=>h('div',{key:s.id,style:{display:'flex',gap:8,justifyContent:'space-between',borderBottom:'1px solid '+C.border,padding:'8px 0'}},h('span',{style:{minWidth:0,overflowWrap:'anywhere'}},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)),h('span',null,s.booked+'/'+s.capacity)))),
         (!manage||view.profile||target)&&h(PlannerBooking,{key:'booking-'+version+(target?.shooterId||''),view,target,onSaved:saved,onReload:reload}),
         manage&&view.managing&&h(React.Fragment,null,h('h3',{style:{fontSize:18}},'Deelnemers per ronde'),
           view.roster.some(r=>r.choices.some(c=>!c.slotId))&&h('section',null,h('h4',null,'Nog in te plannen'),view.roster.filter(r=>r.choices.some(c=>!c.slotId)).map(r=>h('div',{key:r.shooterId||r.name,style:{display:'grid',gap:6,padding:'10px 0',borderBottom:'1px solid '+C.border}},h('strong',null,r.name),h('small',null,(r.preferences||[]).map(p=>(EPP_DISCIPLINES.find(d=>d.id===p.discipline)?.label||p.discipline)+' · '+(p.specific_time||p.time_block)).join(', ')),h('button',{className:'btn btn-ghost',disabled:!r.shooterId,onClick:()=>setTarget(r)},r.shooterId?'Tijdslot toewijzen':'Eerst schutter-ID koppelen in groepslijst')))),
-          view.slots.map(s=>h('section',{key:s.id},h('h4',{style:{margin:'12px 0 6px'}},plannerClock(s.starts_at)+' · '+s.booked+'/'+s.capacity),view.roster.filter(r=>r.choices.some(c=>c.slotId===s.id)).map(r=>h('div',{key:r.shooterId,style:{padding:'8px 0',borderBottom:'1px solid '+C.border,display:'grid',gap:6}},h('strong',null,r.name),h('small',null,r.clubs.join(', ')+' · '+r.publicId+' · '+r.choices.filter(c=>c.slotId===s.id).map(c=>EPP_DISCIPLINES.find(d=>d.id===c.discipline)?.label||c.discipline).join(', ')),h('button',{className:'btn btn-ghost',onClick:()=>setTarget(r)},'Verplaatsen / afmelden'))))),
+          view.slots.map(s=>h('section',{key:s.id},h('h4',{style:{margin:'12px 0 6px'}},plannerSlot(s.starts_at)+' · '+s.booked+'/'+s.capacity),view.roster.filter(r=>r.choices.some(c=>c.slotId===s.id)).map(r=>h('div',{key:r.shooterId,style:{padding:'8px 0',borderBottom:'1px solid '+C.border,display:'grid',gap:6}},h('strong',null,r.name),h('small',null,r.clubs.join(', ')+' · '+r.publicId+' · '+r.choices.filter(c=>c.slotId===s.id).map(c=>EPP_DISCIPLINES.find(d=>d.id===c.discipline)?.label||c.discipline).join(', ')),h('button',{className:'btn btn-ghost',onClick:()=>setTarget(r)},'Verplaatsen / afmelden'))))),
           h('details',null,h('summary',null,'Recente wijzigingen'),view.audit.map(a=>h('p',{key:a.id,className:'hint'},new Date(a.created_at).toLocaleString('nl-NL')+' · '+a.action+' · '+a.actor_id+(a.reason?' · '+a.reason:'')))))
       )));
 };
@@ -83,7 +85,7 @@ const MatchPlanner=({matchId,manage=false})=>{
 const MatchPlannerCatalog=()=>{
   const [matches,setMatches]=React.useState([]),[status,setStatus]=React.useState('');
   React.useEffect(()=>{let active=true;const load=()=>eppCall('epp-planner',{clubId:CLUB_ID,action:'catalog'}).then(r=>{if(active){setMatches(r.matches);setStatus('');}}).catch(e=>{if(active)setStatus(plannerError(e));});load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};},[]);
-  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.map(m=>h('details',{key:m.id},h('summary',{style:{fontWeight:800,padding:'12px 0'}},m.organizer+' · '+eppFmtDate(m.match_date)),h(MatchPlanner,{matchId:m.id}))));
+  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.map(m=>h('details',{key:m.id},h('summary',{style:{fontWeight:800,padding:'12px 0'}},m.organizer+' · '+eppFmtMatchDates(m)),h(MatchPlanner,{matchId:m.id}))));
 };
 
 const PlatformAccessManagement=()=>{

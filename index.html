@@ -78,7 +78,7 @@
 <div id="root" hidden></div>
 <script src="training-store.js"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
-<script src="match-planner-ui.js?v=2"></script>
+<script src="match-planner-ui.js?v=multiday-1"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=1"></script>
 <link rel="stylesheet" href="camera-series.css" />
@@ -582,15 +582,16 @@ const eppBlockForTime = t => {
 const todayIso_client = () => new Date().toISOString().slice(0,10);
 const eppOneMonthBefore = iso => {
   if(!iso)return"";
-  const d = new Date(iso+"T00:00:00");
-  d.setMonth(d.getMonth()-1);
-  return d.toISOString().slice(0,10);
+  const [year,month,day]=iso.split('-').map(Number);
+  const lastDay=new Date(Date.UTC(year,month-1,0)).getUTCDate();
+  return new Date(Date.UTC(year,month-2,Math.min(day,lastDay))).toISOString().slice(0,10);
 };
 const eppFmtDate = iso => {
   if(!iso)return"datum nog onbekend";
   const [y,m,d]=iso.split("-").map(Number);
   return `${d} ${MONTHS[m-1]} ${y}`;
 };
+const eppFmtMatchDates = match => (match.match_dates?.length?match.match_dates:[match.match_date]).map(eppFmtDate).join(' / ');
 const eppCall = async (fnName, payload) => {
   payload={...payload,sessionToken:eppSession()?.sessionToken};
   const url = cleanUrl(CENTRAL_SYNC.url) + "/functions/v1/" + fnName;
@@ -1831,7 +1832,7 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
         h("div",{className:"match-hd"},
           h("div",null,
             h("div",{className:"match-org"},m.organizer),
-            h("div",{className:"match-sub"},eppFmtDate(m.match_date)),
+            h("div",{className:"match-sub"},eppFmtMatchDates(m)),
             h("div",{className:"match-sub"},closed?"Inschrijving gesloten":`Deadline: ${eppFmtDate(m.deadline)}`)
           ),
           h("div",{className:"status-dot "+dotClass},dotLabel)
@@ -1862,17 +1863,19 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
 };
 
 const EppMatchForm = ({initial, onSave, onCancel}) => {
-  const [f,setF] = React.useState(()=>initial || {organizer:"",location:"",match_date:"",deadline:"",organizer_email:"",offered_disciplines:["pistool","optiek","pcc"],notes:""});
+  const [f,setF] = React.useState(()=>({...({organizer:"",location:"",deadline:"",organizer_email:"",offered_disciplines:["pistool","optiek","pcc"],notes:""}),...initial,match_dates:initial?.match_dates?.length?initial.match_dates:[initial?.match_date||""]}));
+  const [dateError,setDateError]=React.useState('');
   const toggleD = id => setF(p=>({...p,offered_disciplines:p.offered_disciplines.includes(id)?p.offered_disciplines.filter(x=>x!==id):[...p.offered_disciplines,id]}));
   return h("div",{className:"card"},
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},initial?"Wedstrijd bewerken":"Wedstrijd toevoegen")),
     h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
       h("input",{className:"txt-in",placeholder:"Organiserende vereniging",value:f.organizer,onChange:e=>setF(p=>({...p,organizer:e.target.value}))}),
       h("input",{className:"txt-in",placeholder:"Adres (optioneel)",value:f.location||"",onChange:e=>setF(p=>({...p,location:e.target.value}))}),
-      h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Wedstrijddatum"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.match_date||"",onChange:e=>{
-        const match_date=e.target.value;
-        setF(p=>({...p,match_date,deadline:p.deadline?p.deadline:eppOneMonthBefore(match_date)}));
-      }})),
+      f.match_dates.map((date,i)=>h('div',{key:i,style:{display:'flex',gap:8,alignItems:'end',flexWrap:'wrap'}},
+        h('label',{style:{flex:'1 1 180px',minWidth:0}},'Wedstrijddag '+(i+1),h('input',{className:'txt-in',type:'date','aria-label':'Wedstrijddag '+(i+1),value:date,onChange:e=>{const value=e.target.value;setDateError('');setF(p=>({...p,match_dates:p.match_dates.map((d,j)=>i===j?value:d),deadline:p.deadline||eppOneMonthBefore(value)}));}})),
+        f.match_dates.length>1&&h('button',{type:'button',className:'btn btn-ghost','aria-label':'Verwijder wedstrijddag '+(i+1),onClick:()=>setF(p=>({...p,match_dates:p.match_dates.filter((_,j)=>j!==i)}))},'×'))),
+      h('button',{type:'button',className:'btn btn-ghost',disabled:f.match_dates.length>=31,onClick:()=>setF(p=>({...p,match_dates:[...p.match_dates,'']}))},'+ Wedstrijddag'),
+      dateError&&h('p',{role:'alert',className:'hint'},dateError),
       h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Inschrijfdeadline"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.deadline||"",onChange:e=>setF(p=>({...p,deadline:e.target.value}))})),
       h("p",{className:"hint"},"Standaard 1 maand voor de wedstrijddatum, zelf aan te passen."),
       h("input",{className:"txt-in",placeholder:"E-mailadres inschrijfbureau",value:f.organizer_email||"",onChange:e=>setF(p=>({...p,organizer_email:e.target.value}))}),
@@ -1886,7 +1889,7 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
       h("input",{className:"txt-in",placeholder:"Notitie (optioneel)",value:f.notes||"",onChange:e=>setF(p=>({...p,notes:e.target.value}))}),
       h("div",{style:{display:"flex",gap:8}},
         h("button",{className:"btn btn-ghost",style:{flex:1},onClick:onCancel},"Annuleren"),
-        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>onSave(f)},"Opslaan")
+        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>{if(f.match_dates.some(d=>!d)||new Set(f.match_dates).size!==f.match_dates.length){setDateError('Vul iedere wedstrijddag in en kies geen dubbele datum.');return;}const dates=[...f.match_dates].sort();onSave({...f,match_dates:dates,match_date:dates[0]});}},"Opslaan")
       )
     )
   );
@@ -1899,13 +1902,13 @@ const EppMailComposer = ({match, signups, onSent, password, flash}) => {
   React.useEffect(()=>{localStorage.setItem("epp-mail-settings",JSON.stringify(settings));},[settings]);
 
   const discLabel = id => EPP_DISCIPLINES.find(d=>d.id===id)?.label || id;
-  const voorkeurTxt = d => `${discLabel(d.discipline)} — voorkeurtijd: ${d.specific_time || "geen voorkeur"}`;
+  const voorkeurTxt = d => `${discLabel(d.discipline)} — ${d.slot?.starts_at?plannerSlot(d.slot.starts_at):'voorkeurtijd: '+(d.specific_time || "geen voorkeur")}`;
 
-  const subject = `Groepsinschrijving ${CLUB.label} – EPP ${eppFmtDate(match.match_date)}`;
+  const subject = `Groepsinschrijving ${CLUB.label} – EPP ${eppFmtMatchDates(match)}`;
   const body = [
     "Beste inschrijfbureau,",
     "",
-    `Namens ${CLUB.label} melden wij ons graag aan voor de EPP-wedstrijd bij ${match.organizer} op ${eppFmtDate(match.match_date)}.`,
+    `Namens ${CLUB.label} melden wij ons graag aan voor de EPP-wedstrijd bij ${match.organizer} op ${eppFmtMatchDates(match)}.`,
     "",
     "Deelnemers:",
     ...signups.map(s=>`- ${s.shooter_name}: ${(s.epp_signup_disciplines||[]).map(voorkeurTxt).join("; ")}`),
@@ -1996,7 +1999,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
       h("div",{className:"card"},
         h("div",{className:"card-head"},h("div",{className:"eyebrow"},m.organizer)),
         h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:6}},
-          h("p",{className:"hint"},eppFmtDate(m.match_date)," · deadline ",eppFmtDate(m.deadline)),
+          h("p",{className:"hint"},eppFmtMatchDates(m)," · deadline ",eppFmtDate(m.deadline)),
           !group ? h("p",{className:"hint"},"Laden…") :
           !group.signups.length ? h("p",{className:"hint"},"Nog geen aanmeldingen.") :
           group.signups.map(s=>h("div",{key:s.id,className:"set-row"},
@@ -2007,7 +2010,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
                 try{await eppCall('epp-admin',{clubId:CLUB_ID,action:'link_signup',signupId:s.id,shooterId:id});await openGroup(m);flash('Inschrijving gekoppeld');}
                 catch(error){flash('Koppelen mislukt: '+error.message);}
               }},h("option",{value:""},"Kies het juiste schutter-ID"),directory.filter(d=>d.display_name.trim().toLowerCase()===s.shooter_name.trim().toLowerCase()).map(d=>h("option",{key:d.id,value:d.id},d.display_name+" - "+d.public_id))),
-              h("div",{className:"set-sub"},(s.epp_signup_disciplines||[]).map(d=>`${EPP_DISCIPLINES.find(x=>x.id===d.discipline)?.label||d.discipline} (${EPP_TIME_BLOCKS.find(x=>x.id===d.time_block)?.label||d.time_block}${d.specific_time?", "+d.specific_time:""})`).join(" · "))
+              h("div",{className:"set-sub"},(s.epp_signup_disciplines||[]).map(d=>`${EPP_DISCIPLINES.find(x=>x.id===d.discipline)?.label||d.discipline} (${d.slot?.starts_at?plannerSlot(d.slot.starts_at):(EPP_TIME_BLOCKS.find(x=>x.id===d.time_block)?.label||d.time_block)+(d.specific_time?", "+d.specific_time:"")})`).join(" · "))
             )
           ))
         )
@@ -2026,7 +2029,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
       h("div",{className:"match-hd"},
         h("div",null,
           h("div",{className:"match-org"},m.organizer),
-          h("div",{className:"match-sub"},eppFmtDate(m.match_date)," · deadline ",eppFmtDate(m.deadline)),
+          h("div",{className:"match-sub"},eppFmtMatchDates(m)," · deadline ",eppFmtDate(m.deadline)),
           h("div",{className:"match-sub"},m.schutters," schutters · ",m.starts," starts · mail: ",m.mail_status.replace("_"," "))
         )
       ),
