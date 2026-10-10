@@ -33,6 +33,7 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
     h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':'Tijdsloten bevestigen'),
     mine.choices.length>0&&h('button',{className:'btn btn-danger',disabled:busy||!open||(target&&reason.trim().length<3),onClick:()=>{if(confirm('Deze wedstrijdinschrijving afmelden?'))save(true);}},'Afmelden'),
     (status||saveNotice)&&h('p',{className:'hint',role:'status'},status||saveNotice),
+    !target&&(status||saveNotice).startsWith('Boeking online bevestigd')&&h('p',{className:'hint',style:{margin:0}},'Je gekozen tijdsloten zijn gereserveerd.'),
     conflict&&h('button',{className:'btn btn-ghost',disabled:busy,onClick:()=>{if(confirm('Niet opgeslagen wijzigingen vervallen. Nieuwste inschrijving ophalen?'))onReload();}},'Nieuwste inschrijving ophalen')
   );
 };
@@ -65,6 +66,8 @@ const MatchPlanner=({matchId,manage=false})=>{
   const [view,setView]=React.useState(null),[status,setStatus]=React.useState(''),[version,setVersion]=React.useState(0),[target,setTarget]=React.useState(null);
   const [planningNotice,setPlanningNotice]=React.useState('');
   const [bookingNotice,setBookingNotice]=React.useState('');
+  const bookingRef=React.useRef(null);
+  React.useEffect(()=>{if(target)bookingRef.current?.scrollIntoView({block:'start',behavior:'smooth'});},[target]);
   const load=React.useCallback(async()=>{
     try{const r=await eppCall('epp-planner',{clubId:CLUB_ID,action:'view',matchId});setView(r);setStatus('');return r;}catch(e){setStatus(plannerError(e));}
   },[matchId]);
@@ -85,7 +88,8 @@ const MatchPlanner=({matchId,manage=false})=>{
     !view?h('p',{className:'hint'},'Planner laden...'):h(React.Fragment,null,
       manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:()=>saved(true),onReload:reload,saveNotice:planningNotice,onEdited:()=>setPlanningNotice('')}),
       view.planner&&h(React.Fragment,null,
-        (!manage||view.profile||target)&&h(PlannerBooking,{key:'booking-'+version+(target?.shooterId||''),view,target,onSaved:cancel=>saved(false,cancel),onReload:reload,saveNotice:bookingNotice,onEdited:()=>setBookingNotice('')}),
+        (!manage||view.profile||target)&&h('div',{ref:bookingRef},h(PlannerBooking,{key:'booking-'+version+(target?.shooterId||''),view,target,onSaved:cancel=>saved(false,cancel),onReload:reload,saveNotice:bookingNotice,onEdited:()=>setBookingNotice('')})),
+        manage&&!view.profile&&!target&&bookingNotice&&h('p',{className:'hint',role:'status'},bookingNotice),
         h('details',null,h('summary',{style:{fontWeight:700}},'Alle tijdsloten ('+view.slots.length+')'),
         h('h3',{style:{fontSize:18,margin:0}},'Tijdsloten'),
         h('div',{style:{display:'grid',gap:6}},view.slots.map(s=>h('div',{key:s.id,style:{display:'flex',gap:8,justifyContent:'space-between',borderBottom:'1px solid '+C.border,padding:'8px 0'}},h('span',{style:{minWidth:0,overflowWrap:'anywhere'}},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)),h('span',null,s.booked+'/'+s.capacity))))),
@@ -96,10 +100,10 @@ const MatchPlanner=({matchId,manage=false})=>{
       )));
 };
 
-const MatchPlannerCatalog=()=>{
+const MatchPlannerCatalog=({excludeIds=[]})=>{
   const [matches,setMatches]=React.useState([]),[status,setStatus]=React.useState('');
   React.useEffect(()=>{let active=true;const load=()=>eppCall('epp-planner',{clubId:CLUB_ID,action:'catalog'}).then(r=>{if(active){setMatches(r.matches);setStatus('');}}).catch(e=>{if(active)setStatus(plannerError(e));});load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};},[]);
-  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.map(m=>h('details',{key:m.id},h('summary',{style:{fontWeight:800,padding:'12px 0'}},m.organizer+' · '+eppFmtMatchDates(m)),h(MatchPlanner,{matchId:m.id}))));
+  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.filter(m=>!excludeIds.includes(m.id)).map(m=>h('details',{key:m.id},h('summary',{style:{fontWeight:800,padding:'12px 0'}},m.organizer+' · '+eppFmtMatchDates(m)),h(MatchPlanner,{matchId:m.id}))));
 };
 
 const PlatformAccessManagement=()=>{

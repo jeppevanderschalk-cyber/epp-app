@@ -77,7 +77,7 @@
 <div id="root" hidden></div>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
-<script src="match-planner-ui.js?v=booking-feedback-4"></script>
+<script src="match-planner-ui.js?v=online-reservations-5"></script>
 <script src="head-view-ui.js?v=2"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=1"></script>
@@ -1937,58 +1937,6 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
   );
 };
 
-const EppMailComposer = ({match, signups, onSent, password, flash}) => {
-  const [settings,setSettings] = React.useState(()=>{
-    try{return {trainerName:"",phone:"",...JSON.parse(localStorage.getItem("epp-mail-settings")||"{}")};}catch(e){return {trainerName:"",phone:""};}
-  });
-  React.useEffect(()=>{localStorage.setItem("epp-mail-settings",JSON.stringify(settings));},[settings]);
-
-  const discLabel = id => EPP_DISCIPLINES.find(d=>d.id===id)?.label || id;
-  const voorkeurTxt = d => `${discLabel(d.discipline)} — ${d.slot?.starts_at?plannerSlot(d.slot.starts_at):'voorkeurtijd: '+(d.specific_time || "geen voorkeur")}`;
-
-  const subject = `Groepsinschrijving ${CLUB.label} – EPP ${eppFmtMatchDates(match)}`;
-  const body = [
-    "Beste inschrijfbureau,",
-    "",
-    `Namens ${CLUB.label} melden wij ons graag aan voor de EPP-wedstrijd bij ${match.organizer} op ${eppFmtMatchDates(match)}.`,
-    "",
-    "Deelnemers:",
-    ...signups.map(s=>`- ${s.shooter_name}: ${(s.epp_signup_disciplines||[]).map(voorkeurTxt).join("; ")}`),
-    "",
-    "Wij verzoeken u vriendelijk de starttijden zo veel mogelijk aan te laten sluiten bij de aangegeven voorkeuren.",
-    "",
-    "Met vriendelijke groet,",
-    settings.trainerName || "[naam trainer]",
-    CLUB.label,
-    settings.phone || "[telefoonnummer]",
-  ].join("\n");
-
-  const copy = async () => {
-    try{await navigator.clipboard.writeText(body);flash("Mailtekst gekopieerd");}
-    catch(e){flash("Kopiëren mislukt, selecteer handmatig");}
-  };
-  const markSent = async () => {
-    try{await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"mark_sent",matchId:match.id});flash("Gemarkeerd als verstuurd");onSent();}
-    catch(e){flash("Mislukt: "+e.message);}
-  };
-
-  return h("div",{className:"card"},
-    h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Mail naar inschrijfbureau")),
-    h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
-      h("input",{className:"txt-in",placeholder:"Naam trainer",value:settings.trainerName,onChange:e=>setSettings(p=>({...p,trainerName:e.target.value}))}),
-      h("input",{className:"txt-in",placeholder:"Telefoonnummer",value:settings.phone,onChange:e=>setSettings(p=>({...p,phone:e.target.value}))}),
-      h("p",{className:"hint"},"Aan: ",match.organizer_email||"(geen e-mailadres bekend)"),
-      h("p",{className:"hint"},"Onderwerp: ",subject),
-      h("div",{className:"mail-box"},body),
-      h("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
-        h("button",{className:"btn btn-ghost",style:{flex:1},onClick:copy},"KOPIEER"),
-        h("a",{className:"btn btn-gold",style:{flex:1},href:`mailto:${encodeURIComponent(match.organizer_email||"")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`},"OPEN IN MAIL")
-      ),
-      h("button",{className:"btn btn-ghost btn-full",onClick:markSent},match.mail_status==="niet_verstuurd"?"Markeer als verstuurd":"Opnieuw markeren als verstuurd")
-    )
-  );
-};
-
 const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
   const [matches,setMatches] = React.useState(null);
   const [adding,setAdding] = React.useState(false);
@@ -2057,13 +2005,13 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
           ))
         )
       ),
-      group && h(EppMailComposer,{match:group.match,signups:group.signups,password,flash,onSent:()=>openGroup(m)})
+      eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold btn-full',onClick:()=>{setOpenId(null);setGroup(null);setPlannerMatch(m);}},'Planning en deelnemers beheren')
     );
   }
 
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     !adding && !editing && h("button",{className:"btn btn-gold btn-full",onClick:()=>setAdding(true)},"+ Wedstrijd toevoegen"),
-    h(MatchPlannerCatalog),
+    h(MatchPlannerCatalog,{excludeIds:matches.map(m=>m.id)}),
     adding && h(EppMatchForm,{onSave:createMatch,onCancel:()=>setAdding(false)}),
     editing && h(EppMatchForm,{initial:editing.data,onSave:f=>updateMatch(editing.id,f),onCancel:()=>setEditing(null)}),
     !matches.length ? h("div",{className:"empty"},h("p",null,"Nog geen wedstrijden toegevoegd.")) :
@@ -2072,7 +2020,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
         h("div",null,
           h("div",{className:"match-org"},m.organizer),
           h("div",{className:"match-sub"},eppFmtMatchDates(m)," · deadline ",eppFmtDate(m.deadline)),
-          h("div",{className:"match-sub"},m.schutters," schutters · ",m.starts," starts · mail: ",m.mail_status.replace("_"," "))
+          h("div",{className:"match-sub"},m.schutters," schutters · ",m.starts," starts")
         )
       ),
       h("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},

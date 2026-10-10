@@ -9,11 +9,11 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 try{
   for(const width of [390,1440]){
-    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let mode='ok',saved=false,configures=0,views=0,booked=[],bookings=0;
+    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let mode='ok',saved=false,configures=0,views=0,booked=[],bookings=0,lastBooking;
     page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/functions/v1/**',async route=>{
       const b=route.request().postDataJSON();
-      if(b.action==='book'){bookings++;booked=b.choices;}
+      if(b.action==='book'){bookings++;booked=b.choices;lastBooking=b;}
       if(b.action==='configure'){
         configures++;await new Promise(r=>setTimeout(r,200));
         if(mode==='error')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:'laatste_ronde_sluit_niet_aan'})});
@@ -25,7 +25,10 @@ try{
       }
       const config={first:'09:00',last:'16:00',duration:7,changeover:3,capacity:2,gap:0,opens:'2026-01-01T09:00',closes:'2027-05-27T18:00',breaks:[],overrides:[],published:true};
       const view={ok:true,match:{id:'fixture',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:['pistool']},planner:{revision:saved?2:1,config},managing:true,profile:{id:'member'},slots:Array.from({length:40},(_,i)=>({id:'slot-'+i,starts_at:new Date(Date.UTC(2027,4,28,7,i*10)).toISOString(),ends_at:new Date(Date.UTC(2027,4,28,7,i*10+7)).toISOString(),capacity:2,booked:0})),mine:{revision:bookings,choices:booked},roster:[],audit:[]};
-      await route.fulfill({contentType:'application/json',body:JSON.stringify(view)});
+      view.match={...view.match,organizer:'SVBB',schutters:1,starts:1,mail_status:'niet_verstuurd'};
+      view.roster=booked.length?[{shooterId:'member',name:'Test Schutter',publicId:'EPP-TEST',clubs:['SVBB'],revision:bookings,choices:booked}]:[];
+      const response=b.action==='list_matches'||b.action==='catalog'?{ok:true,matches:[view.match]}:b.action==='group_list'?{ok:true,match:view.match,signups:[{id:'signup',shooter_id:'member',shooter_name:'Test Schutter',epp_signup_disciplines:[]}]}:view;
+      await route.fulfill({contentType:'application/json',body:JSON.stringify(response)});
     });
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.evaluate(()=>{window.feedbackRoot=ReactDOM.createRoot(document.getElementById('root'));window.feedbackRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(MatchPlanner,{matchId:'fixture',manage:true}))));eppShowApp();});
@@ -50,6 +53,21 @@ try{
     await page.getByText('De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',{exact:true}).waitFor();assert.equal(await page.getByLabel('Rondeduur (minuten)',{exact:true}).inputValue(),'8');
     mode='refresh-error';await page.getByRole('button',{name:'Planning opslaan',exact:true}).click();
     await page.getByText('Planning online opgeslagen. De tijdsloten konden niet worden vernieuwd; probeer de planning opnieuw te laden.',{exact:true}).waitFor();
+    mode='ok';
+    await page.evaluate(()=>{localStorage.setItem(EPP_SESSION_KEY,JSON.stringify({account:{isAdmin:true}}));feedbackRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(TabInschrijvenTrainer,{password:'',flash:()=>{},onAuthFail:()=>{}}))));});
+    await page.getByRole('button',{name:'Groepslijst',exact:true}).click();
+    await page.getByText('Test Schutter',{exact:true}).waitFor();
+    assert.equal(await page.getByText('Mail naar inschrijfbureau',{exact:true}).count(),0);
+    assert.equal(await page.locator('a[href^="mailto:"]').count(),0);
+    await page.getByRole('button',{name:'Planning en deelnemers beheren',exact:true}).click();
+    await page.getByRole('button',{name:'Verplaatsen / afmelden',exact:true}).click();
+    await page.getByText('Inschrijving wijzigen: Test Schutter',{exact:true}).waitFor();
+    await page.getByLabel('Tijdslot pistool').selectOption('slot-2');
+    await page.getByLabel('Reden wijziging').fill('Op verzoek deelnemer');
+    await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
+    await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
+    assert.equal(lastBooking.shooterId,'member');assert.equal(lastBooking.reason,'Op verzoek deelnemer');assert.equal(booked[0].slotId,'slot-2');
+    await page.screenshot({path:'/private/tmp/epp-online-signup-admin-'+width+'.png'});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);await page.close();
     console.log('PASS '+width+': adjacent confirmation survives remount/poll, edits clear success, errors retain input, refresh failure is distinguished');
   }
