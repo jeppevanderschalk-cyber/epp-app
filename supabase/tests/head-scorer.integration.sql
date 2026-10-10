@@ -21,8 +21,14 @@ begin
   rejected:=false;begin perform epp_scoring_control(head,mid,'scorer',scorer,false,1);exception when others then if sqlerrm='wedstrijd_conflict'then rejected:=true;else raise;end if;end;assert rejected,'stale rights rejected';
   perform epp_scoring_control(head,mid,'scorer',scorer,false,2);
   assert not epp_scoring_allowed(scorer,mid),'revocation works';
-  perform epp_scoring_control(head,mid,'close',null,true,3);
-  rejected:=false;begin perform epp_scoring_control(head,mid,'scorer',scorer,true,4);exception when others then if sqlerrm='uitslag_definitief'then rejected:=true;else raise;end if;end;assert rejected,'closed match blocks new grant';
+  ctx:=epp_scoring_prepare(admin,mid);
+  assert ctx->>'managing'='true','organizer admin manages own match';
+  perform epp_scoring_control(admin,mid,'scorer',scorer,true,3);
+  assert epp_scoring_allowed(scorer,mid),'organizer admin can grant scorer rights';
+  perform epp_scoring_control(admin,mid,'scorer',scorer,false,4);
+  assert not epp_scoring_allowed(scorer,mid),'organizer admin can revoke scorer rights';
+  perform epp_scoring_control(head,mid,'close',null,true,5);
+  rejected:=false;begin perform epp_scoring_control(head,mid,'scorer',scorer,true,6);exception when others then if sqlerrm='uitslag_definitief'then rejected:=true;else raise;end if;end;assert rejected,'closed match blocks new grant';
   update app_accounts set active=false where id=head;
   assert not epp_scoring_allowed(head,mid,true),'inactive head denied';
 end $$;

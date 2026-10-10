@@ -11,15 +11,17 @@ const account={id:'head',username:'lid.head',clubId:'svbb',role:'trainer',isAdmi
 const accounts=[{id:'member',display_name:'Test Schutter',club_code:'svbb',is_admin:false},{id:'legacy',display_name:'Migratiebeheer',club_code:'svbb',is_admin:true}];
 const errors=[];
 try{
-  for(const width of [390,1440]){
-    let revision=1,assigned=false,conflict=false,adminCalls=0;
+  for(const head of [true,false])for(const width of [390,1440]){
+    let revision=1,assigned=false,conflict=false,adminCalls=0,newMatch=false;
     const page=await browser.newPage({viewport:{width,height:950}});
     page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
-    await page.addInitScript(a=>{localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:a.sessionToken,account:a}));localStorage.setItem('epp-app-club-v1','svbb');localStorage.setItem('epp-app-role-v1','trainer');},account);
+    const sessionAccount={...account,isPlatformAdmin:head};
+    await page.addInitScript(a=>{localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:a.sessionToken,account:a}));localStorage.setItem('epp-app-club-v1','svbb');localStorage.setItem('epp-app-role-v1','trainer');},sessionAccount);
     await page.route('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/**',async route=>{
       const b=route.request().postDataJSON(),fn=route.request().url().split('/').pop();let r={ok:true},status=200;
       if(fn==='epp-auth'){
-        r=b.action==='list_club_access'?{ok:true,clubs:[{code:'svbb',naam:'SVBB'}],accounts}:{ok:true,account};
+        if(b.action==='list_club_access')assert.equal(head,true);
+        r=['list_club_access','list_accounts'].includes(b.action)?{ok:true,clubs:[{code:'svbb',naam:'SVBB'}],accounts:accounts.map(a=>head?a:({...a,club_code:undefined}))}:{ok:true,account:sessionAccount};
         if(b.action==='set_club_admin')adminCalls++;
       }
       if(fn==='epp-training')r={ok:true,entities:[]};
@@ -27,7 +29,7 @@ try{
       if(fn==='epp-planner')r={ok:true,matches:[]};
       if(fn==='epp-platform')r={ok:true,ranking:[],matchRanking:[],matches:[],shooters:[]};
       if(fn==='epp-scoring'){
-        if(b.action==='catalog')r={ok:true,matches:[{id:'foreign',organizer:'De Korrel',match_date:'2026-11-14'},{id:'closed',organizer:'SVBB',match_date:'2026-12-01',closed:true}]};
+        if(b.action==='catalog')r={ok:true,matches:[{id:'foreign',organizer:head?'De Korrel':'SVBB',match_date:'2026-11-14'},{id:'closed',organizer:'SVBB',match_date:'2026-12-01',closed:true},...(newMatch?[{id:'new',organizer:'SVBB',match_date:'2027-05-28'}]:[])]};
         if(b.action==='view')r={ok:true,matchId:b.matchId,managing:true,closed:b.matchId==='closed',revision,accounts:[{id:'member'}],scorers:assigned?[{account_id:'member'}]:[]};
         if(b.action==='control'){
           assert.equal(b.control,'scorer');assert.equal(b.accountId,'member');assert.equal(b.matchId,'foreign');
@@ -42,6 +44,9 @@ try{
     await page.evaluate(()=>{ReactDOM.render(h('div',{className:'app'},h('style',null,CSS),h('main',{style:{padding:16}},h(PlatformAccessManagement))),document.getElementById('root'));});
     const member=page.getByRole('group',{name:'Test Schutter',exact:true});
     await member.waitFor();
+    if(!head){assert.equal(await page.getByRole('button',{name:'Beheerrechten geven',exact:true}).count(),0);assert.equal(await page.getByRole('button',{name:'Account verwijderen',exact:true}).count(),0);}
+    newMatch=true;await page.getByRole('button',{name:'Wedstrijden verversen',exact:true}).click();
+    await page.getByLabel('Wedstrijd voor scoorderrechten').locator('option[value="new"]').waitFor({state:'attached'});
     assert.equal(await member.getByRole('button',{name:'Scoorderrechten geven',exact:true}).isDisabled(),true);
     await page.getByLabel('Wedstrijd voor scoorderrechten').selectOption('foreign');
     await member.getByRole('button',{name:'Scoorderrechten geven',exact:true}).click();
