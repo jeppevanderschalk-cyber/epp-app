@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {createServer} from 'node:http';
+import {resolve,extname} from 'node:path';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
+const root=resolve(import.meta.dirname,'../..');
+const server=createServer(async(req,res)=>{try{const path=resolve(root,'.'+new URL(req.url,'http://localhost').pathname.replace(/^\/$/,'/index.html'));if(!path.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',extname(path)==='.js'?'text/javascript':extname(path)==='.html'?'text/html':'application/octet-stream');res.end(await readFile(path));}catch{res.writeHead(404);res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
+try{
+  for(const width of [390,1440]){
+    const page=await browser.newPage({viewport:{width,height:950}}),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    await page.route('**/functions/v1/**',r=>r.fulfill({contentType:'application/json',body:'{"ok":true}'}));
+    await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.evaluate(()=>{window.savedRounds=[];window.testRoot=ReactDOM.createRoot(document.getElementById('root'));testRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(RoundInput,{maxV:250,onAdd:(score,details)=>savedRounds.push({score,details})}))));eppShowApp();});
+    await page.getByLabel('Kaarttelling en tijden',{exact:true}).check();
+    await page.getByRole('button',{name:'Snelvuur 5 punten verhogen',exact:true}).click();
+    assert.equal(await page.getByLabel('Snelvuur 5 punten',{exact:true}).inputValue(),'1');
+    await page.getByRole('button',{name:'Snelvuur 5 punten verminderen',exact:true}).click();
+    await page.getByLabel('Snelvuur 5 punten',{exact:true}).fill('99');
+    assert.equal(await page.getByLabel('Snelvuur 5 punten',{exact:true}).inputValue(),'10');
+    assert.equal(await page.getByRole('button',{name:'Snelvuur 4 punten verhogen',exact:true}).isDisabled(),true);
+    await page.getByLabel('Snelvuur 5 punten',{exact:true}).fill('');
+    assert.equal(await page.getByLabel('Snelvuur 5 punten',{exact:true}).inputValue(),'');
+    await page.getByLabel('Snelvuur 5 punten',{exact:true}).fill('8');
+    await page.getByLabel('Snelvuur 4 punten',{exact:true}).fill('2');
+    await page.getByLabel('Overige 5 punten',{exact:true}).fill('20');
+    await page.getByLabel('Overige 4 punten',{exact:true}).fill('99');
+    assert.equal(await page.getByLabel('Overige 4 punten',{exact:true}).inputValue(),'20');
+    await page.getByLabel('Snelvuurtijd (seconden en honderdsten)',{exact:true}).fill('12,34');
+    await page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).fill('4:53');
+    await page.waitForFunction(()=>document.querySelector('.num-in').value==='228');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.screenshot({path:'/private/tmp/epp-training-countcard-'+width+'.png',fullPage:true});
+    await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
+    let saved=await page.evaluate(()=>savedRounds);
+    assert.equal(saved[0].score,228);assert.equal(saved[0].details.rapid_time_ms,12340);assert.equal(saved[0].details.total_time_ms,293000);
+    await page.evaluate(()=>testRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(RoundInput,{key:'stage',maxV:35,stage:STAGES[1],onAdd:(score,details)=>savedRounds.push({score,details})})))));
+    await page.getByLabel('Kaarttelling en tijden',{exact:true}).check();
+    await page.getByLabel('Stage 5 punten',{exact:true}).fill('99');
+    assert.equal(await page.getByLabel('Stage 5 punten',{exact:true}).inputValue(),'7','uses configured training shot count');
+    await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
+    assert.equal((await page.evaluate(()=>savedRounds)).length,1,'incomplete time cannot be saved');
+    await page.getByLabel('Stagetijd (seconden en honderdsten)',{exact:true}).fill('9,87');
+    await page.waitForFunction(()=>document.querySelector('.num-in').value==='35');
+    await page.screenshot({path:'/private/tmp/epp-training-stage-countcard-'+width+'.png',fullPage:true});
+    await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
+    saved=await page.evaluate(()=>savedRounds);assert.equal(saved[1].score,35);assert.equal(saved[1].details.stage_time_ms,9870);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
+    await page.close();console.log('PASS training countcards '+width+': steppers, shot limits, blank inputs, times, validation, saved details');
+  }
+}finally{await browser.close();await new Promise(r=>server.close(r));}

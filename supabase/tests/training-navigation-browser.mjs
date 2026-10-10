@@ -71,9 +71,15 @@ try{
       await page.evaluate(()=>window.scrollTo(0,0));
       await page.screenshot({path:'/private/tmp/epp-training-stages-'+width+'.png',fullPage:true});
       assert.equal(await page.locator('.stage-card-img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0)),true);
+      await choice.selectOption('a');
+      await page.getByLabel('Kaarttelling en tijden',{exact:true}).check();
+      await page.getByLabel('Stage 5 punten',{exact:true}).fill('5');
+      await page.getByLabel('Stagetijd (seconden en honderdsten)',{exact:true}).fill('9,87');
+      await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
       await page.waitForFunction(()=>document.querySelector('main p[role="status"]').textContent==='Online bijgewerkt');
       const rounds=[...data.values()].filter(e=>e.kind==='round').map(e=>e.data);
-      assert.equal(rounds.length,3);assert.equal(rounds.find(r=>r.sid==='b'&&r.type==='stage').score,37);assert.equal(rounds.find(r=>r.sid==='a').score,20);
+      assert.equal(rounds.length,4);assert.equal(rounds.find(r=>r.sid==='b'&&r.type==='stage').score,37);assert.equal(rounds.find(r=>r.sid==='a').score,20);
+      assert.equal(rounds.find(r=>r.stage_time_ms===9870).hits5,5,'counted stage details sync with the round');
       assert.equal(rounds.find(r=>r.sid==='b'&&r.type==='parcours').score,200);
       assert.equal(rounds.find(r=>r.sid==='a').stage,'s2');
       await page.reload();await page.getByRole('button',{name:'Training',exact:true}).click();

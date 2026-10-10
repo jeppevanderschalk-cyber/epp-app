@@ -849,7 +849,7 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .stage-progress-fill{height:100%;border-radius:999px;background:${C.gradGold};transition:width .2s}
 .spill{font-family:'Archivo',sans-serif;font-weight:800;font-size:12px;border:1px solid ${C.border};background:rgba(255,255,255,.04);color:${C.muted};border-radius:999px;min-height:38px;padding:0 14px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .spill[data-on="1"]{background:rgba(228,187,74,.12);color:${C.goldLt};border-color:rgba(228,187,74,.4)}
-.score-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${C.border};border-radius:14px;transition:background .15s,box-shadow .15s}
+.score-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${C.border};border-radius:14px;transition:background .15s,box-shadow .15s}
 .score-row[data-active="1"]{background:rgba(228,187,74,.07);box-shadow:inset 0 0 0 1px rgba(228,187,74,.18);padding-left:10px;padding-right:10px}
 .score-row:last-child{border-bottom:none}
 .score-avatar{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-family:'Archivo',sans-serif;font-weight:900;font-size:16px;color:${C.navy};flex-shrink:0;background:${C.gradGold};box-shadow:0 8px 20px rgba(200,160,48,.3)}
@@ -1029,7 +1029,7 @@ const StageCarousel = ({stageKey, onSelect}) => {
   );
 };
 
-const RoundInput = ({maxV, onAdd, autoFocus=false}) => {
+const RoundInput = ({maxV, stage, onAdd, autoFocus=false}) => {
   const [value,setValue] = React.useState("");
   const [details,setDetails]=React.useState(null);
   const [detailsValid,setDetailsValid]=React.useState(true);
@@ -1045,9 +1045,10 @@ const RoundInput = ({maxV, onAdd, autoFocus=false}) => {
     setValue("");
     setDetails(null);setDetailsKey(k=>k+1);
   };
-  return h("div",null,
+  return h("div",{style:{flexBasis:'100%',minWidth:0}},
     maxV===250&&h(ParcoursDetails,{key:detailsKey,onValidity:setDetailsValid,onChange:data=>{setDetails(data);if(data)setValue(String(data.final_score));}}),
-    h("div",{className:"num-wrap"},
+    stage&&h(StageDetails,{key:detailsKey,stage,maxV,onValidity:setDetailsValid,onChange:data=>{setDetails(data);if(data)setValue(String(data.final_score));}}),
+    h("div",{className:"num-wrap",style:{marginTop:12,gap:8}},
     h("input",{
       ref:inputRef,className:"num-in",type:"number",min:0,max:maxV,inputMode:"numeric",
       value,placeholder:"0",readOnly:!!details,
@@ -1057,9 +1058,41 @@ const RoundInput = ({maxV, onAdd, autoFocus=false}) => {
         save();
       }
     }),
-    h("button",{className:"score-save",type:"button",onClick:save},"Ronde opslaan"),
+    h("button",{className:"score-save",type:"button",style:{minHeight:44,fontSize:13,padding:'0 18px'},onClick:save},"Ronde opslaan"),
     error&&h("small",{role:"alert",style:{color:C.red}},error))
   );
+};
+
+const TrainingCountCard=({title,prefix,part,setPart,limit})=>{
+  const fields=[['hits5',5],['hits4',4],['hits3',3],['hits2',2],['misses',0]];
+  const shots=fields.reduce((sum,[key])=>sum+Number(part[key]||0),0);
+  const points=fields.reduce((sum,[key,value])=>sum+Number(part[key]||0)*value,0);
+  const change=(key,value)=>setPart(p=>{
+    if(value==='')return {...p,[key]:''};
+    const n=Number(value),others=fields.reduce((sum,[k])=>sum+(k===key?0:Number(p[k]||0)),0);
+    return Number.isSafeInteger(n)&&n>=0?{...p,[key]:String(Math.min(n,Math.max(0,limit-others)))}:p;
+  });
+  return h('fieldset',{style:{minWidth:0,border:0,padding:0,margin:0}},
+    h('legend',{style:{fontSize:18,fontWeight:800,margin:'8px 0'}},title),
+    fields.map(([key,value])=>{
+      const label=prefix+' '+value+' punten';
+      return h('div',{key,className:'set-row'},h('div',{className:'set-lbl'},value+' punten'),
+        h('button',{type:'button',className:'cal-btn','aria-label':label+' verminderen',disabled:Number(part[key]||0)<=0,style:{minHeight:44,width:48,flexShrink:0},onClick:()=>change(key,Number(part[key]||0)-1)},'−'),
+        h('input',{className:'set-in','aria-label':label,type:'number',inputMode:'numeric',min:0,max:Math.max(0,limit-shots+Number(part[key]||0)),value:part[key],onChange:e=>change(key,e.target.value)}),
+        h('button',{type:'button',className:'cal-btn','aria-label':label+' verhogen',disabled:shots>=limit,style:{minHeight:44,width:48,flexShrink:0},onClick:()=>change(key,Number(part[key]||0)+1)},'+'));
+    }),h('p',{className:'hint',role:'status'},points+'/'+(limit*5)+' punten · '+shots+'/'+limit+' schoten'));
+};
+
+const StageDetails=({stage,maxV,onChange,onValidity})=>{
+  const [enabled,setEnabled]=React.useState(false),[counts,setCounts]=React.useState({hits5:'',hits4:'',hits3:'',hits2:'',misses:''}),[time,setTime]=React.useState('');
+  const limit=maxV/5,shots=Object.values(counts).reduce((sum,value)=>sum+Number(value||0),0),ms=EppScoreRanking.milliseconds(time);
+  const points=['hits5','hits4','hits3','hits2','misses'].reduce((sum,key,i)=>sum+Number(counts[key]||0)*[5,4,3,2,0][i],0);
+  const data=enabled&&shots===limit&&Number.isSafeInteger(ms)?{...Object.fromEntries(Object.entries(counts).map(([key,value])=>[key,Number(value||0)])),final_score:points,stage_time_ms:ms}:null;
+  React.useEffect(()=>{onChange(data);onValidity(!enabled||!!data);},[enabled,JSON.stringify(data)]);
+  return h('div',null,h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:enabled,onChange:e=>setEnabled(e.target.checked)}),'Kaarttelling en tijden'),
+    enabled&&h('div',{style:{display:'grid',gap:10}},h(TrainingCountCard,{title:stage.kort+' · '+limit+' schoten',prefix:'Stage',part:counts,setPart:setCounts,limit}),
+      h('label',null,'Stagetijd (seconden en honderdsten)',h('input',{className:'txt-in',inputMode:'decimal',value:time,onChange:e=>setTime(e.target.value)})),
+      !data&&h('p',{className:'hint',role:'status'},shots!==limit?'Vul alle '+limit+' schoten in.':'Vul een geldige stagetijd in.')));
 };
 
 const ParcoursDetails=({onChange,onValidity})=>{
@@ -1073,8 +1106,10 @@ const ParcoursDetails=({onChange,onValidity})=>{
   return h('div',null,
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:enabled,onChange:e=>setEnabled(e.target.checked)}),'Kaarttelling en tijden'),
     enabled&&h('div',{style:{display:'grid',gap:10}},
-      [['Snelvuur 7 m · 10 schoten',rapid,setRapid],['Overige parcours · 40 schoten',rest,setRest]].map(([title,part,set])=>h('fieldset',{key:title,style:{minWidth:0,border:'none',padding:0,margin:0}},h('legend',null,title),keys.map((key,i)=>h('label',{key,className:'set-row'},[5,4,3,2,0][i]+' punten',h('input',{className:'set-in',type:'number',min:0,inputMode:'numeric',value:part[key],onChange:e=>set(p=>({...p,[key]:e.target.value}))}))))),
-      [['Snelvuurtijd (seconden en honderdsten)',rt,setRt],['Eindtijd (minuten:seconden, inclusief snelvuur)',tt,setTt],['Strafpunten',pen,setPen],['Straftijd (seconden)',pt,setPt],['Reden strafcorrectie',reason,setReason]].map(([label,value,set])=>h('label',{key:label},label,h('input',{className:'txt-in',value,inputMode:label==='Reden strafcorrectie'?'text':'decimal',onChange:e=>set(e.target.value)}))),
+      h(TrainingCountCard,{title:'Snelvuurscore · 7 meter · 2 × 5 schoten',prefix:'Snelvuur',part:rapid,setPart:setRapid,limit:10}),
+      h('label',null,'Snelvuurtijd (seconden en honderdsten)',h('input',{className:'txt-in',value:rt,inputMode:'decimal',onChange:e=>setRt(e.target.value)})),
+      h(TrainingCountCard,{title:'Overige parcours · 40 schoten',prefix:'Overige',part:rest,setPart:setRest,limit:40}),
+      [['Eindtijd (minuten:seconden, inclusief snelvuur)',tt,setTt],['Strafpunten',pen,setPen],['Straftijd (seconden)',pt,setPt],['Reden strafcorrectie',reason,setReason]].map(([label,value,set])=>h('label',{key:label},label,h('input',{className:'txt-in',value,inputMode:label==='Reden strafcorrectie'?'text':'decimal',onChange:e=>set(e.target.value)}))),
       error&&h('p',{className:'hint',role:'status'},error)));
 };
 
@@ -1178,7 +1213,7 @@ const TabInvoer = ({
                   h("div",{className:`entry-status ${done?"done":""}`},done?"Ingevoerd":"Nog invullen"),
                   h(ShooterRounds,{rounds})
                 ),
-                h(RoundInput,{maxV:maxOf(stage),autoFocus:activeSid===s.id,onAdd:score=>saveFor(s.id,{sid:s.id,type:"stage",stage,score})})
+                h(RoundInput,{maxV:maxOf(stage),stage:stageObj,autoFocus:activeSid===s.id,onAdd:(score,details)=>saveFor(s.id,{sid:s.id,type:"stage",stage,score,details})})
               );
             })
       ),
