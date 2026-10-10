@@ -1025,7 +1025,7 @@ const ParcoursDetails=({onChange,onValidity})=>{
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:enabled,onChange:e=>setEnabled(e.target.checked)}),'Kaarttelling en tijden'),
     enabled&&h('div',{style:{display:'grid',gap:10}},
       [['Snelvuur 7 m · 10 schoten',rapid,setRapid],['Overige parcours · 40 schoten',rest,setRest]].map(([title,part,set])=>h('fieldset',{key:title,style:{minWidth:0,border:'none',padding:0,margin:0}},h('legend',null,title),keys.map((key,i)=>h('label',{key,className:'set-row'},[5,4,3,2,0][i]+' punten',h('input',{className:'set-in',type:'number',min:0,inputMode:'numeric',value:part[key],onChange:e=>set(p=>({...p,[key]:e.target.value}))}))))),
-      [['Snelvuurtijd (seconden en honderdsten)',rt,setRt],['Eindtijd (minuten:seconden, inclusief snelvuur)',tt,setTt],['Strafpunten',pen,setPen],['Straftijd (seconden)',pt,setPt],['Reden strafcorrectie',reason,setReason]].map(([label,value,set])=>h('label',{key:label},label,h('input',{className:'txt-in',value,placeholder:set===setTt?'4:53':set===setRt?'12,40':undefined,inputMode:label==='Reden strafcorrectie'?'text':'decimal',onChange:e=>set(e.target.value)}))),
+      [['Snelvuurtijd (seconden en honderdsten)',rt,setRt],['Eindtijd (minuten:seconden, inclusief snelvuur)',tt,setTt],['Strafpunten',pen,setPen],['Straftijd (seconden)',pt,setPt],['Reden strafcorrectie',reason,setReason]].map(([label,value,set])=>h('label',{key:label},label,h('input',{className:'txt-in',value,inputMode:label==='Reden strafcorrectie'?'text':'decimal',onChange:e=>set(e.target.value)}))),
       error&&h('p',{className:'hint',role:'status'},error)));
 };
 
@@ -1542,7 +1542,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
           h("button",{type:"button",className:"cal-btn","aria-label":"Snelvuur "+label+" verhogen",disabled:busy||matchLoading||resultLoading||rapidShots>=10,style:{minHeight:44,width:48},onClick:()=>changeRapid(key,Number(rapid[key]||0)+1)},"+")
         )),
         h("p",{className:"hint"},"Snelvuurscore: ",rapidScore,"/50 punten · ",rapidShots,"/10 schoten"),
-        h("label",null,"Snelvuurtijd (seconden en honderdsten)",h("input",{className:"txt-in",inputMode:"decimal",placeholder:"12,40",value:rapidTime,disabled:busy||resultLoading,onChange:e=>setRapidTime(e.target.value)})),
+        h("label",null,"Snelvuurtijd (seconden en honderdsten)",h("input",{className:"txt-in",inputMode:"decimal",value:rapidTime,disabled:busy||resultLoading,onChange:e=>setRapidTime(e.target.value)})),
         h("h3",{style:{margin:"8px 0",fontSize:16}},"Overige parcours · 40 schoten"),
         h("div",null,
           scoreFields.map(([key,label])=>h("div",{key,className:"set-row"},
@@ -1552,7 +1552,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
             h("button",{type:"button",className:"cal-btn","aria-label":"Overige "+label+" verhogen",disabled:busy||matchLoading||resultLoading||shots-rapidShots>=40,style:{minHeight:44,width:48},onClick:()=>changeRest(key,n(key)-Number(rapid[key]||0)+1)},"+")
           )),
           h("p",{className:"hint"},shots-rapidShots,"/40 schoten"),
-          h("label",null,"Eindtijd (minuten:seconden, inclusief snelvuur)",h("input",{className:"txt-in",inputMode:"decimal",placeholder:"4:53",value:totalTime,disabled:busy||resultLoading,onChange:e=>setTotalTime(e.target.value)})),
+          h("label",null,"Eindtijd (minuten:seconden, inclusief snelvuur)",h("input",{className:"txt-in",inputMode:"decimal",value:totalTime,disabled:busy||resultLoading,onChange:e=>setTotalTime(e.target.value)})),
           h("h3",{style:{fontSize:16}},"Strafcorrecties"),
           h("div",{className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,"Strafpunten"),h("div",{className:"set-sub"},"Totale aftrek, standaard 0")),
