@@ -9,10 +9,11 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 try{
   for(const width of [390,1440]){
-    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let mode='ok',saved=false,configures=0,views=0;
+    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let mode='ok',saved=false,configures=0,views=0,booked=[],bookings=0;
     page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/functions/v1/**',async route=>{
       const b=route.request().postDataJSON();
+      if(b.action==='book'){bookings++;booked=b.choices;}
       if(b.action==='configure'){
         configures++;await new Promise(r=>setTimeout(r,200));
         if(mode==='error')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:'laatste_ronde_sluit_niet_aan'})});
@@ -23,7 +24,7 @@ try{
         if(saved&&mode==='refresh-error')return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({ok:false,error:'server_fout'})});
       }
       const config={first:'09:00',last:'16:00',duration:7,changeover:3,capacity:2,gap:0,opens:'2026-01-01T09:00',closes:'2027-05-27T18:00',breaks:[],overrides:[],published:true};
-      const view={ok:true,match:{id:'fixture',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:[]},planner:{revision:saved?2:1,config},managing:true,profile:null,slots:Array.from({length:40},(_,i)=>({id:'slot-'+i,starts_at:new Date(Date.UTC(2027,4,28,7,i*10)).toISOString(),ends_at:new Date(Date.UTC(2027,4,28,7,i*10+7)).toISOString(),capacity:2,booked:0})),mine:{choices:[]},roster:[],audit:[]};
+      const view={ok:true,match:{id:'fixture',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:['pistool']},planner:{revision:saved?2:1,config},managing:true,profile:{id:'member'},slots:Array.from({length:40},(_,i)=>({id:'slot-'+i,starts_at:new Date(Date.UTC(2027,4,28,7,i*10)).toISOString(),ends_at:new Date(Date.UTC(2027,4,28,7,i*10+7)).toISOString(),capacity:2,booked:0})),mine:{revision:bookings,choices:booked},roster:[],audit:[]};
       await route.fulfill({contentType:'application/json',body:JSON.stringify(view)});
     });
     await page.goto('http://127.0.0.1:'+server.address().port);
@@ -35,6 +36,15 @@ try{
     await page.getByText('Planning online opgeslagen.',{exact:true}).scrollIntoViewIfNeeded();
     const position=await page.getByText('Planning online opgeslagen.',{exact:true}).evaluate(el=>el.getBoundingClientRect().top-el.previousElementSibling.querySelector('button[type="submit"]').getBoundingClientRect().bottom);assert.ok(position>=0&&position<30);
     await page.screenshot({path:'/private/tmp/epp-planner-feedback-'+width+'.png'});
+    assert.equal(await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).isDisabled(),true);
+    await page.getByText('Nog geen tijdslot gekozen.',{exact:true}).waitFor();assert.equal(bookings,0);
+    assert.equal(await page.locator('details').filter({has:page.getByText('Alle tijdsloten (40)',{exact:true})}).getAttribute('open'),null);
+    await page.getByLabel('Tijdslot pistool').selectOption('slot-1');
+    await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
+    await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();assert.equal(bookings,1);
+    await page.waitForTimeout(10500);await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
+    await page.getByText('Jouw inschrijving',{exact:true}).scrollIntoViewIfNeeded();
+    await page.screenshot({path:'/private/tmp/epp-booking-feedback-'+width+'.png'});
     await page.getByLabel('Rondeduur (minuten)',{exact:true}).fill('8');assert.equal(await page.getByText('Planning online opgeslagen.',{exact:true}).count(),0);
     mode='error';await page.getByLabel('Onze vereniging organiseert deze wedstrijd').check();await page.getByRole('button',{name:'Planning opslaan',exact:true}).click();
     await page.getByText('De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',{exact:true}).waitFor();assert.equal(await page.getByLabel('Rondeduur (minuten)',{exact:true}).inputValue(),'8');
