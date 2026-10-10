@@ -3,10 +3,10 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-ENJ01ojp07BZAC6zcLDRChrgaFRJddHGkWEzxqfnn4I=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-f+jbRBS69XP1CbUAwkv4nC+bnsem2lL25+kwXFTciu4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-ENJ01ojp07BZAC6zcLDRChrgaFRJddHGkWEzxqfnn4I=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-jyR840/22VUVLfj/zymt4qwmeN7eL5maWafFjTN/lsg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>EPP score app</title>
+<title>EPP</title>
 <meta name="theme-color" content="#063971" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -39,7 +39,8 @@
 <div class="login-gate" id="loginGate">
   <form class="login-card" id="loginForm">
     <img src="epp-logo.png" alt="" class="login-logo" />
-    <h2>EPP score app</h2>
+    <h2>EPP</h2>
+    <p>Europees Praktijk Parcours</p>
     <p>Log in om de app te gebruiken.</p>
     <label id="loginClubLabel" hidden>
       <span>Vereniging</span>
@@ -81,7 +82,7 @@
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
 <script src="match-planner-ui.js?v=membership-notice-16"></script>
-<script src="head-view-ui.js?v=2"></script>
+<script src="head-view-ui.js?v=3"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=team-edit-2"></script>
 <link rel="stylesheet" href="camera-series.css" />
@@ -1812,7 +1813,7 @@ const RegistrationWorkspace = () => h('div',{className:'app'},
   h('style',null,CSS),
   h('header',{className:'topbar'},h('div',{className:'topbar-inner'},
     h('div',{className:'topbar-logo'},h(EPPLogo,{size:53})),
-    h('div',{className:'topbar-title'},h('h1',null,'EPP score app')))),
+    h('div',{className:'topbar-title'},h('h1',null,'EPP'),h('div',{className:'topbar-sub'},'Europees Praktijk Parcours')))),
   h('main',{className:'main'},h(MemberRegistration))
 );
 
@@ -2622,7 +2623,7 @@ function App({headClubs,onHeadClubChange}={}) {
       h("div",{className:"topbar-inner"},
         h("div",{className:"topbar-logo"},h(EPPLogo,{size:53})),
         h("div",{className:"topbar-title"},
-          h("h1",null,"EPP score app"),
+          h("h1",null,"EPP"),
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
         onHeadClubChange?h(HeadClubSelector,{clubs:headClubs||[],value:'',onChange:viewHeadClub}):h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,style:accountClubName.split(/\s+/).some(word=>word.length>14)?{fontSize:'.65rem'}:undefined},accountClubName)

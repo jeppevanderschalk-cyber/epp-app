@@ -20,7 +20,7 @@ const HeadClubViewer=({clubId,clubs,onChange,onExit})=>{
   return h('div',{className:'app'},h('style',null,CSS),
     h('header',{className:'topbar'},h('div',{className:'topbar-inner'},
       h('div',{className:'topbar-logo'},h(EPPLogo,{size:53})),
-      h('div',{className:'topbar-title'},h('h1',null,'EPP score app'),h('div',{className:'topbar-sub'},'Europees Praktijk Parcours')),
+      h('div',{className:'topbar-title'},h('h1',null,'EPP'),h('div',{className:'topbar-sub'},'Europees Praktijk Parcours')),
       h(HeadClubSelector,{clubs,value:clubId,onChange})),h('div',{className:'gold-stripe'})),
     h('main',{className:'main'},
       h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:16}},h('strong',{style:{overflowWrap:'anywhere'}},clubName),h('span',{className:'hint'},'Alleen bekijken')),
