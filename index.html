@@ -46,7 +46,6 @@
         <option value="mercurius75">SV Mercurius '75</option>
         <option value="apgs">APGS</option>
         <option value="maarheeze">SV Maarheeze</option>
-        <option value="beemtebroekland">SV Beemte Broekland</option>
         <option value="politienoordholland">Schietvereniging Politie Noord-Holland</option>
         <option value="hansi">Schietteam HANSI</option>
         <option value="thorheim">SV Thorheim</option>
@@ -103,7 +102,6 @@ var EPP_CLUBS=[
   {id:"mercurius75", label:"SV Mercurius '75", managedAuth:true, space:"epp-app-mercurius75"},
   {id:"apgs",label:"APGS",managedAuth:true,space:"epp-app-apgs"},
   {id:"maarheeze",label:"SV Maarheeze",managedAuth:true,space:"epp-app-maarheeze"},
-  {id:"beemtebroekland",label:"SV Beemte Broekland",managedAuth:true,space:"epp-app-beemtebroekland"},
   {id:"politienoordholland",label:"Schietvereniging Politie Noord-Holland",managedAuth:true,space:"epp-app-politienoordholland"},
   {id:"hansi",label:"Schietteam HANSI",managedAuth:true,space:"epp-app-hansi"},
   {id:"thorheim",label:"SV Thorheim",managedAuth:true,space:"epp-app-thorheim"},
@@ -136,6 +134,7 @@ function eppShowLoginGate(){
   if(eppLoginGateInitialized)return;
   eppLoginGateInitialized=true;
   var lastClub=localStorage.getItem(EPP_AUTH_CLUB_KEY);
+  if(lastClub==='beemtebroekland')lastClub='svbb';
   var clubSel=document.getElementById("loginClub");
   if(lastClub) clubSel.value=lastClub;
   var pw=document.getElementById("loginPassword");

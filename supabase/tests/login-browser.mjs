@@ -27,6 +27,8 @@ try{
     await page.route('https://**/*',route=>route.abort());
     await page.goto('http://127.0.0.1:'+server.address().port);
     assert.equal(await page.getByLabel('Inloggen als').inputValue(),'schutter');
+    assert.equal(await page.locator('#loginClub option[value="beemtebroekland"]').count(),0);
+    assert.equal(await page.locator('#loginClub option[value="svbb"]').count(),1);
     assert.equal(await page.getByLabel('Gebruikersnaam').count(),0);
     assert.equal(await page.locator('.login-logo').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     assert.deepEqual(await page.locator('#loginRole option').evaluateAll(options=>options.map(option=>option.value)),['schutter','hoofdbeheer']);

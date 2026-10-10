@@ -63,7 +63,7 @@ Deno.serve(async req=>{
     if(!actor.is_admin || actor.role!=='trainer')throw new Error('geen_beheerrechten');
     if(body.action==='list_club_access'){
       if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
-      const {data:clubs,error:cErr}=await db.from('clubs').select('code,naam').order('naam');if(cErr)throw cErr;
+      const {data:clubs,error:cErr}=await db.from('clubs').select('code,naam').eq('actief',true).order('naam');if(cErr)throw cErr;
       const {data:accounts,error}=await db.from('app_accounts').select('id,club_code,display_name,role,is_admin,active,is_platform_admin').is('deleted_at',null).neq('username','kijker').order('display_name');if(error)throw error;
       return json({ok:true,clubs,accounts});
     }
