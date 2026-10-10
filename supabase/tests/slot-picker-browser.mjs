@@ -43,7 +43,12 @@ try{
     await group.getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).click();
     await page.getByText('Bevestig je nieuwe tijdslot. Daarna komt je oude tijdslot automatisch vrij.',{exact:true}).waitFor();
     assert.equal(slots[0].booked,1,'old booking stays safe until confirmation');
-    await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
+    await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'28 mei 2027',exact:true}).click();
+    const oldSlot=group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true});
+    await oldSlot.getByText('1 vrij',{exact:true}).waitFor();
+    await oldSlot.getByText('Gereserveerd',{exact:true}).waitFor();
+    await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
+    await page.getByRole('button',{name:'Wijzig tijdslot',exact:true}).click();
     await page.getByText('Je gekozen tijdsloten zijn gereserveerd.',{exact:true}).waitFor();
     assert.deepEqual(choices,[{discipline:'pistool',slotId:'b'}]);
     assert.equal(await page.getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).getAttribute('aria-checked'),'true');
