@@ -60,7 +60,6 @@
       <span>Inloggen als</span>
       <select id="loginRole">
         <option value="schutter" selected>Schutter</option>
-        <option value="trainer">Beheer</option>
         <option value="hoofdbeheer">Hoofdbeheer</option>
       </select>
     </label>
@@ -159,13 +158,13 @@ function eppSetPersonalLogin(enabled){
   });
   var toggle=document.getElementById('loginPersonalToggle');
   toggle.hidden=document.getElementById('loginRole').value==='hoofdbeheer';
-  toggle.textContent=document.getElementById('loginRole').value==='schutter'?'Ik heb nog geen account':eppPersonalLogin?'Inloggen met verenigingsaccount':'Inloggen met eigen account';
+  toggle.textContent='Ik heb nog geen account';
   document.getElementById('loginClubLabel').hidden=document.getElementById('loginRole').value==='hoofdbeheer'||(document.getElementById('loginRole').value==='schutter'&&!eppPersonalLogin);
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 }
 document.getElementById('loginPersonalToggle').addEventListener('click',async function(){
-  if(document.getElementById('loginRole').value!=='schutter'){eppSetPersonalLogin(!eppPersonalLogin);return;}
+  if(document.getElementById('loginRole').value!=='schutter')return;
   var button=this;
   if(button.disabled)return;
   eppAuthAttempt++;
@@ -204,7 +203,7 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
     eppAuthAttempt++;
     var submitButton=document.querySelector(".login-submit");
     submitButton.disabled=true;
-    var username=document.getElementById('loginRole').value==='hoofdbeheer'?'hoofdbeheer':document.getElementById('loginRole').value==='trainer'?'beheer':'kijker';
+    var username=role==='hoofdbeheer'?'hoofdbeheer':'kijker';
     var credentials=eppPersonalLogin?{firstName:document.getElementById('loginFirstName').value,lastName:document.getElementById('loginLastName').value}:{username:username};
     eppRawCall("epp-auth",{clubId:club.id,action:"login",...credentials,password:entered}).then(function(result){
       localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));

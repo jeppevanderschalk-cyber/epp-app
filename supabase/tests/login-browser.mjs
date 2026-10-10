@@ -29,7 +29,8 @@ try{
     assert.equal(await page.getByLabel('Inloggen als').inputValue(),'schutter');
     assert.equal(await page.getByLabel('Gebruikersnaam').count(),0);
     assert.equal(await page.locator('.login-logo').evaluate(img=>img.complete&&img.naturalWidth>0),true);
-    await page.getByLabel('Inloggen als').selectOption('trainer');
+    assert.deepEqual(await page.locator('#loginRole option').evaluateAll(options=>options.map(option=>option.value)),['schutter','hoofdbeheer']);
+    await page.getByLabel('Inloggen als').selectOption('hoofdbeheer');
     await page.getByLabel('Wachtwoord',{exact:true}).fill('test-password');
     await page.getByLabel('Inloggen als').selectOption('schutter');
     assert.equal(await page.getByLabel('Wachtwoord',{exact:true}).inputValue(),'');
@@ -38,27 +39,13 @@ try{
     assert.equal(await page.getByLabel('Wachtwoord',{exact:true}).inputValue(),'ab');
     await page.screenshot({path:'/private/tmp/epp-login-'+viewport.width+'.png'});
     await page.evaluate(()=>{window.eppRawCall=(fn,payload)=>{window.loginRequest={fn,payload};return new Promise(()=>{});};});
-    await page.getByLabel('Wachtwoord',{exact:true}).fill('test-password');
-    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
-    const request=await page.evaluate(()=>window.loginRequest);
-    assert.equal(request.payload.username,'kijker');
-    assert.equal(request.payload.role,undefined);
-    await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
-    await page.getByLabel('Inloggen als').selectOption('trainer');
-    await page.getByLabel('Wachtwoord',{exact:true}).fill('trainer-password');
-    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
-    const managementRequest=await page.evaluate(()=>window.loginRequest);
-    assert.equal(managementRequest.payload.username,'beheer');
-    assert.equal(managementRequest.payload.role,undefined);
-    await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
-    await page.getByLabel('Inloggen als').selectOption('schutter');
-    await page.getByRole('button',{name:'Inloggen met eigen account',exact:true}).click();
     await page.getByLabel('Voornaam',{exact:true}).fill('Anne');
     await page.getByLabel('Achternaam',{exact:true}).fill('de Vries');
     await page.getByLabel('Wachtwoord',{exact:true}).fill('personal-password');
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     const personalRequest=await page.evaluate(()=>window.loginRequest);
     assert.equal(personalRequest.payload.username,undefined);
+    assert.equal(personalRequest.payload.role,undefined);
     assert.equal(personalRequest.payload.firstName,'Anne');assert.equal(personalRequest.payload.lastName,'de Vries');
     await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
     await page.getByLabel('Inloggen als').selectOption('hoofdbeheer');
@@ -71,7 +58,7 @@ try{
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     assert.equal(await page.evaluate(()=>{const gate=document.getElementById('loginGate');return gate.scrollHeight<=gate.clientHeight||getComputedStyle(gate).overflowY==='auto';}),true);
     assert.deepEqual(errors,[]);
-    console.log('PASS login '+viewport.width+': no username field, shooter maps to kijker, management maps to beheer, server determines permissions');
+    console.log('PASS login '+viewport.width+': shooter and head only, personal login, server determines permissions');
     await page.close();
   }
   for(const succeeds of [false,true]){
@@ -92,13 +79,15 @@ try{
     await page.getByLabel('Wachtwoord',{exact:true}).pressSequentially('ab',{delay:150});
     if(succeeds){
       await page.evaluate(()=>{eppRawCall=()=>new Promise(()=>{});});
+      await page.getByLabel('Voornaam',{exact:true}).fill('Anne');
+      await page.getByLabel('Achternaam',{exact:true}).fill('de Vries');
       await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     }
     release();
     await page.waitForTimeout(400);
     assert.equal(await page.getByLabel('Wachtwoord',{exact:true}).inputValue(),'ab');
     assert.equal(await page.locator('#root').isVisible(),false);
-    await page.getByLabel('Wachtwoord',{exact:true}).press('End');
+    await page.getByLabel('Wachtwoord',{exact:true}).evaluate(input=>{input.focus();input.setSelectionRange(input.value.length,input.value.length);});
     await page.getByLabel('Wachtwoord',{exact:true}).pressSequentially('cdef',{delay:75});
     assert.equal(await page.getByLabel('Wachtwoord',{exact:true}).inputValue(),'abcdef');
     console.log('PASS delayed session '+(succeeds?'success after new login':'failure while typing')+': entered password preserved');
