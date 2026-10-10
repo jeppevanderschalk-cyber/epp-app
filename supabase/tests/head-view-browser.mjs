@@ -35,27 +35,63 @@ try{
     });
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:'+server.address().port);
-    const select=page.getByLabel('Vereniging bekijken',{exact:true});await select.waitFor();
+    const select=page.locator('[aria-label="Vereniging bekijken"]:visible');await select.waitFor();
     await page.waitForFunction(()=>!document.querySelector('[aria-label="Vereniging bekijken"]').disabled);
     await select.selectOption('svbb');await page.getByText('Alleen bekijken',{exact:true}).waitFor();
     // A late response from the previous association must never populate this view.
     await select.selectOption('dekorrel');
     await page.locator('span').filter({hasText:/^Test Schutter De Korrel$/}).waitFor();await page.waitForTimeout(300);
     assert.equal(await page.getByText('Test Schutter SVBB',{exact:true}).count(),0);
-    assert.equal(await page.locator('#root input').count(),0);
+    assert.equal(await page.locator('#root input:visible').count(),0);
     assert.equal(await page.getByRole('button',{name:/Opslaan|afsluiten|toevoegen|Inschrijven/i}).count(),0);
     await page.getByRole('button',{name:'Stand',exact:true}).click();
     await page.getByText('Expert · 2026',{exact:true}).first().waitFor();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    const overlap=await page.evaluate(()=>document.querySelector('.head-club-selector').getBoundingClientRect().left<document.querySelector('.topbar-title').getBoundingClientRect().right-1);assert.equal(overlap,false);
+    const overlap=await page.locator('.app:visible').evaluate(el=>el.querySelector('.head-club-selector').getBoundingClientRect().left<el.querySelector('.topbar-title').getBoundingClientRect().right-1);assert.equal(overlap,false);
     await page.waitForTimeout(600);await page.screenshot({path:'/private/tmp/epp-head-view-'+width+'.png',fullPage:true});
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-session-v2')).account.clubId),'eppnationaal');
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-app-club-v1')),'eppnationaal');
     assert.ok(calls.filter(c=>c.fn==='epp-head-view').every(c=>['view','catalog'].includes(c.action)&&c.clubId==='eppnationaal'));
     assert.ok(calls.filter(c=>c.fn==='epp-training').every(c=>c.clubId==='eppnationaal'));
     await page.getByRole('button',{name:'Hoofdbeheer',exact:true}).click();
-    await page.getByLabel('Vereniging bekijken',{exact:true}).waitFor();assert.equal(await page.getByText('Alleen bekijken',{exact:true}).count(),0);
+    await select.waitFor();assert.equal(await page.getByText('Alleen bekijken',{exact:true}).count(),0);
     assert.deepEqual(errors,[]);await context.close();console.log('PASS readonly head '+width+': rapid switching, correct club data, no editing controls, original session preserved');
+  }
+  for(const failure of ['conflict','offline','busy']){
+    const account={id:'head',username:'hoofdbeheer',role:'trainer',clubId:'eppnationaal',isAdmin:true,isPlatformAdmin:true};
+    const context=await browser.newContext({viewport:{width:390,height:900}}),calls=[];
+    let saveStarted=false,release;
+    const inFlight=new Promise(r=>{release=r;});
+    await context.addInitScript(a=>{localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account:a}));localStorage.setItem('epp-app-club-v1',a.clubId);localStorage.setItem('epp-app-role-v1',a.role);},account);
+    await context.route('**/functions/v1/**',async route=>{
+      const b=route.request().postDataJSON(),fn=route.request().url().split('/').pop();calls.push({fn,...b});
+      if(fn==='epp-training'&&b.action==='save'){
+        saveStarted=true;if(failure==='busy')await inFlight;
+        return route.fulfill({status:failure==='conflict'?409:503,contentType:'application/json',body:JSON.stringify({ok:false,error:failure==='conflict'?'revision_conflict':'offline'})});
+      }
+      const data=fn==='epp-head-view'&&b.action==='view'
+        ?{ok:true,club:clubs.find(c=>c.code===b.targetClubId),entities:fixture(b.targetClubId),qualifications:[]}
+        :{ok:true,account,entities:[],clubs,matches:[],shooters:[]};
+      await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+    });
+    const page=await context.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
+    const input=page.getByPlaceholder('Naam toevoegen…');await input.waitFor();
+    await input.fill('Pending Head Shooter');await input.press('Enter');
+    await page.getByLabel('Schutter voor score-invoer').waitFor();
+    await input.fill('Unsubmitted draft');
+    await page.waitForTimeout(1000);assert.equal(saveStarted,true);
+    if(failure==='conflict')await page.getByText('Wijzigingen samengevoegd; jouw invoer wacht op opslag.',{exact:true}).waitFor();
+    await page.locator('[aria-label="Vereniging bekijken"]:visible').selectOption('svbb');
+    await page.getByText('Alleen bekijken',{exact:true}).waitFor();
+    assert.equal(await page.getByText('Sla de openstaande invoer eerst online op.',{exact:true}).count(),0);
+    assert.equal(await page.locator('#root input:visible').count(),0);
+    await page.getByRole('button',{name:'Hoofdbeheer',exact:true}).click();
+    assert.equal(await input.inputValue(),'Unsubmitted draft');
+    assert.match(await page.getByLabel('Schutter voor score-invoer').innerText(),/Pending Head Shooter/);
+    assert.ok(calls.filter(c=>c.fn==='epp-training').every(c=>c.clubId==='eppnationaal'));
+    assert.equal(await page.evaluate(()=>localStorage.getItem('epp-app-club-v1')),'eppnationaal');
+    release();await page.waitForTimeout(100);await context.close();
+    console.log('PASS head switch during '+failure+': pending records and draft retained, no foreign-club writes');
   }
   for(const role of ['trainer','schutter']){
     const context=await browser.newContext({viewport:{width:390,height:900}}),account={id:'ordinary',role,clubId:'svbb',isAdmin:role==='trainer',isPlatformAdmin:false};

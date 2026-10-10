@@ -37,6 +37,9 @@ const HeadWorkspace=()=>{
   const [clubs,setClubs]=React.useState([]),[club,setClub]=React.useState(''),[status,setStatus]=React.useState('');
   React.useEffect(()=>{let active=true;eppCall('epp-head-view',{clubId:eppSession().account.clubId,action:'catalog'}).then(r=>{if(active)setClubs(r.clubs);}).catch(e=>{if(active)setStatus('Verenigingen laden mislukt: '+e.message);});return()=>{active=false;};},[]);
   const select=id=>{if(!id||clubs.some(c=>c.code===id)){setClub(id);setStatus('');}};
-  if(club)return h(HeadClubViewer,{key:club,clubId:club,clubs,onChange:select,onExit:()=>select('')});
-  return h(React.Fragment,null,h(App,{headClubs:clubs,onHeadClubChange:select}),status&&h('div',{className:'toast',role:'status'},status));
+  // Keep the original workspace and its pending input alive while viewing another club.
+  return h(React.Fragment,null,
+    h('div',{hidden:!!club},h(App,{headClubs:clubs,onHeadClubChange:select})),
+    club&&h(HeadClubViewer,{key:club,clubId:club,clubs,onChange:select,onExit:()=>select('')}),
+    status&&h('div',{className:'toast',role:'status'},status));
 };

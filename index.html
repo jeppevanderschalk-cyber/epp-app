@@ -79,7 +79,7 @@
 <script src="training-store.js"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
 <script src="match-planner-ui.js?v=multiday-1"></script>
-<script src="head-view-ui.js?v=1"></script>
+<script src="head-view-ui.js?v=2"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=1"></script>
 <link rel="stylesheet" href="camera-series.css" />
@@ -2529,11 +2529,8 @@ function App({headClubs,onHeadClubChange}={}) {
     try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"logout"});}catch(e){}
     localStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();
   };
-  const viewHeadClub=async club=>{
+  const viewHeadClub=club=>{
     if(!club)return;
-    if(store.current.busy){flash('Wacht tot de online opslag klaar is.');return;}
-    if(!store.current.hydrated||store.current.conflict){flash('Controleer eerst de online opslag.');return;}
-    if(EppStore.diff(store.current.base,latestPayload.current).length&&!await pushRemote()){flash('Sla de openstaande invoer eerst online op.');return;}
     onHeadClubChange(club);
   };
 
@@ -2582,7 +2579,7 @@ function App({headClubs,onHeadClubChange}={}) {
           h("h1",null,"EPP score app"),
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
-        onHeadClubChange?h(HeadClubSelector,{clubs:headClubs||[],value:'',onChange:viewHeadClub,disabled:!loaded}):h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,style:accountClubName.split(/\s+/).some(word=>word.length>14)?{fontSize:'.65rem'}:undefined},accountClubName)
+        onHeadClubChange?h(HeadClubSelector,{clubs:headClubs||[],value:'',onChange:viewHeadClub}):h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,style:accountClubName.split(/\s+/).some(word=>word.length>14)?{fontSize:'.65rem'}:undefined},accountClubName)
       ),
       h("div",{className:"gold-stripe"})
     ),
