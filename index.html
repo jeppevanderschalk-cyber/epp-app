@@ -1194,10 +1194,10 @@ const TabInvoer = ({
 const TabCamera = window.createEppSeriesCamera({React,h,STAGES,StageCarousel,scoreAtTargetPoint,newId});
 
 // ── TabTraining ───────────────────────────────────────────────────
-const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTrainer,archives=[],onStageInput}) => {
+const TabTraining = ({shooters, currentTraining, finishTraining, isTrainer,archives=[],onInput}) => {
   const [selected,setSelected]=React.useState('');
   React.useEffect(()=>{if(selected&&!shooters.some(s=>s.id===selected))setSelected('');},[shooters,selected]);
-  if(!shooters.length) return h(Empty,{msg:isTrainer?"Voeg schutters toe bij Parcours of Training → Stages.":"Nog geen training ingevoerd."});
+  if(!shooters.length) return h(Empty,{msg:isTrainer?"Voeg schutters toe bij Training → Parcours of Stages.":"Nog geen training ingevoerd."});
   const mode = currentTraining.mode;
   const stageObj = STAGES.find(s=>s.key===currentTraining.stage);
   const trainingRounds = currentTraining.rounds || [];
@@ -1239,7 +1239,7 @@ const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTraine
           );
         }),
         isTrainer && h("div",{className:"training-action"},
-          h("button",{className:"btn btn-ghost btn-full",onClick:()=>mode==="stage"?onStageInput():setTab("parcours")},"Terug naar invoer"),
+          h("button",{className:"btn btn-ghost btn-full",onClick:()=>onInput(mode)},"Terug naar invoer"),
           h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Training afsluiten en nieuwe starten")
         )
       )
@@ -1253,10 +1253,10 @@ const TabTraining = ({shooters, currentTraining, finishTraining, setTab,isTraine
 const TrainingHub = props => {
   const view=props.trainingView,setView=props.setTrainingView;
   return h('div',{style:{display:'flex',flexDirection:'column',gap:12,minWidth:0}},
-    props.isTrainer&&h('div',{className:'sub-tab-row'},[['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
-    props.isTrainer&&view==='stages'
-      ?h(TabInvoer,{...props,fixedMode:'stage',onOverview:()=>setView('overview')})
-      :h(TabTraining,{...props,onStageInput:()=>setView('stages')})
+    props.isTrainer&&h('div',{className:'sub-tab-row'},[['parcours','Parcours'],['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
+    props.isTrainer&&view!=='overview'
+      ?h(TabInvoer,{...props,key:view,fixedMode:view==='stages'?'stage':'parcours',onOverview:()=>setView('overview')})
+      :h(TabTraining,{...props,onInput:mode=>setView(mode==='stage'?'stages':'parcours')})
   );
 };
 
@@ -2301,7 +2301,7 @@ with check (true);`)
 // ═══════════════════════════════════════════════════════════════════
 function App() {
   const isTrainer = eppSession()?.account?.role === "trainer";
-  const [trainingView,setTrainingView]=React.useState('stages');
+  const [trainingView,setTrainingView]=React.useState('parcours');
   const accountClubId=eppSession()?.account?.clubId;
   const accountClubName=EPP_CLUBS.find(c=>c.id===accountClubId)?.label||accountClubId||"Vereniging";
   const [shooters,   setShooters]   = React.useState([]);
@@ -2319,7 +2319,7 @@ function App() {
     try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
-  const [tab,        setTab]        = React.useState(isTrainer ? "parcours" : "landelijk");
+  const [tab,        setTab]        = React.useState(isTrainer ? "training" : "landelijk");
   const [eppPassword,setEppPassword]= React.useState("");
   const [platformPassword,setPlatformPassword]= React.useState("");
   const [nieuw,      setNieuw]      = React.useState("");
@@ -2531,7 +2531,6 @@ function App() {
   };
 
   const navItems = (isTrainer ? [
-    {key:"parcours",label:"Parcours",  icon:Icon.pencil},
     {key:"training",label:"Training",  icon:Icon.chart},
     {key:"stand",   label:"Stand",     icon:Icon.trophy},
     {key:"landelijk",label:"Landelijk",icon:Icon.target},
@@ -2545,7 +2544,6 @@ function App() {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="parcours" && isTrainer ? h(TabInvoer,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,setTab,maxOf,fixedMode:"parcours",onOverview:()=>{setTrainingView('overview');setTab('training');}})
     : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,archives,trainingView,setTrainingView})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})

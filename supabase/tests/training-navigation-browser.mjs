@@ -34,7 +34,9 @@ try{
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.getByRole('button',{name:'Training',exact:true}).click();
     assert.equal(await page.locator('nav.bottomnav').getByRole('button',{name:'Stages',exact:true}).count(),0);
+    assert.equal(await page.locator('nav.bottomnav').getByRole('button',{name:'Parcours',exact:true}).count(),0);
     if(role==='trainer'){
+      await page.getByRole('button',{name:'Stages',exact:true}).click();
       const choice=page.getByLabel('Schutter voor score-invoer',{exact:true});
       await choice.selectOption('b');
       assert.equal(await page.locator('.score-row').count(),1);
@@ -51,9 +53,17 @@ try{
       await page.getByRole('button',{name:'Terug naar invoer',exact:true}).click();
       await choice.waitFor();
       await page.getByRole('button',{name:'Parcours',exact:true}).click();
+      await choice.selectOption('b');
+      await page.locator('.num-in').fill('200');
+      await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
       await page.getByRole('button',{name:'Naar huidige training',exact:true}).click();
       await page.getByText('Parcours training',{exact:true}).waitFor();
       assert.equal(await page.getByRole('button',{name:'Overzicht',exact:true}).getAttribute('data-on'),'1');
+      await page.getByRole('button',{name:'Terug naar invoer',exact:true}).click();
+      assert.equal(await page.getByRole('button',{name:'Parcours',exact:true}).getAttribute('data-on'),'1');
+      await page.waitForTimeout(600);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      await page.screenshot({path:'/private/tmp/epp-training-parcours-'+width+'.png',fullPage:true});
       await page.getByRole('button',{name:'Stages',exact:true}).click();
       await choice.waitFor();
       await page.waitForTimeout(600);
@@ -63,9 +73,11 @@ try{
       assert.equal(await page.locator('.stage-card-img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0)),true);
       await page.waitForFunction(()=>document.querySelector('main p[role="status"]').textContent==='Online bijgewerkt');
       const rounds=[...data.values()].filter(e=>e.kind==='round').map(e=>e.data);
-      assert.equal(rounds.length,2);assert.equal(rounds.find(r=>r.sid==='b').score,37);assert.equal(rounds.find(r=>r.sid==='a').score,20);
+      assert.equal(rounds.length,3);assert.equal(rounds.find(r=>r.sid==='b'&&r.type==='stage').score,37);assert.equal(rounds.find(r=>r.sid==='a').score,20);
+      assert.equal(rounds.find(r=>r.sid==='b'&&r.type==='parcours').score,200);
       assert.equal(rounds.find(r=>r.sid==='a').stage,'s2');
       await page.reload();await page.getByRole('button',{name:'Training',exact:true}).click();
+      await page.getByRole('button',{name:'Stages',exact:true}).click();
       await page.getByRole('button',{name:'Overzicht',exact:true}).click();
       await page.getByLabel('Schutter in trainingsoverzicht').selectOption('a');
       await page.getByText('R1: 20',{exact:true}).waitFor();
