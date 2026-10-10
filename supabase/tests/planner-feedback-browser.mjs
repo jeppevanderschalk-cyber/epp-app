@@ -79,7 +79,7 @@ try{
     await page.getByText('Inschrijving wijzigen: Test Schutter',{exact:true}).waitFor();
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'28 mei 2027 · 09:20',exact:true}).click();
     await page.getByLabel('Reden wijziging').fill('Op verzoek deelnemer');
-    await page.getByRole('button',{name:'Wijzig tijdslot',exact:true}).click();
+    await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
     assert.equal(lastBooking.shooterId,'member');assert.equal(lastBooking.reason,'Op verzoek deelnemer');assert.equal(booked[0].slotId,'slot-2');
     await page.screenshot({path:'/private/tmp/epp-online-signup-admin-'+width+'.png'});

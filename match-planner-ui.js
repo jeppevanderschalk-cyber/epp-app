@@ -55,7 +55,7 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
     target&&h('label',null,'Reden wijziging',h('input',{className:'txt-in',value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
     !selected&&open&&canBook&&h('p',{className:'hint',role:'status',style:{margin:0}},'Nog geen tijdslot gekozen.'),
     changed&&mine.choices.length>0&&h('p',{className:'hint',role:'status',style:{margin:0}},'Bevestig je nieuwe tijdslot. Daarna komt je oude tijdslot automatisch vrij.'),
-    h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':mine.choices.length>0?'Wijzig tijdslot':'Tijdsloten bevestigen'),
+    mine.choices.length>0&&!changed?h('p',{className:'hint',role:'status',style:{margin:0,fontWeight:800}},'Gereserveerd'):h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':mine.choices.length>0?'Gewijzigd slot bevestigen':'Tijdsloten bevestigen'),
     mine.choices.length>0&&h('button',{className:'btn btn-danger',disabled:busy||!open||(target&&reason.trim().length<3),onClick:()=>{if(confirm('Deze wedstrijdinschrijving afmelden?'))save(true);}},'Afmelden'),
     (status||saveNotice)&&h('p',{className:'hint',role:'status'},status||saveNotice),
     !target&&(status||saveNotice).startsWith('Boeking online bevestigd')&&h('p',{className:'hint',style:{margin:0}},'Je gekozen tijdsloten zijn gereserveerd.'),

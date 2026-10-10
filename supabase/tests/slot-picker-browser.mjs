@@ -39,6 +39,8 @@ try{
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Je gekozen tijdsloten zijn gereserveerd.',{exact:true}).waitFor();
     await group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true}).getByText('Gereserveerd',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).count(),0,'no change confirmation until another slot is chosen');
+    await page.getByRole('status').filter({hasText:/^Gereserveerd$/}).waitFor();
     await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
     await group.getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).click();
     await page.getByText('Bevestig je nieuwe tijdslot. Daarna komt je oude tijdslot automatisch vrij.',{exact:true}).waitFor();
@@ -48,13 +50,14 @@ try{
     await oldSlot.getByText('1 vrij',{exact:true}).waitFor();
     await oldSlot.getByText('Gereserveerd',{exact:true}).waitFor();
     await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
-    await page.getByRole('button',{name:'Wijzig tijdslot',exact:true}).click();
+    await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).click();
     await page.getByText('Je gekozen tijdsloten zijn gereserveerd.',{exact:true}).waitFor();
     assert.deepEqual(choices,[{discipline:'pistool',slotId:'b'}]);
     assert.equal(await page.getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).getAttribute('aria-checked'),'true');
     assert.equal(slots[0].booked,0,'old booking released after confirmation');
     await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'28 mei 2027',exact:true}).click();
     await group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true}).getByText('2 vrij',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).count(),0,'confirmation disappears after saving');
     await page.screenshot({path:'/private/tmp/epp-slot-picker-'+width+'.png',fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
     await page.close();console.log('PASS '+width+': one sorted list below identity, Doe mee card, days, full-slot guard, reservation confirmed');
