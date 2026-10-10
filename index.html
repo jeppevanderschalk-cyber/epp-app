@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-nQrAq9FuByMF2mL7TLvIytESfB+ja21XqxZlC+YFfaI=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-s3JBTnuOUxdIEFtohZ+x+o3UtomoGH4NZSwe+I/LCGo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-nQrAq9FuByMF2mL7TLvIytESfB+ja21XqxZlC+YFfaI=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-qXXYySki/GN1ybMj5q1HarM0qZ0K66BEr+jc82v0L2o='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -603,11 +603,11 @@ const STAGES = [
 const DEFAULT_SHOTS = {s1:10,s2:5,s3:5,s4:10,s5:5,s6:5,s7:10};
 const CLUB_ID = localStorage.getItem(EPP_AUTH_CLUB_KEY) || "svbb";
 const CLUB = EPP_CLUBS.find(c=>c.id===CLUB_ID) || EPP_CLUBS[0];
-if(!localStorage.getItem('epp-reset-20261011')){
+if(!localStorage.getItem('epp-reset-20261011-confirmed')){
   Object.keys(localStorage).filter(key=>key.startsWith('epp-data')).forEach(key=>localStorage.removeItem(key));
-  localStorage.setItem('epp-reset-20261011','1');
+  localStorage.setItem('epp-reset-20261011-confirmed','1');
 }
-const KEY = "epp-data-reset-20261011-"+CLUB_ID;
+const KEY = "epp-data-reset-20261011-confirmed-"+CLUB_ID;
 const SYNC_KEY = "epp-sync-v1";
 const CENTRAL_SYNC = {
   enabled:true,
