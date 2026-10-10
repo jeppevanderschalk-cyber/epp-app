@@ -14,8 +14,13 @@ Deno.serve(async req=>{
     if(body.action==='catalog'){
       const states=await rows(()=>db.from('epp_scoring_matches').select('*,match:epp_matches(id,organizer,match_date,offered_disciplines)').order('match_id'));
       const assignments=await rows(()=>db.from('epp_match_scorers').select('match_id').eq('account_id',actor.id).order('match_id'));
-      const own=actor.role==='trainer'&&actor.is_admin?await rows(()=>db.from('epp_match_planners').select('owner_club,match:epp_matches(id,organizer,match_date,offered_disciplines)').eq('owner_club',actor.club_code).eq('published',true).order('match_id')):[];
-      const allowed=states.filter(s=>(actor.role==='trainer'&&actor.is_admin&&s.owner_club===actor.club_code)||assignments.some(a=>a.match_id===s.match_id));
+      const head=actor.role==='trainer'&&actor.is_admin&&actor.is_platform_admin;
+      const own=actor.role==='trainer'&&actor.is_admin?await rows(()=>{
+        let query=db.from('epp_match_planners').select('owner_club,match:epp_matches(id,organizer,match_date,offered_disciplines)').eq('published',true).order('match_id');
+        if(!head)query=query.eq('owner_club',actor.club_code);
+        return query;
+      }):[];
+      const allowed=states.filter(s=>head||(actor.role==='trainer'&&actor.is_admin&&s.owner_club===actor.club_code)||assignments.some(a=>a.match_id===s.match_id));
       return json({ok:true,matches:[...allowed.map(s=>({...s.match,scoring:true,can_score:!s.closed,closed:s.closed})),...own.filter(p=>!states.some(s=>s.organizer===p.match.organizer&&s.match_date===p.match.match_date)).map(p=>({...p.match,scoring:true,can_score:true,closed:false}))]});
     }
     const access=await rpc('epp_scoring_prepare',{p_actor:actor.id,p_match:body.matchId});

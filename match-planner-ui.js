@@ -88,13 +88,34 @@ const MatchPlannerCatalog=()=>{
 
 const PlatformAccessManagement=()=>{
   const [clubs,setClubs]=React.useState([]),[accounts,setAccounts]=React.useState([]),[club,setClub]=React.useState('svbb'),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState('');
+  const [matches,setMatches]=React.useState([]),[match,setMatch]=React.useState(''),[access,setAccess]=React.useState(null);
+  const request=React.useRef(0);
   const load=async()=>{try{const r=await eppCall('epp-auth',{clubId:CLUB_ID,action:'list_club_access'});setClubs(r.clubs);setAccounts(r.accounts);}catch(e){setStatus(e.message);}};
   React.useEffect(()=>{load();},[]);
+  React.useEffect(()=>{let active=true;eppCall('epp-scoring',{clubId:CLUB_ID,action:'catalog'}).then(r=>{if(active)setMatches(r.matches);}).catch(e=>{if(active)setStatus(e.message);});return()=>{active=false;};},[]);
+  React.useEffect(()=>{
+    const version=++request.current;setAccess(null);
+    if(match)eppCall('epp-scoring',{clubId:CLUB_ID,action:'view',matchId:match}).then(r=>{if(request.current===version)setAccess(r);}).catch(e=>{if(request.current===version)setStatus(e.message);});
+    return()=>{request.current++;};
+  },[match]);
+  const toggleScorer=async(a,enabled)=>{
+    if(!access||!confirm((enabled?'Scoorderrechten geven aan ':'Scoorderrechten intrekken voor ')+a.display_name+' voor deze wedstrijd?'))return;
+    const version=request.current,selected=match;setBusy(true);setStatus('');
+    try{
+      await eppCall('epp-scoring',{clubId:CLUB_ID,action:'control',matchId:access.matchId,control:'scorer',accountId:a.id,enabled,expectedRevision:access.revision});
+      setStatus('Scoorderrechten opgeslagen.');
+    }catch(e){setStatus(e.message==='wedstrijd_conflict'?'Rechten zijn intussen gewijzigd. Controleer de bijgewerkte lijst en probeer opnieuw.':e.message);}
+    finally{
+      try{const r=await eppCall('epp-scoring',{clubId:CLUB_ID,action:'view',matchId:selected});if(request.current===version)setAccess(r);}catch(e){if(request.current===version){setAccess(null);setStatus(e.message);}}
+      setBusy(false);
+    }
+  };
   return h('section',null,h('div',{className:'card-head'},h('div',{className:'eyebrow'},'Hoofdbeheer · verenigingsrechten')),h('div',{className:'card-body',style:{display:'grid',gap:12}},
-    h('label',null,'Vereniging',h('select',{className:'txt-in','aria-label':'Vereniging voor beheerrechten',value:club,onChange:e=>setClub(e.target.value)},clubs.map(c=>h('option',{key:c.code,value:c.code},c.naam)))),
-    accounts.filter(a=>a.club_code===club&&!a.is_platform_admin).map(a=>h('div',{key:a.id,style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',borderBottom:'1px solid '+C.border,padding:'10px 0'}},h('div',{style:{flex:'1 1 150px'}},a.display_name,h('small',{style:{display:'block'}},a.is_admin?'Verenigingsbeheerder':'Schutter')),h('button',{className:'btn '+(a.is_admin?'btn-danger':'btn-gold'),disabled:busy,onClick:async()=>{
+    h('label',null,'Vereniging',h('select',{className:'txt-in','aria-label':'Vereniging voor beheerrechten',value:club,disabled:busy,onChange:e=>setClub(e.target.value)},clubs.map(c=>h('option',{key:c.code,value:c.code},c.naam)))),
+    h('label',null,'Wedstrijd voor scoorderrechten',h('select',{className:'txt-in','aria-label':'Wedstrijd voor scoorderrechten',value:match,disabled:busy,onChange:e=>{setStatus('');setMatch(e.target.value);}},h('option',{value:''},'Kies wedstrijd'),matches.map(m=>h('option',{key:m.id,value:m.id},eppFmtDate(m.match_date)+' · '+m.organizer+(m.closed?' · Definitief':''))))),
+    accounts.filter(a=>a.club_code===club&&!a.is_platform_admin).map(a=>{const scorer=access?.scorers?.some(s=>s.account_id===a.id),eligible=access?.accounts?.some(s=>s.id===a.id);return h('div',{key:a.id,role:'group','aria-label':a.display_name,style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',borderBottom:'1px solid '+C.border,padding:'10px 0'}},h('div',{style:{flex:'1 1 100%',minWidth:0,overflowWrap:'anywhere'}},a.display_name,h('small',{style:{display:'block'}},(a.is_admin?'Verenigingsbeheerder':'Schutter')+(scorer?' · Scoorder voor deze wedstrijd':''))),h('button',{className:'btn '+(a.is_admin?'btn-danger':'btn-gold'),disabled:busy,onClick:async()=>{
       if(!confirm((a.is_admin?'Beheerrechten intrekken voor ':'Beheerrechten geven aan ')+a.display_name+'?'))return;setBusy(true);setStatus('');
       try{await eppCall('epp-auth',{clubId:CLUB_ID,action:'set_club_admin',accountId:a.id,enabled:!a.is_admin});await load();setStatus('Rechten opgeslagen. De gebruiker moet opnieuw inloggen.');}catch(e){setStatus(e.message);}finally{setBusy(false);}
-    }},a.is_admin?'Rechten intrekken':'Beheerrechten geven'))),
+    }},a.is_admin?'Beheerrechten intrekken':'Beheerrechten geven'),h('button',{className:'btn '+(scorer?'btn-danger':'btn-gold'),disabled:busy||!access||!access.managing||(!scorer&&(!eligible||access.closed)),style:{opacity:busy||!access||!access.managing||(!scorer&&(!eligible||access.closed))?0.45:1},onClick:()=>toggleScorer(a,!scorer)},scorer?'Scoorderrechten intrekken':'Scoorderrechten geven'));}),
     status&&h('p',{className:'hint',role:'status'},status)));
 };
