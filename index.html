@@ -24,7 +24,8 @@
 .login-card{width:min(100%,560px);margin:auto 0;flex-shrink:0;display:grid;gap:18px;padding:32px 44px;border:1px solid #bfa152;border-radius:22px;background:rgba(0,10,25,.8);box-shadow:0 24px 80px #0008,inset 0 1px 0 #f7dc8a40;text-align:center;font-family:'Archivo',system-ui,sans-serif;color:#f9efd6}
 .login-logo{width:164px;height:164px;margin:0 auto;object-fit:contain;mix-blend-mode:screen}
 .login-brand{display:grid;gap:4px;margin-bottom:8px}
-.login-card h2{margin:0;font-size:72px;line-height:1;font-weight:900;color:#efc451;background:linear-gradient(#fff0ac,#d9a82c);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-card h2{margin:10px auto 4px;width:min(100%,320px);aspect-ratio:4.6/1;line-height:0}
+.login-wordmark{display:block;width:100%;height:100%;object-fit:cover}
 .login-card .login-subtitle{font-size:12px;color:#edcf76;font-weight:600;text-transform:uppercase}
 .login-card h3{margin:12px 0 0;font-size:30px;font-weight:600}
 .login-card p{margin:0;color:#b1b7c6;font-size:.9rem;font-weight:400;line-height:1.5}
@@ -54,7 +55,7 @@
   <form class="login-card" id="loginForm">
     <div class="login-brand">
       <img src="epp-logo.png" alt="" class="login-logo" />
-      <h2>EPP</h2>
+      <h2><img src="epp-wordmark.png" class="login-wordmark" alt="EPP" /></h2>
       <p class="login-subtitle">Europees Praktijk Parcours</p>
     </div>
     <h3>Welkom</h3>
