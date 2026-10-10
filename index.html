@@ -39,11 +39,19 @@
     <img src="epp-logo.png" alt="" class="login-logo" />
     <h2>EPP score app</h2>
     <p>Log in om de app te gebruiken.</p>
-    <label>
+    <label id="loginClubLabel" hidden>
       <span>Vereniging</span>
       <select id="loginClub">
         <option value="svbb">SVBB</option>
         <option value="mercurius75">SV Mercurius '75</option>
+        <option value="apgs">APGS</option>
+        <option value="maarheeze">SV Maarheeze</option>
+        <option value="beemtebroekland">SV Beemte Broekland</option>
+        <option value="politienoordholland">Schietvereniging Politie Noord-Holland</option>
+        <option value="hansi">Schietteam HANSI</option>
+        <option value="thorheim">SV Thorheim</option>
+        <option value="schietteamkl">Schietteam Koninklijke Landmacht</option>
+        <option value="dekorrel">SV De Korrel - Druten</option>
         <option value="eppnationaal">EPP Nationaal</option>
         <option value="gast">Gast</option>
       </select>
@@ -91,6 +99,14 @@ var EPP_AUTH_CLUB_KEY="epp-app-club-v1";
 var EPP_CLUBS=[
   {id:"svbb", label:"SVBB", managedAuth:true, space:"epp-app"},
   {id:"mercurius75", label:"SV Mercurius '75", managedAuth:true, space:"epp-app-mercurius75"},
+  {id:"apgs",label:"APGS",managedAuth:true,space:"epp-app-apgs"},
+  {id:"maarheeze",label:"SV Maarheeze",managedAuth:true,space:"epp-app-maarheeze"},
+  {id:"beemtebroekland",label:"SV Beemte Broekland",managedAuth:true,space:"epp-app-beemtebroekland"},
+  {id:"politienoordholland",label:"Schietvereniging Politie Noord-Holland",managedAuth:true,space:"epp-app-politienoordholland"},
+  {id:"hansi",label:"Schietteam HANSI",managedAuth:true,space:"epp-app-hansi"},
+  {id:"thorheim",label:"SV Thorheim",managedAuth:true,space:"epp-app-thorheim"},
+  {id:"schietteamkl",label:"Schietteam Koninklijke Landmacht",managedAuth:true,space:"epp-app-schietteamkl"},
+  {id:"dekorrel",label:"SV De Korrel - Druten",managedAuth:true,space:"epp-app-dekorrel"},
   {id:"eppnationaal", label:"EPP Nationaal", managedAuth:true, space:"epp-app-nationaal"},
   {id:"gast", label:"Gast", managedAuth:true, space:"epp-app-gast"}
 ];
@@ -135,6 +151,7 @@ function eppSetPersonalLogin(enabled){
   var toggle=document.getElementById('loginPersonalToggle');
   toggle.hidden=document.getElementById('loginRole').value==='hoofdbeheer';
   toggle.textContent=eppPersonalLogin?'Terug naar meekijken':'Inloggen met eigen account';
+  document.getElementById('loginClubLabel').hidden=document.getElementById('loginRole').value==='hoofdbeheer'||(document.getElementById('loginRole').value==='schutter'&&!eppPersonalLogin);
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 }
@@ -150,7 +167,8 @@ document.getElementById('loginRole').addEventListener('change',function(){
 });
 document.getElementById("loginForm").addEventListener("submit",function(event){
   event.preventDefault();
-  var clubId=document.getElementById('loginRole').value==='hoofdbeheer'?'eppnationaal':document.getElementById("loginClub").value;
+  var role=document.getElementById('loginRole').value;
+  var clubId=role==='hoofdbeheer'?'eppnationaal':role==='schutter'&&!eppPersonalLogin?'svbb':document.getElementById("loginClub").value;
   var club=EPP_CLUBS.find(function(c){return c.id===clubId;});
   var entered=document.getElementById("loginPassword").value;
   if(club){
@@ -1644,7 +1662,7 @@ const EppDisciplineRow = ({d, checked, value, onToggle, onChange, disabled}) =>
   );
 
 const MemberRegistration = () => {
-  const [form,setForm]=React.useState({firstName:"",lastName:"",password:"",repeat:""});
+  const [form,setForm]=React.useState({clubId:"",firstName:"",lastName:"",password:"",repeat:""});
   const [busy,setBusy]=React.useState(false);
   const [error,setError]=React.useState("");
   const submit=async event=>{
@@ -1652,9 +1670,10 @@ const MemberRegistration = () => {
     if(form.password!==form.repeat){setError("De wachtwoorden zijn niet gelijk.");return;}
     setBusy(true);setError("");
     try{
-      const result=await eppCall("epp-auth",{clubId:CLUB_ID,action:"register_member",firstName:form.firstName,lastName:form.lastName,newPassword:form.password});
+      const result=await eppCall("epp-auth",{clubId:CLUB_ID,action:"register_member",registrationClubId:form.clubId,firstName:form.firstName,lastName:form.lastName,newPassword:form.password});
       localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
       localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
+      localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       location.reload();
     }catch(e){
       setError(e.message.includes("persoonlijk_account_bestaat_al")?"Je hebt al een persoonlijk account bij een vereniging. Log in bij die vereniging; een tweede account is niet toegestaan.":e.message.includes("naam_al_geregistreerd")?"Met deze naam bestaat al een account. Log daarmee in of neem contact op met beheer.":e.message.includes("registratielimiet")?"Registreren is tijdelijk niet beschikbaar. Neem contact op met beheer.":"Account aanmaken is niet gelukt. Controleer je gegevens en verbinding.");
@@ -1668,6 +1687,7 @@ const MemberRegistration = () => {
   return h("section",{className:"card"},
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Eigen account aanmaken")),
     h("form",{className:"card-body",onSubmit:submit,style:{display:"grid",gap:12}},
+      h('label',null,'Vereniging',h('select',{className:'txt-in',required:true,disabled:busy,value:form.clubId,onChange:e=>setForm(p=>({...p,clubId:e.target.value}))},h('option',{value:''},'Kies je vereniging'),EPP_CLUBS.filter(c=>!['gast','eppnationaal'].includes(c.id)).map(c=>h('option',{key:c.id,value:c.id},c.label)))),
       h("label",null,"Voornaam",h("input",{className:"txt-in",autoComplete:"given-name",required:true,maxLength:70,value:form.firstName,disabled:busy,onChange:e=>setForm(p=>({...p,firstName:e.target.value}))})),
       h("label",null,"Achternaam",h("input",{className:"txt-in",autoComplete:"family-name",required:true,maxLength:70,value:form.lastName,disabled:busy,onChange:e=>setForm(p=>({...p,lastName:e.target.value}))})),
       h("label",null,"Eigen wachtwoord",h("input",{className:"txt-in",type:"password",autoComplete:"new-password",minLength:10,maxLength:256,required:true,value:form.password,disabled:busy,onChange:e=>setForm(p=>({...p,password:e.target.value}))})),

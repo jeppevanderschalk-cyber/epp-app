@@ -28,7 +28,7 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-const KNOWN_CLUBS = [...new Set(["mercurius75", ...(Deno.env.get("EPP_KNOWN_CLUBS") || "").split(",").map((s) => s.trim()).filter(Boolean)])];
+const KNOWN_CLUBS = [...new Set(["svbb","mercurius75","apgs","maarheeze","beemtebroekland","politienoordholland","hansi","thorheim","schietteamkl","dekorrel", ...(Deno.env.get("EPP_KNOWN_CLUBS") || "").split(",").map((s) => s.trim()).filter(Boolean)])];
 
 export function isKnownClub(clubId: string): boolean {
   return KNOWN_CLUBS.includes(clubId);
