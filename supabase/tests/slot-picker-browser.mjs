@@ -9,7 +9,7 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 try{
   for(const width of [390,1440]){
-    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let choices=[],revision=0;
+    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let choices=[],revision=0,lastExpected=null;
     page.on('pageerror',e=>errors.push(e.message));
     const older={id:'older',organizer:'APGS',match_date:'2026-11-14',match_dates:['2026-11-14'],deadline:'2026-11-01',offered_disciplines:['pistool']};
     const planned={id:'new',organizer:'SVBB',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:['pistool','optiek']};
@@ -20,7 +20,7 @@ try{
       if(body.action==='catalog')response={ok:true,matches:[planned]};
       if(body.action==='list_shooters')response={ok:true,shooters:[{id:'member',naam:'Test Schutter'}]};
       if(body.action==='my_signups')response={ok:true,signups:[]};
-      if(body.action==='book'){for(const s of slots)s.booked-=choices.filter(c=>c.slotId===s.id).length;choices=body.choices;for(const s of slots)s.booked+=choices.filter(c=>c.slotId===s.id).length;revision++;response={ok:true};}
+      if(body.action==='book'){lastExpected=body.expectedRevision;if(body.expectedRevision!==revision)response={ok:false,error:'boeking_conflict'};else{for(const s of slots)s.booked-=choices.filter(c=>c.slotId===s.id).length;choices=body.choices;for(const s of slots)s.booked+=choices.filter(c=>c.slotId===s.id).length;revision++;response={ok:true};}}
       if(body.action==='view')response={ok:true,match:planned,planner:{published:true,opens_at:'2020-01-01T00:00:00Z',closes_at:'2027-05-27T18:00:00Z'},profile:{id:'member'},managing:false,slots,mine:{revision,choices},roster:[],audit:[]};
       await route.fulfill({contentType:'application/json',body:JSON.stringify(response)});
     });
@@ -59,6 +59,21 @@ try{
     await group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true}).getByText('2 vrij',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).count(),0,'confirmation disappears after saving');
     await page.screenshot({path:'/private/tmp/epp-slot-picker-'+width+'.png',fullPage:true});
+    await page.evaluate(({match,slots})=>{
+      window.renderBooking=(revision,slotId='a')=>pickerRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(PlannerBooking,{view:{match,slots,profile:{id:'member'},managing:false,planner:{published:true,opens_at:'2020-01-01',closes_at:'2027-05-27'},mine:{revision,choices:[{discipline:'pistool',slotId}]}},onSaved:async()=> 'Boeking online bevestigd',onReload:()=>{}}))));
+      renderBooking(1);
+    },{match:planned,slots});
+    await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
+    await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).click();
+    await page.evaluate(()=>renderBooking(2));
+    await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).click();
+    await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
+    assert.equal(lastExpected,2,'poll updates revision without discarding the chosen slot');
+    await page.evaluate(()=>renderBooking(4,'full'));
+    await page.getByText('Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).isDisabled(),true,'concurrent choice changes require explicit reload');
+    const errorTop=await page.getByRole('alert').evaluate(e=>e.getBoundingClientRect().top);
+    assert.ok(errorTop>=0&&errorTop<900,'failure scrolled into view');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
     await page.close();console.log('PASS '+width+': one sorted list below identity, Doe mee card, days, full-slot guard, reservation confirmed');
   }

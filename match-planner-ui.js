@@ -19,13 +19,24 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const mine=target||view.mine;
   const [choices,setChoices]=React.useState(()=>Object.fromEntries(mine.choices.map(c=>[c.discipline,c.slotId])));
   const [days,setDays]=React.useState({});
-  const [revision]=React.useState(mine.revision),[reason,setReason]=React.useState(''),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[conflict,setConflict]=React.useState(false);
+  const [revision,setRevision]=React.useState(mine.revision),[reason,setReason]=React.useState(''),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[conflict,setConflict]=React.useState(false);
+  const baseline=React.useRef(Object.fromEntries(mine.choices.map(c=>[c.discipline,c.slotId]))),feedbackRef=React.useRef(null);
+  React.useEffect(()=>{
+    if(busy||mine.revision===revision)return;
+    const latest=Object.fromEntries(mine.choices.map(c=>[c.discipline,c.slotId]));
+    const same=(a,b)=>view.match.offered_disciplines.every(d=>(a[d]||'')===(b[d]||''));
+    if(same(latest,baseline.current)||same(choices,baseline.current)){
+      if(!same(latest,baseline.current))setChoices(latest);
+      baseline.current=latest;setRevision(mine.revision);setConflict(false);
+    }else{setConflict(true);setStatus('Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.');}
+  },[mine.revision,revision,busy]);
+  React.useEffect(()=>{if(status)feedbackRef.current?.scrollIntoView({block:'center',behavior:'smooth'});},[status]);
   const open=view.managing||(view.planner.published&&Date.now()>=Date.parse(view.planner.opens_at)&&Date.now()<=Date.parse(view.planner.closes_at));
   const canBook=target||view.profile;
   const selected=Object.values(choices).some(Boolean);
   const changed=view.match.offered_disciplines.some(d=>(choices[d]||'')!==(mine.choices.find(c=>c.discipline===d)?.slotId||''));
   const save=async cancel=>{
-    if(busy||!open||!canBook||(!cancel&&!selected))return;setBusy(true);setStatus('');onEdited?.();
+    if(busy||conflict||!open||!canBook||(!cancel&&!selected))return;setBusy(true);setStatus('');onEdited?.();
     try{
       await eppCall('epp-planner',{clubId:CLUB_ID,action:'book',matchId:view.match.id,shooterId:target?.shooterId,choices:cancel?[]:Object.entries(choices).filter(([,id])=>id).map(([discipline,slotId])=>({discipline,slotId})),expectedRevision:revision,reason});
       const message=await onSaved(cancel);setStatus(message||(cancel?'Online afgemeld':'Boeking online bevestigd'));
@@ -55,11 +66,12 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
     target&&h('label',null,'Reden wijziging',h('input',{className:'txt-in',value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
     !selected&&open&&canBook&&h('p',{className:'hint',role:'status',style:{margin:0}},'Nog geen tijdslot gekozen.'),
     changed&&mine.choices.length>0&&h('p',{className:'hint',role:'status',style:{margin:0}},'Bevestig je nieuwe tijdslot. Daarna komt je oude tijdslot automatisch vrij.'),
-    mine.choices.length>0&&!changed?h('p',{className:'hint',role:'status',style:{margin:0,fontWeight:800}},'Gereserveerd'):h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':mine.choices.length>0?'Gewijzigd slot bevestigen':'Tijdsloten bevestigen'),
-    mine.choices.length>0&&h('button',{className:'btn btn-danger',disabled:busy||!open||(target&&reason.trim().length<3),onClick:()=>{if(confirm('Deze wedstrijdinschrijving afmelden?'))save(true);}},'Afmelden'),
-    (status||saveNotice)&&h('p',{className:'hint',role:'status'},status||saveNotice),
+    (status||saveNotice)&&h('p',{ref:feedbackRef,className:'hint',role:status?'alert':'status',style:{margin:0,fontWeight:800}},status||saveNotice),
+    conflict&&h('button',{className:'btn btn-ghost',disabled:busy,onClick:()=>{if(confirm('Niet opgeslagen wijzigingen vervallen. Nieuwste inschrijving ophalen?'))onReload();}},'Nieuwste inschrijving ophalen'),
+    mine.choices.length>0&&!changed?h('p',{className:'hint',role:'status',style:{margin:0,fontWeight:800}},'Gereserveerd'):h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||conflict||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':mine.choices.length>0?'Gewijzigd slot bevestigen':'Tijdsloten bevestigen'),
+    mine.choices.length>0&&h('button',{className:'btn btn-danger',disabled:busy||conflict||!open||(target&&reason.trim().length<3),onClick:()=>{if(confirm('Deze wedstrijdinschrijving afmelden?'))save(true);}},'Afmelden'),
     !target&&(status||saveNotice).startsWith('Boeking online bevestigd')&&h('p',{className:'hint',style:{margin:0}},'Je gekozen tijdsloten zijn gereserveerd.'),
-    conflict&&h('button',{className:'btn btn-ghost',disabled:busy,onClick:()=>{if(confirm('Niet opgeslagen wijzigingen vervallen. Nieuwste inschrijving ophalen?'))onReload();}},'Nieuwste inschrijving ophalen')
+    busy&&h('p',{className:'hint',role:'status'},'Reservering online opslaan...')
   );
 };
 
@@ -95,9 +107,11 @@ const MatchPlanner=({matchId,manage=false})=>{
   const [planningNotice,setPlanningNotice]=React.useState('');
   const [bookingNotice,setBookingNotice]=React.useState('');
   const bookingRef=React.useRef(null);
+  const loadRequest=React.useRef(0);
   React.useEffect(()=>{if(target)bookingRef.current?.scrollIntoView({block:'start',behavior:'smooth'});},[target]);
   const load=React.useCallback(async()=>{
-    try{const r=await eppCall('epp-planner',{clubId:CLUB_ID,action:'view',matchId});setView(r);setStatus('');return r;}catch(e){setStatus(plannerError(e));}
+    const request=++loadRequest.current;
+    try{const r=await eppCall('epp-planner',{clubId:CLUB_ID,action:'view',matchId});if(request===loadRequest.current){setView(r);setStatus('');}return r;}catch(e){if(request===loadRequest.current)setStatus(plannerError(e));}
   },[matchId]);
   React.useEffect(()=>{let active=true;load();const timer=setInterval(()=>{if(active)load();},10000);return()=>{active=false;clearInterval(timer);};},[load]);
   const saved=async(planning=false,cancel=false)=>{
