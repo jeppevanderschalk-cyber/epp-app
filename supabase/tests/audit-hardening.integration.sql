@@ -1,0 +1,30 @@
+begin;
+do $$
+declare viewer uuid;admin uuid;outsider uuid;one uuid;two uuid;sid uuid;mid uuid;denied boolean;cfg jsonb;before_count bigint;
+begin
+  select id into strict viewer from app_accounts where club_code='svbb' and username='kijker';
+  insert into app_accounts(club_code,username,display_name,role,is_admin) values('apgs','audit.admin.'||gen_random_uuid(),'Audit Organizer','trainer',true) returning id into admin;
+  insert into app_accounts(club_code,username,display_name,role,is_admin) values('gast','audit.other.'||gen_random_uuid(),'Audit Other Club','trainer',true) returning id into outsider;
+  one:=epp_register_pending_member(viewer,'apgs','lid.'||repeat('1',40),'Shared','Audit Name','audit-'||gen_random_uuid()||'@example.nl',repeat('a',48),repeat('b',64));
+  two:=epp_register_pending_member(viewer,'apgs','lid.'||repeat('2',40),'Shared','Audit Name','audit-'||gen_random_uuid()||'@example.nl',repeat('a',48),repeat('b',64));
+  assert one<>two,'equal display names keep distinct identities';
+  assert not (select membership_approved from app_accounts where id=one),'new member is pending';
+  select id into sid from shooters where linked_user_id=one;
+  assert not exists(select 1 from training_entities where entity_id=sid::text and data is not null),'pending account is not in training';
+  denied:=false;begin perform epp_approve_member(outsider,one);exception when others then if sqlerrm='geen_beheerrechten' then denied:=true;else raise;end if;end;assert denied,'foreign admin cannot approve';
+  perform epp_approve_member(admin,one);perform epp_approve_member(admin,two);
+  assert (select membership_approved from app_accounts where id=one),'own admin approves';
+  assert exists(select 1 from training_entities where entity_id=sid::text and data is not null),'approved profile joins training';
+  insert into epp_matches(club_id,organizer,match_date,offered_disciplines) values('apgs','Audit Archived Match','2034-05-28',array['pistool']) returning id into mid;
+  cfg:='{"first":"09:00","last":"10:00","duration":10,"changeover":0,"capacity":2,"gap":0,"opens":"2020-01-01T00:00:00Z","closes":"2034-05-27T00:00:00Z","published":true,"breaks":[],"overrides":[]}';
+  perform epp_planner_configure(admin,mid,cfg,0);
+  select count(*) into before_count from epp_match_slots where match_id=mid;
+  perform epp_archive_match(admin,mid);
+  assert (select archived_at is not null from epp_matches where id=mid),'archive keeps match';
+  assert before_count=(select count(*) from epp_match_slots where match_id=mid),'archive keeps planner slots';
+  denied:=false;begin perform epp_scoring_prepare(admin,mid);exception when others then if sqlerrm='wedstrijd_gearchiveerd' then denied:=true;else raise;end if;end;assert denied,'archive blocks score setup';
+  denied:=false;begin perform epp_planner_book(one,mid,sid,'[]',0,'');exception when others then if sqlerrm='wedstrijd_gearchiveerd' then denied:=true;else raise;end if;end;assert denied,'archive blocks bookings';
+  assert not has_function_privilege('service_role','epp_register_member_at_club(uuid,text,text,text,text,text,text)','execute'),'former registration route closed';
+  assert not has_function_privilege('service_role','epp_confirm_result_internal(uuid,uuid,uuid,uuid,uuid,jsonb,text,integer,text)','execute'),'internal score validator not exposed';
+end $$;
+rollback;

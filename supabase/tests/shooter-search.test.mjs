@@ -54,7 +54,7 @@ test('loads club directory using the authenticated session, not each keystroke',
 test('official competition prepares its score entry automatically without round controls',()=>{
   const form=html.slice(html.indexOf('const TabLandelijk ='),html.indexOf('// ── TabStand'));
   assert.match(form,/action:"prepare_match",matchId/);
-  assert.match(form,/\[isTrainer,matchId\]/);
+  assert.match(form,/\[canInput,matchId,scoringFunction\]/);
   assert.match(form,/!matchLoading && !resultLoading/);
   assert.doesNotMatch(form,/Rondenummer|Kies ronde|Ronde aanmaken|roundNumber/);
 });

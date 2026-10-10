@@ -1,7 +1,7 @@
 import {corsHeaders,json,serviceClient,isKnownClub,checkPassword,sha256Hex} from '../_shared/epp.ts';
 import {passwordHash,randomSalt} from '../_shared/trainer-auth.ts';
 import {requireAccount,createSession} from '../_shared/session.ts';
-import {memberNames,memberUsername} from '../_shared/member-account.ts';
+import {memberNames,memberUsername,memberEmail,emailUsername} from '../_shared/member-account.ts';
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
@@ -13,7 +13,8 @@ Deno.serve(async req=>{
     if(body.action==='login'){
       if(typeof body.password!=='string'||body.password.length>256)return json({ok:false,error:'ongeldig_wachtwoord'},401);
       let username=String(body.username||'').trim().toLowerCase();
-      if(body.firstName!==undefined||body.lastName!==undefined)username=await memberUsername(body.firstName,body.lastName);
+      if(body.email)username=await emailUsername(body.email);
+      else if(body.firstName!==undefined||body.lastName!==undefined)username=await memberUsername(body.firstName,body.lastName);
       if(!username){
         if(await checkPassword(body.clubId,body.password,'TRAINER'))username='beheer';
         else if(await checkPassword(body.clubId,body.password,'MEMBER'))username='kijker';
@@ -28,6 +29,7 @@ Deno.serve(async req=>{
       if(!account?.active || account.locked_until && Date.parse(account.locked_until)>Date.now())return json({ok:false,error:'ongeldig_wachtwoord'},401);
       const valid=account.legacy ? await checkPassword(account.club_code,body.password,account.role==='trainer'?'TRAINER':'MEMBER') : await passwordHash(body.password,account.password_salt,account.iterations)===account.password_hash;
       if(!valid){await db.rpc('epp_account_failure',{p_id:account.id});return json({ok:false,error:'ongeldig_wachtwoord'},401);}
+      if(account.membership_approved===false)return json({ok:false,error:'vereniging_goedkeuring_nodig'},403);
       const salt=account.legacy?randomSalt():account.password_salt;
       const {error:updateError}=await db.from('app_accounts').update({legacy:false,password_salt:salt,password_hash:account.legacy?await passwordHash(body.password,salt):account.password_hash,failed_attempts:0,locked_until:null}).eq('id',account.id);
       if(updateError)throw updateError;
@@ -39,11 +41,11 @@ Deno.serve(async req=>{
       if(!isKnownClub(body.registrationClubId)||['gast','eppnationaal'].includes(body.registrationClubId))throw new Error('vereniging_verplicht');
       const names=memberNames(body.firstName,body.lastName);
       if(typeof body.newPassword!=='string'||body.newPassword.length<10||body.newPassword.length>256)throw new Error('nieuw_wachtwoord_ongeldig');
-      const username=await memberUsername(names.firstName,names.lastName),salt=randomSalt();
-      const {data:id,error}=await db.rpc('epp_register_member_at_club',{p_actor:actor.id,p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
+      const email=memberEmail(body.email),username=await emailUsername(email),salt=randomSalt();
+      const {data:id,error}=await db.rpc('epp_register_pending_member',{p_actor:actor.id,p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_email:email,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
       if(error)throw error;
       const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin').eq('id',id).single();if(accountError)throw accountError;
-      return json({ok:true,account:{clubId:account.club_code}});
+      return json({ok:true,pendingApproval:true,account:{clubId:account.club_code}});
     }
     if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin,isPlatformAdmin:actor.is_platform_admin,mustChangePassword:actor.must_change_password}});
     if(body.action==='logout'){
@@ -64,7 +66,7 @@ Deno.serve(async req=>{
     if(body.action==='list_club_access'){
       if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
       const {data:clubs,error:cErr}=await db.from('clubs').select('code,naam').eq('actief',true).order('naam');if(cErr)throw cErr;
-      const {data:accounts,error}=await db.from('app_accounts').select('id,club_code,display_name,role,is_admin,active,is_platform_admin').is('deleted_at',null).neq('username','kijker').order('display_name');if(error)throw error;
+      const {data:accounts,error}=await db.from('app_accounts').select('id,club_code,display_name,role,is_admin,active,is_platform_admin,membership_approved,email').is('deleted_at',null).neq('username','kijker').order('display_name');if(error)throw error;
       return json({ok:true,clubs,accounts});
     }
     if(body.action==='set_club_admin'){
@@ -72,8 +74,12 @@ Deno.serve(async req=>{
       const {error}=await db.rpc('epp_set_club_admin',{p_actor:actor.id,p_target:body.accountId,p_enabled:body.enabled===true});if(error)throw error;
       return json({ok:true});
     }
+    if(body.action==='approve_member'){
+      const {error}=await db.rpc('epp_approve_member',{p_actor:actor.id,p_target:body.accountId});if(error)throw error;
+      return json({ok:true});
+    }
     if(body.action==='list_accounts'){
-      const {data,error}=await db.from('app_accounts').select('id,username,display_name,role,is_admin,active,is_platform_admin').eq('club_code',actor.club_code).is('deleted_at',null).order('display_name');if(error)throw error;
+      const {data,error}=await db.from('app_accounts').select('id,username,display_name,role,is_admin,active,is_platform_admin,membership_approved,email').eq('club_code',actor.club_code).is('deleted_at',null).order('display_name');if(error)throw error;
       return json({ok:true,accounts:data});
     }
     if(body.action==='create_account'){

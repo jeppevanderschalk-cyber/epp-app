@@ -27,17 +27,23 @@ Deno.serve(async (req) => {
   if (typeof clubId !== "string" || !isKnownClub(clubId)) {
     return json({ ok: false, error: "onbekende_club" }, 403);
   }
-  try { await requireAccount(body,true); }
+  let actor;
+  try { actor=await requireAccount(body,true);if(!actor.is_admin)throw new Error('geen_beheerrechten'); }
   catch(e){return json({ok:false,error:e.message},401);}
 
   const db = serviceClient();
 
   try {
+    if(action==='list_archived_matches'){
+      const {data,error}=await db.from('epp_matches').select('id,organizer,match_date,match_dates,archived_at').eq('club_id',clubId).not('archived_at','is',null).order('archived_at',{ascending:false});if(error)throw error;
+      return json({ok:true,matches:data});
+    }
     if (action === "list_matches") {
       const { data: matches, error } = await db
         .from("epp_matches")
         .select("*")
         .eq("club_id", clubId)
+        .is('archived_at',null)
         .order("match_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
 
@@ -139,16 +145,17 @@ Deno.serve(async (req) => {
         .update(patch)
         .eq("id", id)
         .eq("club_id", clubId)
+        .is('archived_at',null)
         .select()
         .single();
       if (error) throw error;
       return json({ ok: true, match: data });
     }
 
-    if (action === "delete_match") {
+    if (action === "delete_match" || action === "archive_match") {
       const id = body.id;
       if (typeof id !== "string") return json({ ok: false, error: "id_verplicht" }, 400);
-      const { error } = await db.from("epp_matches").delete().eq("id", id).eq("club_id", clubId);
+      const { error } = await db.rpc('epp_archive_match',{p_actor:actor.id,p_match:id});
       if (error) throw error;
       return json({ ok: true });
     }
@@ -173,7 +180,7 @@ Deno.serve(async (req) => {
     }
 
     if(action==='link_signup'){
-      const {data:signup,error:signupError}=await db.from('epp_signups').select('id,match:epp_matches!inner(club_id)').eq('id',body.signupId).eq('match.club_id',clubId).single();
+      const {data:signup,error:signupError}=await db.from('epp_signups').select('id,match:epp_matches!inner(club_id,archived_at)').eq('id',body.signupId).eq('match.club_id',clubId).is('match.archived_at',null).single();
       if(signupError||!signup)throw new Error('inschrijving_niet_gevonden');
       const {data:club,error:clubError}=await db.from('clubs').select('id').eq('code',clubId).single();if(clubError)throw clubError;
       const {data:member,error:memberError}=await db.from('memberships').select('id').eq('club_id',club.id).eq('shooter_id',body.shooterId).limit(1);if(memberError||!member?.length)throw new Error('schutter_niet_van_vereniging');
@@ -189,6 +196,7 @@ Deno.serve(async (req) => {
         .update({ mail_status: "verstuurd", mail_sent_at: new Date().toISOString() })
         .eq("id", matchId)
         .eq("club_id", clubId)
+        .is("archived_at", null)
         .select()
         .single();
       if (error) throw error;

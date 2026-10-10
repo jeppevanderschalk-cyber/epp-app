@@ -223,20 +223,12 @@ Deno.serve(async (req) => {
     if (action === "context") {
       const ranking = await loadRanking(db, ctx);
       const {data:events,error:eventError}=await db.from('events').select('id,naam,local_date,registration_match_id,rounds(id,label)').eq('organizer_club_id',ctx.club.id).not('registration_match_id','is',null).order('local_date');if(eventError)throw eventError;
-      const {data:matches,error:matchError}=await db.from('epp_matches').select('id,organizer,match_date,offered_disciplines').eq('club_id',clubId).order('match_date');if(matchError)throw matchError;
+      const {data:matches,error:matchError}=await db.from('epp_matches').select('id,organizer,match_date,offered_disciplines').eq('club_id',clubId).is('archived_at',null).order('match_date');if(matchError)throw matchError;
       const matchRanking=body.matchId?await loadRanking(db,ctx,body.matchId):[];
       return json({ ok: true, context: ctx, ranking, matchRanking, events, matches, updatedAt: new Date().toISOString() });
     }
 
-    if(action==='prepare_match'||action==='create_round'){
-      if(action==='create_round'&&body.label&&body.label!=='Ronde 1')throw new Error('een_score_per_wedstrijd');
-      const {data:match,error}=await db.from('epp_matches').select('*').eq('id',body.matchId).eq('club_id',actor.club_code).single();if(error||!match.match_date)throw new Error('wedstrijd_niet_gevonden');
-      const year=match.match_date.slice(0,4),bounds=seasonBounds(year);
-      const season=await ensureSingle(db,'seasons',{naam:year},{naam:year,start_date:bounds.start,end_date:bounds.end,ranking_version:RANKING_VERSION});
-      const event=await ensureSingle(db,'events',{registration_match_id:match.id},{registration_match_id:match.id,organizer_club_id:ctx.club.id,season_id:season.id,naam:match.organizer+' - '+match.match_date,type:'wedstrijd',local_date:match.match_date,rule_profile_id:ctx.rule.id,ranking_eligible:true});
-      const round=await ensureMatchRound(db,event.id,ensureSingle);
-      return json({ok:true,event,round});
-    }
+    if(action==='prepare_match'||action==='create_round')throw new Error('centrale_scoreinvoer_verplicht');
 
     if(action==='get_result'){
       await requireAccount(body,true);
@@ -255,31 +247,7 @@ Deno.serve(async (req) => {
       return json({ok:true,shooter:data});
     }
 
-    if (action === "confirm_result") {
-
-      const shooterName = cleanText(body.shooterName);
-      if (!shooterName) return json({ ok: false, error: "schutter_naam_verplicht" }, 400);
-      if(body.entryMode!=='counted')throw new Error('kaarttelling_verplicht');
-      const entryMode = 'counted';
-      const idempotencyKey = cleanText(body.idempotencyKey) || crypto.randomUUID();
-
-      const valid = validateCounted(body);
-      if (!valid.ok) return json({ ok: false, error: valid.error }, 400);
-
-      if(!body.shooterId)throw new Error('selecteer_schutter');
-      let shooter;
-      if(body.matchId){
-        const {data:participants,error:participantError}=await db.rpc('epp_match_participants',{p_actor:actor.id,p_match:body.matchId,p_discipline:body.discipline||'pistool'});if(participantError)throw participantError;
-        if(participants.planned){
-          shooter=participants.shooters.find((s:any)=>s.id===body.shooterId);if(!shooter)throw new Error('schutter_niet_ingeschreven');
-        }
-      }
-      shooter=shooter||await findOrCreateShooter(db, shooterName, ctx.club.id, cleanText(body.shooterId));
-      const { data: result, error } = await db.rpc(body.rapid?'epp_confirm_timed_result':'epp_confirm_result',{p_actor:actor.id,p_club:ctx.club.id,p_round:body.roundId,p_shooter:shooter.id,p_division:ctx.division.id,p_counts:{...valid.counted,rapid:body.rapid,rapidTimeMs:body.rapidTimeMs,totalTimeMs:body.totalTimeMs,penaltyTimeMs:body.penaltyTimeMs,penaltyReason:cleanText(body.penaltyReason)},p_key:idempotencyKey,p_expected:body.expectedRevision||0,p_reason:cleanText(body.reason)});
-      if (error) throw error;
-      const ranking = await loadRanking(db, ctx);
-      return json({ ok: true, result, shooter, ranking, matchRanking:body.matchId?await loadRanking(db,ctx,body.matchId):[], updatedAt: new Date().toISOString() });
-    }
+    if(action==='confirm_result')throw new Error('centrale_scoreinvoer_verplicht');
 
     return json({ ok: false, error: "onbekende_actie" }, 400);
   } catch (e) {

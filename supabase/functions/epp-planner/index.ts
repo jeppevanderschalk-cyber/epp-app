@@ -17,9 +17,11 @@ Deno.serve(async req=>{
         const mine=await allRows(()=>db.from('epp_signups').select('match_id').eq('shooter_id',profile.id).order('id'));
         if(mine.length){const unpublished=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,match_dates,offered_disciplines)').eq('published',false).in('match_id',mine.map(m=>m.match_id)).order('match_id'));matches.push(...unpublished);}
       }
-      return json({ok:true,matches:matches.map(p=>p.match).filter(Boolean).sort((a,b)=>String(a.match_date).localeCompare(String(b.match_date)))});
+      const archived=await allRows(()=>db.from('epp_matches').select('id').not('archived_at','is',null).order('id'));
+      return json({ok:true,matches:matches.map(p=>p.match).filter(m=>m&&!archived.some(a=>a.id===m.id)).sort((a,b)=>String(a.match_date).localeCompare(String(b.match_date)))});
     }
     const {data:match,error:matchError}=await db.from('epp_matches').select('*').eq('id',body.matchId).single();if(matchError)throw new Error('wedstrijd_niet_gevonden');
+    if(match.archived_at)throw new Error('wedstrijd_gearchiveerd');
     const {data:planner,error:pErr}=await db.from('epp_match_planners').select('*').eq('match_id',match.id).maybeSingle();if(pErr)throw pErr;
     const managing=actor.role==='trainer'&&actor.is_admin&&actor.club_code===(planner?.owner_club||match.club_id);
     if(body.action==='configure'){

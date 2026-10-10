@@ -21,8 +21,10 @@ Deno.serve(async req=>{
         return query;
       }):[];
       const allowed=states.filter(s=>head||(actor.role==='trainer'&&actor.is_admin&&s.owner_club===actor.club_code)||assignments.some(a=>a.match_id===s.match_id));
-      return json({ok:true,matches:[...allowed.map(s=>({...s.match,scoring:true,can_score:!s.closed,closed:s.closed})),...own.filter(p=>!states.some(s=>s.organizer===p.match.organizer&&s.match_date===p.match.match_date)).map(p=>({...p.match,scoring:true,can_score:true,closed:false}))]});
+      const archived=await rows(()=>db.from('epp_matches').select('id').not('archived_at','is',null).order('id'));
+      return json({ok:true,matches:[...allowed.map(s=>({...s.match,scoring:true,can_score:!s.closed,closed:s.closed})),...own.filter(p=>!states.some(s=>s.organizer===p.match.organizer&&s.match_date===p.match.match_date)).map(p=>({...p.match,scoring:true,can_score:true,closed:false}))].filter(m=>!archived.some(a=>a.id===m.id))});
     }
+    const {data:match,error:matchError}=await db.from('epp_matches').select('archived_at').eq('id',body.matchId).single();if(matchError)throw matchError;if(match.archived_at)throw new Error('wedstrijd_gearchiveerd');
     const access=await rpc('epp_scoring_prepare',{p_actor:actor.id,p_match:body.matchId});
     const matchId=access.matchId,discipline=body.discipline||'pistool';
     if(body.action==='control'){
@@ -48,7 +50,7 @@ Deno.serve(async req=>{
     const signups=await rows(()=>db.from('epp_signups').select('shooter:shooters(id,display_name,public_id,home_club:clubs!shooters_home_club_id_fkey(naam)),disciplines:epp_signup_disciplines(discipline,specific_time)').eq('match_id',matchId).order('id'));
     const leases=await rows(()=>db.from('epp_score_leases').select('shooter_id,discipline,actor_id,expires_at').eq('match_id',matchId).gt('expires_at',new Date().toISOString()).order('shooter_id'));
     const shooters=signups.filter(s=>s.shooter&&s.disciplines.some((d:any)=>d.discipline===discipline)).map(s=>({...s.shooter,club:s.shooter.home_club?.naam,lease:leases.find(l=>l.shooter_id===s.shooter.id&&l.discipline===discipline)||null}));
-    const accounts=access.managing?await rows(()=>db.from('app_accounts').select('id,display_name,club_code').eq('active',true).eq('must_change_password',false).like('username','lid.%').order('id')):[];
+    const accounts=access.managing?await rows(()=>db.from('app_accounts').select('id,display_name,club_code').eq('active',true).eq('membership_approved',true).eq('must_change_password',false).like('username','lid.%').order('id')):[];
     const scorers=access.managing?await rows(()=>db.from('epp_match_scorers').select('account_id').eq('match_id',matchId).order('account_id')):[];
     const {data:audit,error:auditError}=access.managing?await db.from('result_audit').select('actor_id,action,reason,created_at,result:results!inner(round_id,shooter_id,final_score)').eq('result.round_id',access.roundId).order('created_at',{ascending:false}).limit(30):{data:[],error:null};if(auditError)throw auditError;
     return json({ok:true,...access,planned:true,shooters,accounts,scorers,audit});

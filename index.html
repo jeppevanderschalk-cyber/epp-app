@@ -3,6 +3,8 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-ENJ01ojp07BZAC6zcLDRChrgaFRJddHGkWEzxqfnn4I=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-bTwfu/dVKBF1tQLDiHzG5duBXBGJRVtgdhz2hba+PaM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP score app</title>
 <meta name="theme-color" content="#063971" />
@@ -64,6 +66,7 @@
     </label>
     <label id="loginFirstLabel" hidden><span>Voornaam</span><input id="loginFirstName" autocomplete="given-name" maxlength="70" /></label>
     <label id="loginLastLabel" hidden><span>Achternaam</span><input id="loginLastName" autocomplete="family-name" maxlength="70" /></label>
+    <label id="loginEmailLabel" hidden><span>E-mailadres (nieuwe accounts)</span><input id="loginEmail" type="email" autocomplete="username" maxlength="254" /></label>
     <label>
       <span>Wachtwoord</span>
       <input type="password" id="loginPassword" autocomplete="current-password" required />
@@ -77,7 +80,7 @@
 <div id="root" hidden></div>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
-<script src="match-planner-ui.js?v=scorer-access-14"></script>
+<script src="match-planner-ui.js?v=audit-hardening-15"></script>
 <script src="head-view-ui.js?v=2"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=team-edit-2"></script>
@@ -124,7 +127,7 @@ function eppShowApp(){
   document.getElementById("root").removeAttribute("hidden");
 }
 var EPP_SESSION_KEY='epp-session-v2';
-function eppSession(){try{return JSON.parse(localStorage.getItem(EPP_SESSION_KEY)||'null');}catch{return null;}}
+function eppSession(){try{if(!sessionStorage.getItem(EPP_SESSION_KEY)&&localStorage.getItem(EPP_SESSION_KEY))sessionStorage.setItem(EPP_SESSION_KEY,localStorage.getItem(EPP_SESSION_KEY));localStorage.removeItem(EPP_SESSION_KEY);return JSON.parse(sessionStorage.getItem(EPP_SESSION_KEY)||'null');}catch{return null;}}
 function eppRawCall(fn,payload){
   var key='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc296eGprbHRjbmV4cXBud2lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MDI3MTMsImV4cCI6MjEwNTQ3ODcxM30.xfgh12ksiCiSZGxXsrIF5HIiw6w418cECT476mBrUp0';
   return fetch('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/'+fn,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)}).then(async function(r){var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'server_fout');return d;});
@@ -146,7 +149,7 @@ function eppShowLoginGate(){
   document.getElementById("loginError").textContent="";
   var registration=sessionStorage.getItem('epp-registration-login');
   if(registration){
-    try{var details=JSON.parse(registration);clubSel.value=details.clubId;document.getElementById('loginFirstName').value=details.firstName;document.getElementById('loginLastName').value=details.lastName;document.getElementById('loginStatus').textContent='Account aangemaakt. Log in met je eigen wachtwoord.';}catch{}
+    try{var details=JSON.parse(registration);clubSel.value=details.clubId;document.getElementById('loginFirstName').value=details.firstName;document.getElementById('loginLastName').value=details.lastName;document.getElementById('loginEmail').value=details.email||'';document.getElementById('loginStatus').textContent=details.pendingApproval?'Account aangemaakt. Je vereniging moet je lidmaatschap eerst goedkeuren. Daarna kun je inloggen.':'Account aangemaakt. Log in met je eigen wachtwoord.';eppApplyLoginEmail();}catch{}
     sessionStorage.removeItem('epp-registration-login');
   }
   pw.focus();
@@ -159,6 +162,8 @@ function eppSetPersonalLogin(enabled){
     document.getElementById('login'+part+'Label').hidden=!eppPersonalLogin;
     document.getElementById('login'+part+'Name').required=eppPersonalLogin;
   });
+  document.getElementById('loginEmailLabel').hidden=!eppPersonalLogin;
+  eppApplyLoginEmail();
   var toggle=document.getElementById('loginPersonalToggle');
   toggle.hidden=document.getElementById('loginRole').value==='hoofdbeheer';
   toggle.textContent='Ik heb nog geen account';
@@ -166,6 +171,8 @@ function eppSetPersonalLogin(enabled){
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 }
+function eppApplyLoginEmail(){['First','Last'].forEach(function(part){document.getElementById('login'+part+'Name').required=eppPersonalLogin&&!document.getElementById('loginEmail').value.trim();});}
+document.getElementById('loginEmail').addEventListener('input',eppApplyLoginEmail);
 document.getElementById('loginPersonalToggle').addEventListener('click',async function(){
   if(document.getElementById('loginRole').value!=='schutter')return;
   var button=this;
@@ -176,7 +183,7 @@ document.getElementById('loginPersonalToggle').addEventListener('click',async fu
   document.getElementById('loginError').textContent='';
   try{
     var result=await eppRawCall('epp-auth',{clubId:'svbb',action:'login',username:'kijker',password:'Welkom123'});
-    localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
+    sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
     localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
     localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
     location.reload();
@@ -207,14 +214,15 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
     var submitButton=document.querySelector(".login-submit");
     submitButton.disabled=true;
     var username=role==='hoofdbeheer'?'hoofdbeheer':'kijker';
-    var credentials=eppPersonalLogin?{firstName:document.getElementById('loginFirstName').value,lastName:document.getElementById('loginLastName').value}:{username:username};
+    var credentials=eppPersonalLogin?(document.getElementById('loginEmail').value.trim()?{email:document.getElementById('loginEmail').value}:{firstName:document.getElementById('loginFirstName').value,lastName:document.getElementById('loginLastName').value}):{username:username};
     eppRawCall("epp-auth",{clubId:club.id,action:"login",...credentials,password:entered}).then(function(result){
-      localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
+      sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
       localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
       localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       location.reload();
     }).catch(function(error){
+      if(error.message==='vereniging_goedkeuring_nodig'){document.getElementById('loginError').textContent='Je account wacht op goedkeuring door je vereniging. Neem contact op met je verenigingsbeheerder.';return;}
       document.getElementById("loginError").textContent=error.message==="ongeldig_wachtwoord"?(role==='schutter'&&!eppPersonalLogin?'Dit is de toegang voor nieuwe schutters. Heb je al een account? Kies hieronder Inloggen met eigen account en vul je vereniging, naam en eigen wachtwoord in.':'Inloggen niet gelukt. Controleer je vereniging, naam en wachtwoord. Na meerdere pogingen kan de toegang tijdelijk geblokkeerd zijn.') :"Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw.";
     }).finally(function(){submitButton.disabled=false;});
     return;
@@ -231,9 +239,9 @@ var eppSessionAttempt=eppAuthAttempt;
 if(savedSession && eppClubValid){
   eppAuthReady=eppRawCall('epp-auth',{action:'session',clubId:eppStoredClub,sessionToken:savedSession.sessionToken}).then(function(result){
     if(eppAuthAttempt!==eppSessionAttempt)return false;
-    localStorage.setItem(EPP_SESSION_KEY,JSON.stringify({...savedSession,account:result.account}));
+    sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify({...savedSession,account:result.account}));
     localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);return true;
-  }).catch(function(){if(eppAuthAttempt===eppSessionAttempt){localStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();}return false;});
+  }).catch(function(){if(eppAuthAttempt===eppSessionAttempt){sessionStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();}return false;});
 }else{eppShowLoginGate();}
 </script>
 <script>/* react */
@@ -632,7 +640,7 @@ const eppCall = async (fnName, payload) => {
   },body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)});
   let data=null;
   try{data=await res.json();}catch(e){}
-  if(!res.ok || !data?.ok){const error=new Error(data?.error || `fout (${res.status})`);error.status=res.status;if(error.message==='sessie_verlopen'){localStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();}throw error;}
+  if(!res.ok || !data?.ok){const error=new Error(data?.error || `fout (${res.status})`);error.status=res.status;if(error.message==='sessie_verlopen'){sessionStorage.removeItem(EPP_SESSION_KEY);eppShowLoginGate();}throw error;}
   return data;
 };
 const eppPlatformError = code => ({
@@ -1542,7 +1550,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
       setMatchRanking(r.matchRanking||[]);
       const scoring=await eppCall('epp-scoring',{clubId:CLUB_ID,action:'catalog'});
       if(request!==rankingRequest.current)return;
-      setMatchesCalendar([...(scoring.matches||[]),...(r.matches||[]).filter(m=>!(scoring.matches||[]).some(s=>s.organizer===m.organizer&&s.match_date===m.match_date))]);
+      setMatchesCalendar(scoring.matches||[]);
       setStatus("landelijke stand bijgewerkt");
     }catch(e){if(request===rankingRequest.current)setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}
   },[discipline,matchId]);
@@ -1757,7 +1765,7 @@ const EppDisciplineRow = ({d, checked, value, onToggle, onChange, disabled}) =>
   );
 
 const MemberRegistration = () => {
-  const [form,setForm]=React.useState({clubId:"",firstName:"",lastName:"",password:"",repeat:""});
+  const [form,setForm]=React.useState({clubId:"",firstName:"",lastName:"",email:"",password:"",repeat:""});
   const [busy,setBusy]=React.useState(false);
   const [error,setError]=React.useState("");
   const submit=async event=>{
@@ -1765,24 +1773,25 @@ const MemberRegistration = () => {
     if(form.password!==form.repeat){setError("De wachtwoorden zijn niet gelijk.");return;}
     setBusy(true);setError("");
     try{
-      const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,firstName:form.firstName,lastName:form.lastName,newPassword:form.password});
+      const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,firstName:form.firstName,lastName:form.lastName,email:form.email,newPassword:form.password});
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       localStorage.setItem('epp-personal-login-preferred','1');
       sessionStorage.setItem('epp-personal-login','1');
-      sessionStorage.setItem('epp-registration-login',JSON.stringify({clubId:result.account.clubId,firstName:form.firstName.trim(),lastName:form.lastName.trim()}));
-      localStorage.removeItem(EPP_SESSION_KEY);
+      sessionStorage.setItem('epp-registration-login',JSON.stringify({clubId:result.account.clubId,firstName:form.firstName.trim(),lastName:form.lastName.trim(),email:form.email.trim(),pendingApproval:result.pendingApproval}));
+      sessionStorage.removeItem(EPP_SESSION_KEY);
       localStorage.removeItem(EPP_AUTH_STORAGE_KEY);
       localStorage.removeItem(EPP_AUTH_ROLE_KEY);
       location.reload();
     }catch(e){
       const message=(e.message||'').replace('voornaam_achternaam_verplicht','naam_ongeldig');
+      if(message==='email_ongeldig'||message==='email_al_geregistreerd'){setError(message==='email_ongeldig'?'Vul een geldig e-mailadres in.':'Met dit e-mailadres bestaat al een account. Log daarmee in of neem contact op met beheer.');return;}
       setError(message.includes('persoonlijk_account_bestaat_al')||message.includes('naam_al_geregistreerd')||message.includes('gebruikersnaam_bestaat')?'Met deze naam bestaat al een account. Log in met je eigen account of neem contact op met beheer.':message.includes('registratielimiet')?'Er zijn te veel registratiepogingen. Probeer later opnieuw of neem contact op met beheer.':message.includes('nieuw_wachtwoord_ongeldig')?'Gebruik een eigen wachtwoord van minimaal 10 en maximaal 256 tekens.':message.includes('naam_ongeldig')?'Vul een geldige voornaam en achternaam in.':message.includes('vereniging_verplicht')?'Kies je vereniging voordat je het account opslaat.':message.includes('sessie_verlopen')||message.includes('registratie_niet_toegestaan')?'Je registratiesessie is verlopen. Ga via "Ik heb al een account" terug naar inloggen en start de registratie opnieuw.':'De opslag kon niet worden bevestigd. Controleer je internetverbinding. Probeer eerst inloggen met je eigen account; mogelijk is het account al aangemaakt. Je invoer blijft hier staan.');
     }finally{setBusy(false);}
   };
   const existing=async()=>{
     if(busy)return;setBusy(true);
     try{await eppCall('epp-auth',{clubId:CLUB_ID,action:'logout'});}catch{}
-    localStorage.removeItem(EPP_SESSION_KEY);sessionStorage.setItem('epp-personal-login','1');location.reload();
+    sessionStorage.removeItem(EPP_SESSION_KEY);sessionStorage.setItem('epp-personal-login','1');location.reload();
   };
   return h("section",{className:"card"},
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Eigen account aanmaken")),
@@ -1790,6 +1799,7 @@ const MemberRegistration = () => {
       h('label',null,'Vereniging',h('select',{className:'txt-in',required:true,disabled:busy,value:form.clubId,onChange:e=>setForm(p=>({...p,clubId:e.target.value}))},h('option',{value:''},'Kies je vereniging'),EPP_CLUBS.filter(c=>!['gast','eppnationaal'].includes(c.id)).map(c=>h('option',{key:c.id,value:c.id},c.label)))),
       h("label",null,"Voornaam",h("input",{className:"txt-in",autoComplete:"given-name",required:true,maxLength:70,value:form.firstName,disabled:busy,onChange:e=>setForm(p=>({...p,firstName:e.target.value}))})),
       h("label",null,"Achternaam",h("input",{className:"txt-in",autoComplete:"family-name",required:true,maxLength:70,value:form.lastName,disabled:busy,onChange:e=>setForm(p=>({...p,lastName:e.target.value}))})),
+      h("label",null,"E-mailadres",h("input",{className:"txt-in",type:"email",autoComplete:"email",required:true,maxLength:254,value:form.email,disabled:busy,onChange:e=>setForm(p=>({...p,email:e.target.value}))})),
       h("label",null,"Eigen wachtwoord",h("input",{className:"txt-in",type:"password",autoComplete:"new-password",minLength:10,maxLength:256,required:true,value:form.password,disabled:busy,onChange:e=>setForm(p=>({...p,password:e.target.value}))})),
       h("label",null,"Herhaal wachtwoord",h("input",{className:"txt-in",type:"password",autoComplete:"new-password",minLength:10,maxLength:256,required:true,value:form.repeat,disabled:busy,onChange:e=>setForm(p=>({...p,repeat:e.target.value}))})),
       error&&h("p",{role:"alert",className:"hint"},error),
@@ -1981,6 +1991,7 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
 
 const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
   const [matches,setMatches] = React.useState(null);
+  const [archived,setArchived]=React.useState([]);
   const [adding,setAdding] = React.useState(false);
   const [editing,setEditing] = React.useState(null);
   const [openId,setOpenId] = React.useState(null);
@@ -1989,7 +2000,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
   const [plannerMatch,setPlannerMatch]=React.useState(null);
 
   const load = React.useCallback(async ()=>{
-    try{const r=await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"list_matches"});setMatches(r.matches||[]);}
+    try{const r=await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"list_matches"});setMatches(r.matches||[]);const a=await eppCall('epp-admin',{clubId:CLUB_ID,action:'list_archived_matches'});setArchived(a.matches||[]);}
     catch(e){onAuthFail();}
   },[password]);
   React.useEffect(()=>{load();},[load]);
@@ -2015,8 +2026,8 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
     }catch(e){flash("Mislukt: "+e.message);}
   };
   const deleteMatch = async (id) => {
-    if(!confirm("Deze wedstrijd en alle inschrijvingen verwijderen?"))return;
-    try{await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"delete_match",id});flash("Verwijderd");load();}
+    if(!confirm("Deze wedstrijd archiveren? Nieuwe inschrijvingen stoppen. Deelnemers, planning en scores blijven bewaard."))return;
+    try{await eppCall("epp-admin",{clubId:CLUB_ID,password,action:"archive_match",id});flash("Wedstrijd gearchiveerd; gegevens behouden.");load();}
     catch(e){flash("Mislukt: "+e.message);}
   };
 
@@ -2025,7 +2036,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
   if(plannerMatch)return h('div',{style:{display:'grid',gap:16}},h('button',{className:'btn btn-ghost',onClick:()=>{setPlannerMatch(null);load();}},'Terug naar wedstrijden'),h('h2',{style:{fontSize:20}},plannerMatch.organizer),h(MatchPlanner,{key:plannerMatch.id,matchId:plannerMatch.id,manage:true}));
 
   if(openId){
-    const m = matches.find(x=>x.id===openId);
+    const m = [...matches,...archived].find(x=>x.id===openId);
     return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
       h("button",{className:"btn btn-ghost btn-full",onClick:()=>{setOpenId(null);setGroup(null);load();}},"← Terug naar wedstrijden"),
       h("div",{className:"card"},
@@ -2037,7 +2048,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
           group.signups.map(s=>h("div",{key:s.id,className:"set-row"},
             h("div",{className:"set-lbl"},
               h("div",null,s.shooter_name),
-              !s.shooter_id && h("select",{className:"sel-in","aria-label":"Schutter-ID voor "+s.shooter_name,value:"",onChange:async e=>{
+              !m.archived_at && !s.shooter_id && h("select",{className:"sel-in","aria-label":"Schutter-ID voor "+s.shooter_name,value:"",onChange:async e=>{
                 const id=e.target.value;if(!id||!confirm("Deze inschrijving koppelen aan dit schutter-ID?"))return;
                 try{await eppCall('epp-admin',{clubId:CLUB_ID,action:'link_signup',signupId:s.id,shooterId:id});await openGroup(m);flash('Inschrijving gekoppeld');}
                 catch(error){flash('Koppelen mislukt: '+error.message);}
@@ -2047,7 +2058,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
           ))
         )
       ),
-      eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold btn-full',onClick:()=>{setOpenId(null);setGroup(null);setPlannerMatch(m);}},'Planning en deelnemers beheren')
+      !m.archived_at&&eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold btn-full',onClick:()=>{setOpenId(null);setGroup(null);setPlannerMatch(m);}},'Planning en deelnemers beheren')
     );
   }
 
@@ -2057,6 +2068,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
     adding && h(EppMatchForm,{onSave:createMatch,onCancel:()=>setAdding(false)}),
     editing && h(EppMatchForm,{initial:editing.data,onSave:f=>updateMatch(editing.id,f),onCancel:()=>setEditing(null)}),
     !matches.length ? h("div",{className:"empty"},h("p",null,"Nog geen wedstrijden toegevoegd.")) :
+    archived.length>0&&h('details',null,h('summary',null,'Gearchiveerde wedstrijden ('+archived.length+')'),archived.map(m=>h('div',{key:m.id,style:{padding:'12px 0'}},h('strong',null,m.organizer),h('p',{className:'hint'},eppFmtMatchDates(m)),h('button',{className:'btn btn-ghost',onClick:()=>openGroup(m)},'Deelnemers bekijken')))),
     matches.map(m=>h("div",{key:m.id,className:"match-card"},
       h("div",{className:"match-hd"},
         h("div",null,
@@ -2069,7 +2081,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
         eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold',onClick:()=>setPlannerMatch(m)},'Wedstrijdplanner'),
         h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>openGroup(m)},"Groepslijst"),
         h("button",{className:"btn btn-ghost",style:{flex:1},onClick:()=>setEditing({id:m.id,data:m})},"Bewerken"),
-        h("button",{className:"btn btn-danger",style:{flex:1},onClick:()=>deleteMatch(m.id)},"Verwijderen")
+        h("button",{className:"btn btn-danger",style:{flex:1},onClick:()=>deleteMatch(m.id)},"Archiveren")
       )
     ))
   );
@@ -2196,6 +2208,7 @@ const AccountManagement = () => {
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Accounts - "+CLUB.label)),
     h("div",{className:"card-body",style:{display:"grid",gap:12}},
       accounts.map(a=>h("div",{key:a.id,style:{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",borderBottom:"1px solid "+C.border,paddingBottom:8}},
+        h(MembershipApproval,{account:a,onApproved:load}),
         h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+a.role+(a.active?"":" - geblokkeerd"))),
         a.active&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-danger",disabled:busy,onClick:()=>disable(a)},"Blokkeren"),
         eppSession()?.account?.isPlatformAdmin&&a.id!==eppSession()?.account?.id&&!a.is_platform_admin&&!['kijker','hoofdbeheer'].includes(a.username)&&h('button',{className:'btn btn-danger',disabled:busy,onClick:()=>remove(a)},'Account verwijderen'))),
@@ -2488,7 +2501,7 @@ function App({headClubs,onHeadClubChange}={}) {
   },[shooters,scores,cameraShots,stageShots,currentTraining,bestParcours,bestStageAverages,archives,loaded]);
 
   // State helpers
-  const addShooter = () => {const n=nieuw.trim();if(!n)return;markLocalEdit();setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
+  const addShooter = () => {const n=nieuw.trim().replace(/\s+/g,' ');if(!n)return;if(shooters.some(s=>s.naam.trim().replace(/\s+/g,' ').toLocaleLowerCase('nl-NL')===n.toLocaleLowerCase('nl-NL'))){flash('Deze schutter staat al in de trainingslijst.');return;}markLocalEdit();setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
   const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;markLocalEdit();setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
   const markShotsDeleted = ids => {markLocalEdit();setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));};
   const setTrainingMode = mode => {markLocalEdit();setCurrentTraining(t=>({...t,mode,updatedAt:Date.now()}));};
@@ -2560,7 +2573,7 @@ function App({headClubs,onHeadClubChange}={}) {
     if(isTrainer&&EppStore.diff(store.current.base,latestPayload.current).length&&!confirm("Er is nog niet online opgeslagen invoer. Die blijft lokaal bewaard. Toch uitloggen?"))return;
     persistQueue();
     try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"logout"});}catch(e){}
-    localStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();
+    sessionStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();
   };
   const viewHeadClub=club=>{
     if(!club)return;
@@ -2629,7 +2642,7 @@ function App({headClubs,onHeadClubChange}={}) {
 
 eppAuthReady.then(function(verified){
   if(!verified)return;
-  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.username==='kijker'?h(RegistrationWorkspace):eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{localStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
+  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.username==='kijker'?h(RegistrationWorkspace):eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{sessionStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
   catch(e){if(window.__eppError)window.__eppError(e?.stack||String(e));}
 });
 

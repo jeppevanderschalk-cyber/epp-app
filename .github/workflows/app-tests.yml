@@ -1,0 +1,25 @@
+name: App regression checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test supabase/tests/*.test.mjs
+      - run: node tools/security-policy.mjs
+      - run: npm install --prefix /tmp/epp-test-tools playwright@1.62.1
+      - run: /tmp/epp-test-tools/node_modules/.bin/playwright install --with-deps chromium
+      - run: node supabase/tests/login-browser.mjs
+        env:
+          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
+      - run: node supabase/tests/head-scorer-browser.mjs
+        env:
+          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
+      - run: node supabase/tests/registration-approval-browser.mjs
+        env:
+          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs

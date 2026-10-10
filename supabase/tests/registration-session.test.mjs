@@ -26,5 +26,7 @@ account={...account,username:'lid.personal',club_code:'apgs'};
 await assert.rejects(requireAccount({...body,action:'load'}),/geen_toegang/);
 assert.equal((await requireAccount({...body,clubId:'apgs',action:'load'})).id,'shared');
 await assert.rejects(requireAccount({...body,clubId:'apgs',action:'save'},true),/geen_schrijfrechten/);
+account={...account,membership_approved:false};
+for(const action of ['session','context','catalog','load','save','view'])await assert.rejects(requireAccount({...body,clubId:'apgs',action}),/vereniging_goedkeuring_nodig/);
 delete globalThis.registrationSessionDB;
 console.log('PASS shared registration sessions cannot read data; explicit onboarding only; personal club and write guards preserved');

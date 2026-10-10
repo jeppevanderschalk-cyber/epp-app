@@ -6,9 +6,10 @@ export async function requireAccount(body: any, trainer = false, registration = 
   const { data: session, error } = await db.from('app_sessions').select('account_id,expires_at').eq('token_hash',await sha256Hex(body.sessionToken)).maybeSingle();
   if (error) throw error;
   if (!session || Date.parse(session.expires_at)<=Date.now()) throw new Error('sessie_verlopen');
-  const { data: account, error: accountError } = await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin,is_platform_admin,must_change_password,active').eq('id',session.account_id).maybeSingle();
+  const { data: account, error: accountError } = await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin,is_platform_admin,must_change_password,active,membership_approved').eq('id',session.account_id).maybeSingle();
   if (accountError) throw accountError;
   if (!account?.active || account.club_code!==body.clubId) throw new Error('geen_toegang');
+  if(account.membership_approved===false)throw new Error('vereniging_goedkeuring_nodig');
   if (account.username==='kijker' && !(registration && account.role==='schutter' && ['session','register_member','logout'].includes(body.action))) throw new Error('persoonlijk_account_verplicht');
   if(account.must_change_password&&!['session','change_password','logout'].includes(body.action))throw new Error('wachtwoord_wijzigen_verplicht');
   if (trainer && account.role!=='trainer') throw new Error('geen_schrijfrechten');
