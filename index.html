@@ -79,6 +79,7 @@
 <script src="training-store.js"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
 <script src="match-planner-ui.js?v=multiday-1"></script>
+<script src="head-view-ui.js?v=1"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=1"></script>
 <link rel="stylesheet" href="camera-series.css" />
@@ -794,6 +795,8 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .topbar-title h1{font-family:'Archivo',sans-serif;font-size:1.28rem;font-weight:900;color:${C.navy};margin:0;line-height:1.1;overflow-wrap:break-word;word-break:break-word;-webkit-hyphens:auto;hyphens:auto}
 .topbar-sub{font-size:.62rem;font-weight:800;color:rgba(10,17,40,.55);letter-spacing:.1em;text-transform:uppercase;margin-top:3px}
 .club-tag{font-family:'Archivo',sans-serif;font-size:.78rem;font-weight:800;letter-spacing:0;text-transform:uppercase;color:rgba(10,17,40,.65);flex:0 1 auto;min-width:0;max-width:32%;text-align:right;line-height:1.35;overflow-wrap:anywhere}
+.head-club-selector{flex:0 1 130px;min-width:0;max-width:32%;display:grid;gap:4px;font-size:.65rem;font-weight:800;color:${C.navy}}
+.head-club-selector select{width:100%;min-width:0;height:36px;border:1px solid rgba(10,17,40,.3);border-radius:6px;background:rgba(255,255,255,.16);color:${C.navy};font:inherit;font-size:.75rem;padding:0 4px;text-overflow:ellipsis}
 .gold-stripe{display:none}
 .bottomnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,430px);display:grid;grid-template-columns:repeat(5,1fr);background:rgba(9,15,36,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid ${C.border};z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
 .bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px 10px;background:none;border:none;cursor:pointer;color:${C.muted};font-family:'Archivo',sans-serif;font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;transition:color .15s;min-width:0;position:relative}
@@ -1262,10 +1265,11 @@ const TrainingHub = props => {
 };
 
 // ── TabRanglijst ──────────────────────────────────────────────────
-const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
+const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf,qualificationRecords}) => {
   const [stage,setStage] = React.useState("s1");
   const [qualifications,setQualifications]=React.useState({});
   React.useEffect(()=>{
+    if(qualificationRecords!==undefined){const byId={};for(const q of qualificationRecords)if(!byId[q.shooter_id])byId[q.shooter_id]=q;setQualifications(byId);return;}
     let active=true;
     const load=async()=>{
       try{const r=await eppCall("epp-platform",{clubId:CLUB_ID,action:"list_qualifications",discipline:"pistool"});if(!active)return;
@@ -1273,7 +1277,7 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf}) => {
       }catch{ /* Preserve the last confirmed titles during a network interruption. */ }
     };
     load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};
-  },[]);
+  },[qualificationRecords]);
   const stageObj = STAGES.find(s=>s.key===stage);
   const parcoursItems = EppScoreRanking.rank(shooters.filter(s=>bestParcours?.[s.id]).map((s,i)=>({...bestParcours[s.id],final_score:bestParcours[s.id].score,naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestParcours[s.id].score,max:250,timed:true})));
   const stageItems = shooters.map((s,i)=>({naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestStageAverages?.[stage]?.[s.id]?.avg,max:maxOf(stage)})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
@@ -1634,7 +1638,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
 };
 
 // ── TabStand ──────────────────────────────────────────────────────
-const TabStand = ({shooters, bestParcours, bestStageAverages, maxOf}) => h(TabRanglijst,{shooters,bestParcours,bestStageAverages,maxOf});
+const TabStand = props => h(TabRanglijst,props);
 
 // ── TabInstellingen ───────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════
@@ -2302,7 +2306,7 @@ with check (true);`)
 // ═══════════════════════════════════════════════════════════════════
 // APP — bevat alleen state en logica, geen geneste component-definities
 // ═══════════════════════════════════════════════════════════════════
-function App() {
+function App({headClubs,onHeadClubChange}={}) {
   const isTrainer = eppSession()?.account?.role === "trainer";
   const [trainingView,setTrainingView]=React.useState('parcours');
   const accountClubId=eppSession()?.account?.clubId;
@@ -2517,6 +2521,13 @@ function App() {
     try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"logout"});}catch(e){}
     localStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();
   };
+  const viewHeadClub=async club=>{
+    if(!club)return;
+    if(store.current.busy){flash('Wacht tot de online opslag klaar is.');return;}
+    if(!store.current.hydrated||store.current.conflict){flash('Controleer eerst de online opslag.');return;}
+    if(EppStore.diff(store.current.base,latestPayload.current).length&&!await pushRemote()){flash('Sla de openstaande invoer eerst online op.');return;}
+    onHeadClubChange(club);
+  };
 
   const syncNow = async () => {
     const ok=await pullRemote();
@@ -2563,7 +2574,7 @@ function App() {
           h("h1",null,"EPP score app"),
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
-        h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,style:accountClubName.split(/\s+/).some(word=>word.length>14)?{fontSize:'.65rem'}:undefined},accountClubName)
+        onHeadClubChange?h(HeadClubSelector,{clubs:headClubs||[],value:'',onChange:viewHeadClub,disabled:!loaded}):h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,style:accountClubName.split(/\s+/).some(word=>word.length>14)?{fontSize:'.65rem'}:undefined},accountClubName)
       ),
       h("div",{className:"gold-stripe"})
     ),
@@ -2580,7 +2591,7 @@ function App() {
 
 eppAuthReady.then(function(verified){
   if(!verified)return;
-  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{localStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(App));eppShowApp();}
+  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{localStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
   catch(e){if(window.__eppError)window.__eppError(e?.stack||String(e));}
 });
 

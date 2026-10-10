@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const source=(await readFile(new URL('../functions/epp-head-view/access.ts',import.meta.url),'utf8')).replace(': any','').replace(': string','');
+const {requireHeadViewer}=await import('data:text/javascript,'+encodeURIComponent(source));
+const head={active:true,role:'trainer',is_admin:true,is_platform_admin:true,must_change_password:false};
+for(const action of ['catalog','view'])assert.doesNotThrow(()=>requireHeadViewer(head,action));
+for(const action of ['save','create_account','configure','delete','restore_training','switch_club','confirm_result',null])assert.throws(()=>requireHeadViewer(head,action),/alleen_lezen/);
+for(const changed of [{active:false},{role:'schutter'},{is_admin:false},{is_platform_admin:false},{must_change_password:true}])assert.throws(()=>requireHeadViewer({...head,...changed},'view'),/geen_hoofdbeheerrechten/);
+const endpoint=await readFile(new URL('../functions/epp-head-view/index.ts',import.meta.url),'utf8');
+assert.doesNotMatch(endpoint,/\.\s*(insert|update|delete|upsert|rpc)\s*\(/);
+assert.match(endpoint,/requireAccount\(body\)/);
+assert.match(endpoint,/eq\('club_code',club.code\)/);
+console.log('PASS read-only head view: active head required, password change enforced, mutation actions denied, SELECT-only handler');
