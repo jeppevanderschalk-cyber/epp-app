@@ -3,9 +3,11 @@
 import { corsHeaders, json, serviceClient, checkPassword, isKnownClub } from "../_shared/epp.ts";
 import { requireAccount } from '../_shared/session.ts';
 import { ensureMatchRound } from '../_shared/match-round.ts';
+import '../../../score-ranking.js';
+const rankingRules = (globalThis as any).EppScoreRanking;
 
 const RULE_VERSION = "EPP_PISTOL_250_V1";
-const RANKING_VERSION = "BEST_SCORE_V1";
+const RANKING_VERSION = "EPP_TIEBREAK_V2";
 const DIVISION_NAME = "EPP pistool";
 
 type CountedInput = { hits5: number; hits4: number; hits3: number; hits2: number; misses: number; penaltyPoints: number };
@@ -40,12 +42,14 @@ async function ensureSingle(db: any, table: string, match: Record<string, unknow
   if (error) throw error;
   return data;
 }
-async function ensureContext(db: any, clubCode: string, clubLabel: string) {
+async function ensureContext(db: any, clubCode: string, clubLabel: string, discipline = 'pistool') {
+  if(!['pistool','optiek'].includes(discipline))throw new Error('ongeldige_discipline');
   const club = await ensureSingle(db, "clubs", { code: clubCode }, { code: clubCode, naam: clubLabel || clubCode.toUpperCase(), actief: true });
   const seasonName = currentSeasonName();
   const bounds = seasonBounds(seasonName);
   const season = await ensureSingle(db, "seasons", { naam: seasonName }, { naam: seasonName, start_date: bounds.start, end_date: bounds.end, ranking_version: RANKING_VERSION });
-  const division = await ensureSingle(db, "divisions", { naam: DIVISION_NAME }, { naam: DIVISION_NAME, actief: true });
+  const divisionName=discipline==='optiek'?'Open':DIVISION_NAME;
+  const division = await ensureSingle(db, "divisions", { naam: divisionName }, { naam: divisionName, actief: true });
   const rule = await ensureSingle(db, "rule_profiles", { version: RULE_VERSION }, { version: RULE_VERSION, shot_count: 50, max_score: 250, zone_values: [5, 4, 3, 2, 0] });
   return { club, season, division, rule };
 }
@@ -102,12 +106,17 @@ async function findOrCreateShooter(db: any, displayName: string, representedClub
   if(membershipError)throw membershipError;
   return shooter;
 }
-async function loadRanking(db: any, ctx: any) {
-  const { data: events, error: eErr } = await db
+async function loadRanking(db: any, ctx: any, matchId?: string) {
+  let eventQuery = db
     .from("events")
     .select("id")
-    .eq("season_id", ctx.season.id)
     .eq("ranking_eligible", true);
+  if(matchId){
+    const {data:match,error}=await db.from('epp_matches').select('organizer,match_date').eq('id',matchId).single();if(error)throw error;
+    const {data:copies,error:copyError}=await db.from('epp_matches').select('id').eq('organizer',match.organizer).eq('match_date',match.match_date);if(copyError)throw copyError;
+    eventQuery=eventQuery.in('registration_match_id',copies.map((m:any)=>m.id));
+  }else eventQuery=eventQuery.eq('season_id',ctx.season.id);
+  const { data: events, error: eErr } = await eventQuery;
   if (eErr) throw eErr;
   const eventIds = (events || []).map((e: any) => e.id);
   if (!eventIds.length) return [];
@@ -119,7 +128,7 @@ async function loadRanking(db: any, ctx: any) {
 
   const { data: results, error } = await db
     .from("results")
-    .select("id, round_id, shooter_id, represented_club_id, final_score, status, confirmed_at, revision")
+    .select("id, round_id, shooter_id, represented_club_id, final_score, hits5, rapid_score, rapid_time_ms, total_time_ms, status, confirmed_at, revision")
     .eq("status", "confirmed")
     .eq("division_id", ctx.division.id)
     .in("round_id", roundIds);
@@ -139,27 +148,21 @@ async function loadRanking(db: any, ctx: any) {
   for (const row of results || []) {
     const shooter = shooterMap.get(row.shooter_id);
     const key = shooter?.public_id || row.shooter_id;
-    const prev = best.get(key);
-    if (!prev || Number(row.final_score) > Number(prev.final_score)) best.set(key, row);
+    best.set(key,[...(best.get(key)||[]),row]);
   }
-  const sorted = Array.from(best.values()).sort((a, b) => {
-    const diff = Number(b.final_score) - Number(a.final_score);
-    if (diff) return diff;
-    const an = shooterMap.get(a.shooter_id)?.display_name || "";
-    const bn = shooterMap.get(b.shooter_id)?.display_name || "";
-    return String(an).localeCompare(String(bn));
-  });
-  let lastScore: number | null = null;
-  let lastPos = 0;
-  return sorted.map((row, idx) => {
+  return rankingRules.rank(Array.from(best.values()).map(rows=>rankingRules.best(rows))).map((row: any) => {
     const score = Number(row.final_score);
-    const pos = score === lastScore ? lastPos : idx + 1;
-    lastScore = score;
-    lastPos = pos;
     const shooter = shooterMap.get(row.shooter_id);
     const club = clubMap.get(row.represented_club_id);
     return {
-      position: pos,
+      position: row.position,
+      provisional: row.provisional,
+      hits5: row.hits5,
+      rapidScore: row.rapid_score,
+      rapidTimeMs: row.rapid_time_ms,
+      totalTimeMs: row.total_time_ms,
+      resultId: row.id,
+      matchId: rounds.find((r: any)=>r.id===row.round_id)?.event_id,
       publicId: shooter?.public_id,
       name: shooter?.display_name,
       club: club?.naam || club?.code,
@@ -182,13 +185,14 @@ Deno.serve(async (req) => {
   const db = serviceClient();
   try {
     const actor=await requireAccount(body,['confirm_result','prepare_match','create_round','register_shooter'].includes(action));
-    const ctx = await ensureContext(db, clubId, clubLabel || clubId.toUpperCase());
+    const ctx = await ensureContext(db, clubId, clubLabel || clubId.toUpperCase(),body.discipline||'pistool');
 
     if (action === "context") {
       const ranking = await loadRanking(db, ctx);
       const {data:events,error:eventError}=await db.from('events').select('id,naam,local_date,registration_match_id,rounds(id,label)').eq('organizer_club_id',ctx.club.id).not('registration_match_id','is',null).order('local_date');if(eventError)throw eventError;
-      const {data:matches,error:matchError}=await db.from('epp_matches').select('id,organizer,match_date').eq('club_id',clubId).order('match_date');if(matchError)throw matchError;
-      return json({ ok: true, context: ctx, ranking, events, matches, updatedAt: new Date().toISOString() });
+      const {data:matches,error:matchError}=await db.from('epp_matches').select('id,organizer,match_date,offered_disciplines').eq('club_id',clubId).order('match_date');if(matchError)throw matchError;
+      const matchRanking=body.matchId?await loadRanking(db,ctx,body.matchId):[];
+      return json({ ok: true, context: ctx, ranking, matchRanking, events, matches, updatedAt: new Date().toISOString() });
     }
 
     if(action==='prepare_match'||action==='create_round'){
@@ -231,10 +235,10 @@ Deno.serve(async (req) => {
 
       if(!body.shooterId)throw new Error('selecteer_schutter');
       const shooter = await findOrCreateShooter(db, shooterName, ctx.club.id, cleanText(body.shooterId));
-      const { data: result, error } = await db.rpc('epp_confirm_result',{p_actor:actor.id,p_club:ctx.club.id,p_round:body.roundId,p_shooter:shooter.id,p_division:ctx.division.id,p_counts:valid.counted,p_key:idempotencyKey,p_expected:body.expectedRevision||0,p_reason:cleanText(body.reason)});
+      const { data: result, error } = await db.rpc(body.rapid?'epp_confirm_timed_result':'epp_confirm_result',{p_actor:actor.id,p_club:ctx.club.id,p_round:body.roundId,p_shooter:shooter.id,p_division:ctx.division.id,p_counts:{...valid.counted,rapid:body.rapid,rapidTimeMs:body.rapidTimeMs,totalTimeMs:body.totalTimeMs,penaltyTimeMs:body.penaltyTimeMs,penaltyReason:cleanText(body.penaltyReason)},p_key:idempotencyKey,p_expected:body.expectedRevision||0,p_reason:cleanText(body.reason)});
       if (error) throw error;
       const ranking = await loadRanking(db, ctx);
-      return json({ ok: true, result, shooter, ranking, updatedAt: new Date().toISOString() });
+      return json({ ok: true, result, shooter, ranking, matchRanking:body.matchId?await loadRanking(db,ctx,body.matchId):[], updatedAt: new Date().toISOString() });
     }
 
     return json({ ok: false, error: "onbekende_actie" }, 400);
