@@ -20,13 +20,14 @@ const personal={id:'personal',username:'lid.test',displayName:'Anne de Vries',ro
 const errors=[];
 try{
   for(const viewport of [{width:390,height:844},{width:1440,height:1000}]){
-    const context=await browser.newContext({viewport});let signup=null,registration=null;
+    const context=await browser.newContext({viewport});let signup=null,registration=null;const sharedDataRequests=[];
     await context.addInitScript(account=>{
       if(!localStorage.getItem('epp-session-v2'))localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account}));
       if(!localStorage.getItem('epp-app-club-v1'))localStorage.setItem('epp-app-club-v1','svbb');localStorage.setItem('epp-app-role-v1','schutter');
     },shared);
     await context.route('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/**',async route=>{
       const body=route.request().postDataJSON(),fn=route.request().url().split('/').pop();
+      if(body.sessionToken==='a'.repeat(64)&&fn!=='epp-auth')sharedDataRequests.push(fn);
       let response={ok:true};
       if(fn==='epp-auth'){
         response={ok:true,account:body.sessionToken==='b'.repeat(64)?personal:shared};
@@ -45,6 +46,10 @@ try{
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.getByText('Eigen account aanmaken',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('combobox',{name:'Vereniging',exact:true}).inputValue(),'');
+    assert.equal(await page.getByRole('button',{name:'Training',exact:true}).count(),0);
+    assert.doesNotMatch(await page.locator('#root header').innerText(),/SVBB/);
+    assert.deepEqual(sharedDataRequests,[]);
     await page.locator('section').filter({has:page.getByText('Eigen account aanmaken',{exact:true})}).locator('select').selectOption('apgs');
     await page.getByRole('textbox',{name:'Voornaam',exact:true}).fill('Anne');
     await page.getByRole('textbox',{name:'Achternaam',exact:true}).fill('de Vries');
@@ -80,6 +85,7 @@ try{
     await page.getByRole('button',{name:'OPSLAAN',exact:true}).click();
     await page.getByText('Inschrijving opgeslagen',{exact:true}).waitFor();
     assert.equal(signup.shooterId,'own-shooter');assert.equal(signup.sessionToken,'b'.repeat(64));
+    assert.deepEqual(sharedDataRequests,[]);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.screenshot({path:'/private/tmp/epp-member-signup-'+viewport.width+'.png'});
     await context.close();

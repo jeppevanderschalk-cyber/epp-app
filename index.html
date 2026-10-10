@@ -152,7 +152,7 @@ function eppSetPersonalLogin(enabled){
   });
   var toggle=document.getElementById('loginPersonalToggle');
   toggle.hidden=document.getElementById('loginRole').value==='hoofdbeheer';
-  toggle.textContent=eppPersonalLogin?'Terug naar meekijken':'Inloggen met eigen account';
+  toggle.textContent=eppPersonalLogin?'Nieuw account aanmaken':'Inloggen met eigen account';
   document.getElementById('loginClubLabel').hidden=document.getElementById('loginRole').value==='hoofdbeheer'||(document.getElementById('loginRole').value==='schutter'&&!eppPersonalLogin);
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
@@ -1729,6 +1729,14 @@ const MemberRegistration = () => {
     ));
 };
 
+const RegistrationWorkspace = () => h('div',{className:'app'},
+  h('style',null,CSS),
+  h('header',{className:'topbar'},h('div',{className:'topbar-inner'},
+    h('div',{className:'topbar-logo'},h(EPPLogo,{size:53})),
+    h('div',{className:'topbar-title'},h('h1',null,'EPP score app')))),
+  h('main',{className:'main'},h(MemberRegistration))
+);
+
 const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
   const sharedAccount=eppSession()?.account?.username==='kijker';
   const [shooters,setShooters] = React.useState([]);
@@ -2591,7 +2599,7 @@ function App({headClubs,onHeadClubChange}={}) {
 
 eppAuthReady.then(function(verified){
   if(!verified)return;
-  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{localStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
+  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.username==='kijker'?h(RegistrationWorkspace):eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{localStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
   catch(e){if(window.__eppError)window.__eppError(e?.stack||String(e));}
 });
 

@@ -1,6 +1,6 @@
 import { serviceClient, sha256Hex } from './epp.ts';
 
-export async function requireAccount(body: any, trainer = false) {
+export async function requireAccount(body: any, trainer = false, registration = false) {
   if (typeof body?.sessionToken !== 'string' || !/^[a-f0-9]{64}$/.test(body.sessionToken)) throw new Error('sessie_verlopen');
   const db = serviceClient();
   const { data: session, error } = await db.from('app_sessions').select('account_id,expires_at').eq('token_hash',await sha256Hex(body.sessionToken)).maybeSingle();
@@ -9,6 +9,7 @@ export async function requireAccount(body: any, trainer = false) {
   const { data: account, error: accountError } = await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin,is_platform_admin,must_change_password,active').eq('id',session.account_id).maybeSingle();
   if (accountError) throw accountError;
   if (!account?.active || account.club_code!==body.clubId) throw new Error('geen_toegang');
+  if (account.username==='kijker' && !(registration && account.role==='schutter' && ['session','register_member','logout'].includes(body.action))) throw new Error('persoonlijk_account_verplicht');
   if(account.must_change_password&&!['session','change_password','logout'].includes(body.action))throw new Error('wachtwoord_wijzigen_verplicht');
   if (trainer && account.role!=='trainer') throw new Error('geen_schrijfrechten');
   return account;
