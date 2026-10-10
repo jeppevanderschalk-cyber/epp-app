@@ -152,6 +152,7 @@ function eppShowLoginGate(){
 var eppPersonalLogin=false;
 function eppSetPersonalLogin(enabled){
   eppPersonalLogin=enabled&&document.getElementById('loginRole').value!=='hoofdbeheer';
+  if(document.getElementById('loginRole').value==='schutter')localStorage.setItem('epp-personal-login-preferred',eppPersonalLogin?'1':'0');
   ['First','Last'].forEach(function(part){
     document.getElementById('login'+part+'Label').hidden=!eppPersonalLogin;
     document.getElementById('login'+part+'Name').required=eppPersonalLogin;
@@ -164,7 +165,7 @@ function eppSetPersonalLogin(enabled){
   document.getElementById('loginError').textContent='';
 }
 document.getElementById('loginPersonalToggle').addEventListener('click',function(){eppSetPersonalLogin(!eppPersonalLogin);});
-if(sessionStorage.getItem('epp-personal-login')==='1'){sessionStorage.removeItem('epp-personal-login');eppSetPersonalLogin(true);}
+if(sessionStorage.getItem('epp-personal-login')==='1'||localStorage.getItem('epp-personal-login-preferred')==='1'){sessionStorage.removeItem('epp-personal-login');eppSetPersonalLogin(true);}
 var eppSelectedLoginRole=document.getElementById('loginRole').value;
 document.getElementById('loginRole').addEventListener('change',function(){
   if(this.value===eppSelectedLoginRole)return;
@@ -192,7 +193,7 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       location.reload();
     }).catch(function(error){
-      document.getElementById("loginError").textContent=error.message==="ongeldig_wachtwoord"?"Onjuist wachtwoord of tijdelijk geblokkeerd. Probeer het later opnieuw.":"Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw.";
+      document.getElementById("loginError").textContent=error.message==="ongeldig_wachtwoord"?(role==='schutter'&&!eppPersonalLogin?'Dit is de toegang voor nieuwe schutters. Heb je al een account? Kies hieronder Inloggen met eigen account en vul je vereniging, naam en eigen wachtwoord in.':'Inloggen niet gelukt. Controleer je vereniging, naam en wachtwoord. Na meerdere pogingen kan de toegang tijdelijk geblokkeerd zijn.') :"Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw.";
     }).finally(function(){submitButton.disabled=false;});
     return;
   }
@@ -1709,6 +1710,7 @@ const MemberRegistration = () => {
     try{
       const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,firstName:form.firstName,lastName:form.lastName,newPassword:form.password});
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
+      localStorage.setItem('epp-personal-login-preferred','1');
       sessionStorage.setItem('epp-personal-login','1');
       sessionStorage.setItem('epp-registration-login',JSON.stringify({clubId:result.account.clubId,firstName:form.firstName.trim(),lastName:form.lastName.trim()}));
       localStorage.removeItem(EPP_SESSION_KEY);

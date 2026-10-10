@@ -80,6 +80,12 @@ try{
     assert.equal(await page.locator('#loginLastName').inputValue(),'de Vries');
     assert.equal(await page.locator('#loginPassword').inputValue(),'');
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-session-v2')),null);
+    await page.reload();
+    await page.locator('#loginFirstName').waitFor({state:'visible'});
+    assert.equal(await page.locator('#loginClub').inputValue(),'apgs');
+    assert.equal(await page.locator('#loginPassword').inputValue(),'');
+    await page.locator('#loginFirstName').fill('Anne');
+    await page.locator('#loginLastName').fill('de Vries');
     await page.locator('#loginPassword').fill('SafePassword123!');
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
