@@ -76,7 +76,7 @@
   </form>
 </div>
 <div id="root" hidden></div>
-<script src="training-store.js"></script>
+<script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
 <script src="match-planner-ui.js?v=accounts-2"></script>
 <script src="head-view-ui.js?v=2"></script>
@@ -2371,17 +2371,18 @@ function App({headClubs,onHeadClubChange}={}) {
   const applyPayload = payload => {
     if(!payload || typeof payload!=="object")return;
     applyingRemote.current=true;
+    const normalizedTraining=ensureTraining(payload.currentTraining);
     setShooters(payload.shooters||[]);
     const normalizedScores = normalizeScores(payload.scores||{});
     setScores(normalizedScores);
     setCameraShots(payload.cameraShots||[]);
     setArchives(payload.archives||[]);
-    setCurrentTraining(ensureTraining(payload.currentTraining));
+    setCurrentTraining(normalizedTraining);
     setBestParcours(payload.bestParcours||{});
     setBestStageAverages(payload.bestStageAverages||{});
     setStageShots({...DEFAULT_SHOTS,...(payload.stageShots||{})});
     setTombstones({shooters:{...(payload.tombstones?.shooters)},shots:{...(payload.tombstones?.shots)},monthWipes:{...(payload.tombstones?.monthWipes)},resetAt:payload.tombstones?.resetAt||0});
-    latestPayload.current={...payload,stageShots:{...DEFAULT_SHOTS,...payload.stageShots},currentTraining:ensureTraining(payload.currentTraining)};
+    latestPayload.current={...payload,stageShots:{...DEFAULT_SHOTS,...payload.stageShots},currentTraining:normalizedTraining};
   };
   const queueKey=KEY+"-records-v3";
   const store=React.useRef({base:{},busy:false,hydrated:false,restored:false,conflict:false,localOk:true});

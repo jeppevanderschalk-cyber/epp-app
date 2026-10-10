@@ -4,6 +4,26 @@ import '../../training-store.js';
 const {diff,rebase,flatten,decode}=globalThis.EppStore;
 const base=()=>({shooters:[{id:'s',naam:'Test'}],stageShots:{s1:10},currentTraining:{id:'t',mode:'parcours',startedAt:1,updatedAt:1,rounds:[]}});
 const round=(id,score)=>({id,trainingId:'t',sid:'s',type:'parcours',score,ts:1});
+test('absent settings are not fabricated as an existing database row',()=>{
+  const empty=decode([]);
+  assert.equal(empty.stageShots,undefined);
+  assert.deepEqual(diff({},empty),[]);
+  const ops=diff(empty,base());
+  assert.equal(ops.find(op=>op.id==='stageShots').expected,null);
+  assert.deepEqual(diff(decode(Object.values(flatten(base()))),base()),[]);
+});
+test('legacy empty settings queues merge into an empty server without losing rounds',()=>{
+  const oldBase={...decode([]),stageShots:{}};
+  const wanted=base();wanted.currentTraining.rounds=[round('pending',210)];
+  const remote=decode([]),merged=rebase(oldBase,wanted,remote);
+  assert.deepEqual(merged.conflicts,[]);
+  assert.equal(merged.payload.currentTraining.rounds[0].score,210);
+  assert.equal(diff(remote,merged.payload).find(op=>op.id==='stageShots').expected,null);
+});
+test('an actually stored empty settings row retains its expected value',()=>{
+  const stored=decode([{kind:'meta',id:'stageShots',data:{}}]);
+  assert.deepEqual(diff(stored,{stageShots:{s1:10}})[0].expected,{});
+});
 test('independent concurrent round additions do not overwrite each other',()=>{
   const original=base(),local=base(),remote=base();
   local.currentTraining.rounds.push(round('a',220));local.currentTraining.updatedAt=2;

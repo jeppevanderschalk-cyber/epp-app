@@ -12,7 +12,7 @@
     (p.cameraShots||[]).forEach(s=>add('shot',s.id,s));
     const t=p.currentTraining;
     if(t){const meta={...t};delete meta.rounds;delete meta.updatedAt;add('meta','currentTraining',meta);(t.rounds||[]).forEach(r=>add('round',r.id,r));}
-    add('meta','stageShots',p.stageShots||{});
+    if(p.stageShots!==undefined)add('meta','stageShots',p.stageShots);
     Object.entries(p.bestParcours||{}).forEach(([id,data])=>add('parcoursBest',id,data));
     Object.entries(p.bestStageAverages||{}).forEach(([stage,items])=>Object.entries(items||{}).forEach(([id,data])=>add('stageBest',stage+':'+id,data)));
     Object.entries(p.scores||{}).forEach(([id,data])=>add('legacyScore',id,data));
@@ -20,7 +20,7 @@
     return out;
   }
   function decode(entities){
-    const p={schema:3,shooters:[],cameraShots:[],scores:{},stageShots:{},bestParcours:{},bestStageAverages:{},archives:[],tombstones:{}};
+    const p={schema:3,shooters:[],cameraShots:[],scores:{},bestParcours:{},bestStageAverages:{},archives:[],tombstones:{}};
     const rounds=[];
     for(const e of entities){if(!e.data)continue;
       if(e.kind==='shooter')p.shooters.push(e.data);
@@ -47,6 +47,8 @@
     return out;
   }
   function rebase(base,wanted,remote){
+    // Older queues used {} for an absent settings record. It is not a database row.
+    if(remote.stageShots===undefined && base.stageShots && !Object.keys(base.stageShots).length){base={...base};delete base.stageShots;}
     const r=flatten(remote),ops=diff(base,wanted),conflicts=[];
     for(const op of ops){const key=op.kind+'|'+op.id,now=r[key]?.data||null;
       if(!equal(now,op.expected)&&!equal(now,op.value)){conflicts.push({kind:op.kind,id:op.id});continue;}
