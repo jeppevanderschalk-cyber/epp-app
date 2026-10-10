@@ -11,7 +11,8 @@ Deno.serve(async req=>{
     if(body.action==='list_matches'){
       const {data,error}=await db.from('epp_matches').select('id,organizer,location,match_date,deadline,offered_disciplines,notes,organizer_email').eq('club_id',actor.club_code).order('match_date',{ascending:true,nullsFirst:false});
       if(error)throw error;
-      return json({ok:true,matches:data});
+      const {data:planned,error:pErr}=await db.from('epp_match_planners').select('match_id,published').in('match_id',(data||[]).map(m=>m.id));if(pErr)throw pErr;
+      return json({ok:true,matches:data.filter(m=>!planned.some(p=>p.match_id===m.id&&p.published)).map(m=>({...m,planning_pending:planned.some(p=>p.match_id===m.id)}))});
     }
     const {data:club,error:clubError}=await db.from('clubs').select('id').eq('code',actor.club_code).single();if(clubError)throw clubError;
     let query=db.from('shooters').select('id,display_name,memberships!inner(club_id)').eq('memberships.club_id',club.id);

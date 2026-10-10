@@ -40,7 +40,7 @@ Deno.serve(async req=>{
       const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin').eq('id',id).single();if(accountError)throw accountError;
       return json({ok:true,...await createSession(db,account)});
     }
-    if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin}});
+    if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin,isPlatformAdmin:actor.is_platform_admin,mustChangePassword:actor.must_change_password}});
     if(body.action==='logout'){
       const {error}=await db.from('app_sessions').delete().eq('token_hash',await sha256Hex(body.sessionToken));if(error)throw error;
       return json({ok:true});
@@ -56,6 +56,17 @@ Deno.serve(async req=>{
       return json({ok:true});
     }
     if(!actor.is_admin || actor.role!=='trainer')throw new Error('geen_beheerrechten');
+    if(body.action==='list_club_access'){
+      if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
+      const {data:clubs,error:cErr}=await db.from('clubs').select('code,naam').order('naam');if(cErr)throw cErr;
+      const {data:accounts,error}=await db.from('app_accounts').select('id,club_code,display_name,role,is_admin,active,is_platform_admin').eq('active',true).neq('username','kijker').order('display_name');if(error)throw error;
+      return json({ok:true,clubs,accounts});
+    }
+    if(body.action==='set_club_admin'){
+      if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
+      const {error}=await db.rpc('epp_set_club_admin',{p_actor:actor.id,p_target:body.accountId,p_enabled:body.enabled===true});if(error)throw error;
+      return json({ok:true});
+    }
     if(body.action==='list_accounts'){
       const {data,error}=await db.from('app_accounts').select('id,username,display_name,role,is_admin,active').eq('club_code',actor.club_code).order('display_name');if(error)throw error;
       return json({ok:true,accounts:data});

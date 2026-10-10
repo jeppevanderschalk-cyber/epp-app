@@ -194,6 +194,11 @@ Deno.serve(async (req) => {
     const actor=await requireAccount(body,['confirm_result','prepare_match','create_round','register_shooter','set_qualification','get_qualification'].includes(action));
     const ctx = await ensureContext(db, clubId, clubLabel || clubId.toUpperCase(),body.discipline||'pistool');
 
+    if(action==='match_participants'){
+      const {data,error}=await db.rpc('epp_match_participants',{p_actor:actor.id,p_match:body.matchId,p_discipline:body.discipline||'pistool'});if(error)throw error;
+      return json({ok:true,...data});
+    }
+
     if(action==='list_qualifications'){
       const shooters=await loadClubShooters(db,ctx.club.id);
       if(!shooters.length)return json({ok:true,qualifications:[]});
@@ -262,7 +267,14 @@ Deno.serve(async (req) => {
       if (!valid.ok) return json({ ok: false, error: valid.error }, 400);
 
       if(!body.shooterId)throw new Error('selecteer_schutter');
-      const shooter = await findOrCreateShooter(db, shooterName, ctx.club.id, cleanText(body.shooterId));
+      let shooter;
+      if(body.matchId){
+        const {data:participants,error:participantError}=await db.rpc('epp_match_participants',{p_actor:actor.id,p_match:body.matchId,p_discipline:body.discipline||'pistool'});if(participantError)throw participantError;
+        if(participants.planned){
+          shooter=participants.shooters.find((s:any)=>s.id===body.shooterId);if(!shooter)throw new Error('schutter_niet_ingeschreven');
+        }
+      }
+      shooter=shooter||await findOrCreateShooter(db, shooterName, ctx.club.id, cleanText(body.shooterId));
       const { data: result, error } = await db.rpc(body.rapid?'epp_confirm_timed_result':'epp_confirm_result',{p_actor:actor.id,p_club:ctx.club.id,p_round:body.roundId,p_shooter:shooter.id,p_division:ctx.division.id,p_counts:{...valid.counted,rapid:body.rapid,rapidTimeMs:body.rapidTimeMs,totalTimeMs:body.totalTimeMs,penaltyTimeMs:body.penaltyTimeMs,penaltyReason:cleanText(body.penaltyReason)},p_key:idempotencyKey,p_expected:body.expectedRevision||0,p_reason:cleanText(body.reason)});
       if (error) throw error;
       const ranking = await loadRanking(db, ctx);

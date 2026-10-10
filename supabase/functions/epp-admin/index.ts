@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
           .in("match_id", ids);
         if (sErr) throw sErr;
         for (const s of signups || []) {
+          if(!(s as any).epp_signup_disciplines?.length)continue;
           const c = (counts[s.match_id] ||= { schutters: 0, starts: 0 });
           c.schutters += 1;
           c.starts += (s as any).epp_signup_disciplines?.length || 0;
@@ -164,7 +165,7 @@ Deno.serve(async (req) => {
         .eq("match_id", matchId)
         .order("shooter_name", { ascending: true });
       if (sErr) throw sErr;
-      return json({ ok: true, match, signups });
+      return json({ ok: true, match, signups:signups.filter((s:any)=>s.epp_signup_disciplines?.length) });
     }
 
     if(action==='link_signup'){
