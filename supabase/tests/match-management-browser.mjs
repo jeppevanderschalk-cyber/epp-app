@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {resolve,extname} from 'node:path';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
+const root=process.env.EPP_TEST_ROOT||resolve(import.meta.dirname,'../..');
+const server=createServer(async(req,res)=>{try{const file=resolve(root,'.'+(new URL(req.url,'http://localhost').pathname==='/'?'/index.html':new URL(req.url,'http://localhost').pathname));if(!file.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.png':'image/png'})[extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.writeHead(404);res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
+const match={id:'foreign-match',club_id:'svbb',organizer:'SV Beemte Broekland',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],deadline:'2027-04-28',offered_disciplines:['pistool'],schutters:0,starts:0};
+try{for(const width of [390,1440]){
+ const page=await browser.newPage({viewport:{width,height:950}}),errors=[],requests=[];
+ page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+ await page.route('**/functions/v1/**',async route=>{const b=route.request().postDataJSON();requests.push(b);let r={ok:true};
+ if(b.action==='list_matches'||b.action==='catalog')r.matches=[match];
+ if(b.action==='list_archived_matches')r.matches=[];
+ if(b.action==='group_list')r={ok:true,match,signups:[]};
+ if(b.action==='list_shooters')r.shooters=[];
+ if(b.action==='view')r={ok:true,match,managing:true,profile:null,planner:null,mine:{revision:0,choices:[]},slots:[],roster:[],audit:[]};
+ await route.fulfill({contentType:'application/json',body:JSON.stringify(r)});});
+ await page.goto('http://127.0.0.1:'+server.address().port);
+ await page.evaluate(()=>{sessionStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account:{isAdmin:true,isPlatformAdmin:true,role:'trainer',clubId:'eppnationaal'}}));document.getElementById('loginGate').hidden=true;document.getElementById('root').hidden=false;window.testRoot=ReactDOM.createRoot(document.getElementById('root'));window.testRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(TabInschrijvenTrainer,{password:'',onAuthFail:()=>{},flash:()=>{}}))));});
+ for(const name of ['Wedstrijdplanner','Groepslijst','Bewerken','Archiveren'])await page.getByRole('button',{name,exact:true}).waitFor();
+ await page.waitForTimeout(400);
+ assert.equal(await page.locator('.match-org').filter({hasText:'SV Beemte Broekland'}).count(),1);
+ assert.equal(await page.getByRole('button',{name:'DOE MEE',exact:true}).count(),0);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.screenshot({path:'/tmp/epp-match-management-'+width+'.png',fullPage:true});
+ await page.getByRole('button',{name:'Groepslijst',exact:true}).click();await page.getByText('Nog geen aanmeldingen.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'← Terug naar wedstrijden',exact:true}).click();
+ await page.getByRole('button',{name:'Bewerken',exact:true}).click();await page.getByPlaceholder('Organiserende vereniging').waitFor();assert.equal(await page.getByPlaceholder('Organiserende vereniging').inputValue(),match.organizer);
+ await page.getByRole('button',{name:'Annuleren',exact:true}).click();
+ await page.getByRole('button',{name:'Wedstrijdplanner',exact:true}).click();await page.getByRole('button',{name:'Terug naar wedstrijden',exact:true}).waitFor();await page.waitForTimeout(300);
+ assert.ok(requests.some(b=>b.action==='view'&&b.matchId===match.id));
+ await page.getByRole('button',{name:'Terug naar wedstrijden',exact:true}).click();
+ await page.getByRole('button',{name:'Archiveren',exact:true}).click();await page.waitForTimeout(100);assert.ok(requests.some(b=>b.action==='archive_match'&&b.id===match.id));
+ assert.deepEqual(errors,[]);await page.close();console.log('Four match controls verified at '+width+'px');
+}}finally{await browser.close();server.close();}

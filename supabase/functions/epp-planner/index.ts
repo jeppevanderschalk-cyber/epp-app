@@ -23,7 +23,7 @@ Deno.serve(async req=>{
     const {data:match,error:matchError}=await db.from('epp_matches').select('*').eq('id',body.matchId).single();if(matchError)throw new Error('wedstrijd_niet_gevonden');
     if(match.archived_at)throw new Error('wedstrijd_gearchiveerd');
     const {data:planner,error:pErr}=await db.from('epp_match_planners').select('*').eq('match_id',match.id).maybeSingle();if(pErr)throw pErr;
-    const managing=actor.role==='trainer'&&actor.is_admin&&actor.club_code===(planner?.owner_club||match.club_id);
+    const managing=actor.role==='trainer'&&actor.is_admin&&(actor.is_platform_admin||actor.club_code===(planner?.owner_club||match.club_id));
     if(body.action==='configure'){
       if(!managing)throw new Error('geen_beheerrechten');
       const {data,error}=await db.rpc('epp_planner_configure',{p_actor:actor.id,p_match:match.id,p_config:body.config,p_expected:body.expectedRevision});if(error)throw error;

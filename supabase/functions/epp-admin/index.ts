@@ -32,17 +32,17 @@ Deno.serve(async (req) => {
   catch(e){return json({ok:false,error:e.message},401);}
 
   const db = serviceClient();
+  const scopeMatches = (query: any) => actor.is_platform_admin ? query : query.eq("club_id", clubId);
 
   try {
     if(action==='list_archived_matches'){
-      const {data,error}=await db.from('epp_matches').select('id,organizer,match_date,match_dates,archived_at').eq('club_id',clubId).not('archived_at','is',null).order('archived_at',{ascending:false});if(error)throw error;
+      const {data,error}=await scopeMatches(db.from('epp_matches').select('id,organizer,match_date,match_dates,archived_at')).not('archived_at','is',null).order('archived_at',{ascending:false});if(error)throw error;
       return json({ok:true,matches:data});
     }
     if (action === "list_matches") {
-      const { data: matches, error } = await db
+      const { data: matches, error } = await scopeMatches(db
         .from("epp_matches")
-        .select("*")
-        .eq("club_id", clubId)
+        .select("*"))
         .is('archived_at',null)
         .order("match_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
@@ -140,11 +140,10 @@ Deno.serve(async (req) => {
         patch.offered_disciplines = m.offered_disciplines;
       }
 
-      const { data, error } = await db
+      const { data, error } = await scopeMatches(db
         .from("epp_matches")
         .update(patch)
-        .eq("id", id)
-        .eq("club_id", clubId)
+        .eq("id", id))
         .is('archived_at',null)
         .select()
         .single();
@@ -163,11 +162,10 @@ Deno.serve(async (req) => {
     if (action === "group_list") {
       const matchId = body.matchId;
       if (typeof matchId !== "string") return json({ ok: false, error: "matchId_verplicht" }, 400);
-      const { data: match, error: mErr } = await db
+      const { data: match, error: mErr } = await scopeMatches(db
         .from("epp_matches")
         .select("*")
-        .eq("id", matchId)
-        .eq("club_id", clubId)
+        .eq("id", matchId))
         .single();
       if (mErr) throw mErr;
       const { data: signups, error: sErr } = await db
