@@ -9,7 +9,7 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 try{
   for(const width of [390,1440]){
-    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let choices=[],revision=0,lastExpected=null;
+    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let choices=[],revision=0,lastExpected=null,failure=null;
     page.on('pageerror',e=>errors.push(e.message));
     const older={id:'older',organizer:'APGS',match_date:'2026-11-14',match_dates:['2026-11-14'],deadline:'2026-11-01',offered_disciplines:['pistool']};
     const planned={id:'new',organizer:'SVBB',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:['pistool','optiek']};
@@ -20,7 +20,7 @@ try{
       if(body.action==='catalog')response={ok:true,matches:[planned]};
       if(body.action==='list_shooters')response={ok:true,shooters:[{id:'member',naam:'Test Schutter'}]};
       if(body.action==='my_signups')response={ok:true,signups:[]};
-      if(body.action==='book'){lastExpected=body.expectedRevision;if(body.expectedRevision!==revision)response={ok:false,error:'boeking_conflict'};else{for(const s of slots)s.booked-=choices.filter(c=>c.slotId===s.id).length;choices=body.choices;for(const s of slots)s.booked+=choices.filter(c=>c.slotId===s.id).length;revision++;response={ok:true};}}
+      if(body.action==='book'){lastExpected=body.expectedRevision;if(failure)response={ok:false,error:failure};else if(body.expectedRevision!==revision)response={ok:false,error:'boeking_conflict'};else{for(const s of slots)s.booked-=choices.filter(c=>c.slotId===s.id).length;choices=body.choices;for(const s of slots)s.booked+=choices.filter(c=>c.slotId===s.id).length;revision++;response={ok:true};}}
       if(body.action==='view')response={ok:true,match:planned,planner:{published:true,opens_at:'2020-01-01T00:00:00Z',closes_at:'2027-05-27T18:00:00Z'},profile:{id:'member'},managing:false,slots,mine:{revision,choices},roster:[],audit:[]};
       await route.fulfill({contentType:'application/json',body:JSON.stringify(response)});
     });
@@ -50,6 +50,12 @@ try{
     await oldSlot.getByText('1 vrij',{exact:true}).waitFor();
     await oldSlot.getByText('Gereserveerd',{exact:true}).waitFor();
     await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
+    failure='new row for relation "epp_signup_disciplines" violates check constraint "epp_signup_disciplines_specific_time_check"';
+    await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).click();
+    await page.getByText('Dit is niet gelukt. Probeer opnieuw. Blijft het probleem bestaan, neem dan contact op met de beheerder.',{exact:true}).waitFor();
+    assert.equal(await page.getByText(/violates check constraint/).count(),0,'no technical database errors exposed');
+    assert.equal(choices[0].slotId,'a','failed change keeps old reservation');
+    failure=null;
     await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).click();
     await page.getByText('Je gekozen tijdsloten zijn gereserveerd.',{exact:true}).waitFor();
     assert.deepEqual(choices,[{discipline:'pistool',slotId:'b'}]);
