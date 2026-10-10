@@ -33,11 +33,20 @@ Deno.serve(async (req) => {
 
   const db = serviceClient();
   const scopeMatches = (query: any) => actor.is_platform_admin ? query : query.eq("club_id", clubId);
+  // Legacy events have one registration copy per club. Head management shows its
+  // own legacy events plus shared planner events, rather than every club copy.
+  const visibleMatches = async (matches: any[]) => {
+    if (!actor.is_platform_admin) return matches;
+    const {data, error} = await db.from('epp_match_planners').select('match_id');
+    if (error) throw error;
+    const planned = new Set((data || []).map((p: any) => p.match_id));
+    return matches.filter(m => m.club_id === actor.club_code || planned.has(m.id));
+  };
 
   try {
     if(action==='list_archived_matches'){
-      const {data,error}=await scopeMatches(db.from('epp_matches').select('id,organizer,match_date,match_dates,archived_at')).not('archived_at','is',null).order('archived_at',{ascending:false});if(error)throw error;
-      return json({ok:true,matches:data});
+      const {data,error}=await scopeMatches(db.from('epp_matches').select('id,club_id,organizer,match_date,match_dates,archived_at')).not('archived_at','is',null).order('archived_at',{ascending:false});if(error)throw error;
+      return json({ok:true,matches:await visibleMatches(data || [])});
     }
     if (action === "list_matches") {
       const { data: matches, error } = await scopeMatches(db
@@ -47,7 +56,8 @@ Deno.serve(async (req) => {
         .order("match_date", { ascending: true, nullsFirst: false });
       if (error) throw error;
 
-      const ids = (matches || []).map((m: any) => m.id);
+      const visible = await visibleMatches(matches || []);
+      const ids = visible.map((m: any) => m.id);
       let counts: Record<string, { schutters: number; starts: number }> = {};
       if (ids.length) {
         const { data: signups, error: sErr } = await db
@@ -62,7 +72,7 @@ Deno.serve(async (req) => {
           c.starts += (s as any).epp_signup_disciplines?.length || 0;
         }
       }
-      const withCounts = (matches || []).map((m: any) => ({
+      const withCounts = visible.map((m: any) => ({
         ...m,
         schutters: counts[m.id]?.schutters || 0,
         starts: counts[m.id]?.starts || 0,
