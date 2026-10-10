@@ -792,7 +792,7 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .topbar-title{flex:1;min-width:0}
 .topbar-title h1{font-family:'Archivo',sans-serif;font-size:1.28rem;font-weight:900;color:${C.navy};margin:0;line-height:1.1;overflow-wrap:break-word;word-break:break-word;-webkit-hyphens:auto;hyphens:auto}
 .topbar-sub{font-size:.62rem;font-weight:800;color:rgba(10,17,40,.55);letter-spacing:.1em;text-transform:uppercase;margin-top:3px}
-.club-tag{font-family:'Archivo',sans-serif;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(10,17,40,.55);flex-shrink:0}
+.club-tag{font-family:'Archivo',sans-serif;font-size:.78rem;font-weight:800;letter-spacing:0;text-transform:uppercase;color:rgba(10,17,40,.65);flex:0 1 auto;min-width:0;max-width:32%;text-align:right;line-height:1.35;overflow-wrap:anywhere}
 .gold-stripe{display:none}
 .bottomnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,430px);display:grid;grid-template-columns:repeat(5,1fr);background:rgba(9,15,36,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid ${C.border};z-index:100;padding-bottom:env(safe-area-inset-bottom,0)}
 .bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 4px 10px;background:none;border:none;cursor:pointer;color:${C.muted};font-family:'Archivo',sans-serif;font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;transition:color .15s;min-width:0;position:relative}
@@ -2296,6 +2296,8 @@ with check (true);`)
 // ═══════════════════════════════════════════════════════════════════
 function App() {
   const isTrainer = eppSession()?.account?.role === "trainer";
+  const accountClubId=eppSession()?.account?.clubId;
+  const accountClubName=EPP_CLUBS.find(c=>c.id===accountClubId)?.label||accountClubId||"Vereniging";
   const [shooters,   setShooters]   = React.useState([]);
   const [scores,     setScores]     = React.useState({});
   const [cameraShots,setCameraShots]= React.useState([]);
@@ -2557,7 +2559,7 @@ function App() {
           h("h1",null,"EPP score app"),
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
-        h("div",{className:"club-tag"},CLUB.label)
+        h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,style:accountClubName.split(/\s+/).some(word=>word.length>14)?{fontSize:'.65rem'}:undefined},accountClubName)
       ),
       h("div",{className:"gold-stripe"})
     ),
