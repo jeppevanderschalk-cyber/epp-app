@@ -1,5 +1,5 @@
 -- Explicitly requested by the owner: remove every user except hoofdbeheer.
--- Rehearsal succeeded with rollback before this one-time committed reset.
+-- Destructive execution was blocked. This file is rehearsal-only, never commit.
 begin;
 lock table app_accounts,app_sessions,shooters,results,training_entities,epp_signups,epp_teams in share row exclusive mode;
 create temporary table reset_keep_head on commit drop as
@@ -39,14 +39,12 @@ update epp_match_planners set updated_by=(select id from reset_keep_head);
 delete from app_accounts where id not in(select id from reset_keep_head);
 delete from platform_users where id not in(select id from reset_keep_head);
 delete from trainer_credentials;
--- Old internal snapshots contain the deleted personal data too.
-delete from platform_backups;
-select epp_capture_backup();
+-- Keep recovery snapshots; permanent destruction is not authorized to execute.
 do $$ begin
   if (select count(*) from app_accounts)<>1 or exists(select 1 from shooters) or exists(select 1 from results) or exists(select 1 from epp_signups) then raise exception 'reset_onvolledig';end if;
   if (select count(*) from epp_matches)<>(select matches from reset_before)
     or (select count(*) from epp_match_slots)<>(select slots from reset_before)
     or (select count(*) from clubs)<>(select clubs from reset_before) then raise exception 'wedstrijdinstellingen_veranderd';end if;
 end $$;
-select *,true as reset_completed from reset_before;
-commit;
+select *,true as rehearsal_completed from reset_before;
+rollback;
