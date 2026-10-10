@@ -36,10 +36,9 @@ try{
       window.multiView={match:{id:'multi',organizer:'SVBB',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:['pistool','optiek']},managing:false,profile:{id:'member'},planner:{published:true,opens_at:'2020-01-01T00:00:00Z',closes_at:'2027-05-27T00:00:00Z'},mine:{revision:0,choices:[]},slots:[{id:'day1',starts_at:'2027-05-28T07:00:00Z',ends_at:'2027-05-28T07:30:00Z',capacity:4,booked:0},{id:'day2',starts_at:'2027-05-29T07:00:00Z',ends_at:'2027-05-29T07:30:00Z',capacity:4,booked:0}]};
       window.showTest(h(PlannerBooking,{view:window.multiView,onSaved:()=>{},onReload:()=>{}}));
     });
-    await page.getByLabel('Tijdslot pistool').waitFor();
-    const labels=await page.getByLabel('Tijdslot pistool').locator('option').allTextContents();
-    assert.match(labels[1],/28 mei 2027.*09:00/);assert.match(labels[2],/29 mei 2027.*09:00/);
-    await page.getByLabel('Tijdslot pistool').selectOption('day2');
+    await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).waitFor();
+    await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
+    await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).click();
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
     assert.deepEqual(requests.at(-1).choices,[{discipline:'pistool',slotId:'day2'}]);

@@ -7,6 +7,7 @@ const plannerError=e=>({tijdslot_vol:'Dit tijdslot is net volgeboekt. Kies een a
 const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const mine=target||view.mine;
   const [choices,setChoices]=React.useState(()=>Object.fromEntries(mine.choices.map(c=>[c.discipline,c.slotId])));
+  const [days,setDays]=React.useState({});
   const [revision]=React.useState(mine.revision),[reason,setReason]=React.useState(''),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[conflict,setConflict]=React.useState(false);
   const open=view.managing||(view.planner.published&&Date.now()>=Date.parse(view.planner.opens_at)&&Date.now()<=Date.parse(view.planner.closes_at));
   const canBook=target||view.profile;
@@ -22,12 +23,22 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
     h('h3',{style:{fontSize:18,margin:0}},target?'Inschrijving wijzigen: '+target.name:'Jouw inschrijving'),
     !canBook&&h('p',{className:'hint'},'Een persoonlijk schutterprofiel is nodig om te boeken.'),
     !open&&h('p',{className:'hint'},Date.now()<Date.parse(view.planner.opens_at)?'Inschrijving opent '+new Date(view.planner.opens_at).toLocaleString('nl-NL'):'Inschrijving gesloten'),
-    view.match.offered_disciplines.map(d=>h('label',{key:d},EPP_DISCIPLINES.find(x=>x.id===d)?.label||d,
-      h('select',{className:'txt-in','aria-label':'Tijdslot '+d,disabled:busy||!open||!canBook,value:choices[d]||'',onChange:e=>{setChoices(p=>({...p,[d]:e.target.value}));setStatus('');onEdited?.();}},
-        h('option',{value:''},'Niet deelnemen'),view.slots.map(s=>{
-          const own=mine.choices.some(c=>c.slotId===s.id);const full=s.booked>=s.capacity&&!own;
-          return h('option',{key:s.id,value:s.id,disabled:full||Date.parse(s.starts_at)<=Date.now()},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)+' · '+(full?'Vol':Math.max(0,s.capacity-s.booked)+' plekken vrij'));
-        })))),
+    view.match.offered_disciplines.map(d=>{
+      const dates=[...new Set(view.slots.map(s=>plannerDay(s.starts_at)))];
+      const chosen=view.slots.find(s=>s.id===choices[d]);
+      const day=days[d]||(chosen?plannerDay(chosen.starts_at):dates[0]);
+      const choose=id=>{setChoices(p=>({...p,[d]:id}));setStatus('');onEdited?.();};
+      return h('fieldset',{key:d,disabled:busy||!open||!canBook,style:{border:0,padding:0,margin:'8px 0',minWidth:0}},
+        h('legend',{style:{fontWeight:800,marginBottom:10}},EPP_DISCIPLINES.find(x=>x.id===d)?.label||d),
+        h('div',{role:'group','aria-label':'Wedstrijddag '+d,style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}},dates.map(date=>h('button',{key:date,type:'button','aria-pressed':date===day,className:'btn '+(date===day?'btn-gold':'btn-ghost'),style:{padding:'10px 12px',fontSize:14},onClick:()=>setDays(p=>({...p,[d]:date}))},date))),
+        h('div',{role:'radiogroup','aria-label':'Tijdslot '+d,style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(105px,1fr))',gap:8}},view.slots.filter(s=>plannerDay(s.starts_at)===day).map(s=>{
+          const own=mine.choices.some(c=>c.slotId===s.id),full=s.booked>=s.capacity&&!own,past=Date.parse(s.starts_at)<=Date.now(),selected=choices[d]===s.id;
+          return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'aria-label':plannerSlot(s.starts_at)+(full?' · Vol':past?' · Verstreken':''),disabled:full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:72,padding:'12px 8px',borderRadius:8,opacity:full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},full?'Vol':past?'Verstreken':selected?'Gekozen':Math.max(0,s.capacity-s.booked)+' vrij'));
+        })),
+        !dates.length&&h('p',{className:'hint'},'Nog geen tijdsloten beschikbaar.'),
+        chosen&&h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10}},h('span',{style:{fontSize:14,fontWeight:700}},plannerSlot(chosen.starts_at)+' – '+plannerClock(chosen.ends_at)),h('button',{type:'button',className:'btn btn-ghost',style:{padding:'8px 10px',fontSize:12},onClick:()=>choose('')},'Niet deelnemen'))
+      );
+    }),
     target&&h('label',null,'Reden wijziging',h('input',{className:'txt-in',value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
     !selected&&open&&canBook&&h('p',{className:'hint',role:'status',style:{margin:0}},'Nog geen tijdslot gekozen.'),
     h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':'Tijdsloten bevestigen'),
@@ -100,10 +111,19 @@ const MatchPlanner=({matchId,manage=false})=>{
       )));
 };
 
+const PlannerMatchCard=({match})=>{
+  const [expanded,setExpanded]=React.useState(false);
+  return h('section',{className:'match-card'},
+    h('div',{className:'match-hd'},h('div',null,h('div',{className:'match-org'},match.organizer),h('div',{className:'match-sub'},eppFmtMatchDates(match)),match.location&&h('div',{className:'match-sub'},match.location))),
+    h('button',{className:'btn btn-gold btn-full','aria-expanded':expanded,onClick:()=>setExpanded(v=>!v)},expanded?'SLUITEN':'DOE MEE'),
+    expanded&&h('div',{style:{marginTop:16}},h(MatchPlanner,{matchId:match.id}))
+  );
+};
+
 const MatchPlannerCatalog=({excludeIds=[]})=>{
   const [matches,setMatches]=React.useState([]),[status,setStatus]=React.useState('');
   React.useEffect(()=>{let active=true;const load=()=>eppCall('epp-planner',{clubId:CLUB_ID,action:'catalog'}).then(r=>{if(active){setMatches(r.matches);setStatus('');}}).catch(e=>{if(active)setStatus(plannerError(e));});load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};},[]);
-  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.filter(m=>!excludeIds.includes(m.id)).map(m=>h('details',{key:m.id},h('summary',{style:{fontWeight:800,padding:'12px 0'}},m.organizer+' · '+eppFmtMatchDates(m)),h(MatchPlanner,{matchId:m.id}))));
+  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.filter(m=>!excludeIds.includes(m.id)).map(m=>h(PlannerMatchCard,{key:m.id,match:m})));
 };
 
 const PlatformAccessManagement=()=>{

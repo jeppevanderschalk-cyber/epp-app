@@ -42,7 +42,7 @@ try{
     assert.equal(await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).isDisabled(),true);
     await page.getByText('Nog geen tijdslot gekozen.',{exact:true}).waitFor();assert.equal(bookings,0);
     assert.equal(await page.locator('details').filter({has:page.getByText('Alle tijdsloten (40)',{exact:true})}).getAttribute('open'),null);
-    await page.getByLabel('Tijdslot pistool').selectOption('slot-1');
+    await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'28 mei 2027 · 09:10',exact:true}).click();
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();assert.equal(bookings,1);
     await page.waitForTimeout(10500);await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
@@ -62,7 +62,7 @@ try{
     await page.getByRole('button',{name:'Planning en deelnemers beheren',exact:true}).click();
     await page.getByRole('button',{name:'Verplaatsen / afmelden',exact:true}).click();
     await page.getByText('Inschrijving wijzigen: Test Schutter',{exact:true}).waitFor();
-    await page.getByLabel('Tijdslot pistool').selectOption('slot-2');
+    await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'28 mei 2027 · 09:20',exact:true}).click();
     await page.getByLabel('Reden wijziging').fill('Op verzoek deelnemer');
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
