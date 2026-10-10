@@ -79,6 +79,7 @@
 <script src="training-store.js"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
 <script src="match-planner-ui.js?v=1"></script>
+<script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=1"></script>
 <link rel="stylesheet" href="camera-series.css" />
 <script src="camera-series.js"></script>
@@ -1383,7 +1384,7 @@ const PublishedStandings = () => {
 
 const shooterCandidates = (directory, published) => {
   const normalize = name => String(name||"").trim().replace(/\s+/g," ").toLocaleLowerCase("nl-NL");
-  const result = directory.map(s=>({key:s.id,id:s.id,publicId:s.public_id,name:s.display_name,club:s.club||CLUB.label}));
+  const result = directory.map(s=>({key:s.id,id:s.id,publicId:s.public_id,name:s.display_name,club:s.club||CLUB.label,lease:s.lease}));
   const seen = new Set();
   const known = new Set(result.map(s=>normalize(s.name)));
   for(const source of [published.sources.ind,published.sources.open])for(const s of source.rows){
@@ -1415,14 +1416,18 @@ const TabLandelijk = ({isTrainer, flash}) => {
   const [directoryStatus,setDirectoryStatus] = React.useState("");
   const [matchesCalendar,setMatchesCalendar] = React.useState([]);
   const [matchId,setMatchId] = React.useState("");
+  const scoringMatch=matchesCalendar.find(m=>m.id===matchId);
+  const canInput=scoringMatch?.scoring?scoringMatch.can_score:isTrainer;
+  const scoringFunction=scoringMatch?.scoring?'epp-scoring':'epp-platform';
   const [participants,setParticipants]=React.useState(null),[participantLoading,setParticipantLoading]=React.useState(false),[participantStatus,setParticipantStatus]=React.useState('');
   React.useEffect(()=>{
     let active=true;setParticipants(null);setParticipantStatus('');
-    if(!matchId||!isTrainer){setParticipantLoading(false);return;}
+    if(!matchId||!canInput){setParticipantLoading(false);return;}
     setParticipantLoading(true);
-    eppCall('epp-platform',{clubId:CLUB_ID,action:'match_participants',matchId,discipline}).then(r=>{if(active)setParticipants(r);}).catch(e=>{if(active)setParticipantStatus('Deelnemers ophalen mislukt: '+e.message);}).finally(()=>{if(active)setParticipantLoading(false);});
-    return()=>{active=false;};
-  },[matchId,discipline,isTrainer]);
+    const refresh=()=>eppCall(scoringFunction,{clubId:CLUB_ID,action:'match_participants',matchId,discipline}).then(r=>{if(active){setParticipants(r);setParticipantStatus('');}}).catch(e=>{if(active)setParticipantStatus('Deelnemers ophalen mislukt: '+e.message);}).finally(()=>{if(active)setParticipantLoading(false);});
+    refresh();const timer=scoringFunction==='epp-scoring'?setInterval(refresh,10000):null;
+    return()=>{active=false;clearInterval(timer);};
+  },[matchId,discipline,canInput,scoringFunction]);
   const [roundId,setRoundId] = React.useState("");
   const [matchLoading,setMatchLoading] = React.useState(false);
   const [revision,setRevision] = React.useState(0);
@@ -1432,6 +1437,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
   const newShooterId=React.useRef(newId());
   const requestFingerprint=React.useRef("");
   const [selectedShooter,setSelectedShooter] = React.useState(null);
+  const reservation=useScoreReservation(matchId,selectedShooter?.id,discipline,view==='individual'&&!!scoringMatch?.scoring&&!!canInput);
   const [newShooter,setNewShooter] = React.useState(false);
   const [counts,setCounts] = React.useState(emptyCounts);
   React.useEffect(()=>{
@@ -1452,7 +1458,9 @@ const TabLandelijk = ({isTrainer, flash}) => {
       if(request!==rankingRequest.current)return;
       setRanking(r.ranking||[]);
       setMatchRanking(r.matchRanking||[]);
-      setMatchesCalendar(r.matches||[]);
+      const scoring=await eppCall('epp-scoring',{clubId:CLUB_ID,action:'catalog'});
+      if(request!==rankingRequest.current)return;
+      setMatchesCalendar([...(scoring.matches||[]),...(r.matches||[]).filter(m=>!(scoring.matches||[]).some(s=>s.organizer===m.organizer&&s.match_date===m.match_date))]);
       setStatus("landelijke stand bijgewerkt");
     }catch(e){if(request===rankingRequest.current)setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}
   },[discipline,matchId]);
@@ -1460,25 +1468,26 @@ const TabLandelijk = ({isTrainer, flash}) => {
   React.useEffect(()=>{
     let active=true;
     setRoundId("");
-    if(!isTrainer||!matchId){setMatchLoading(false);return;}
+    if(!canInput||!matchId){setMatchLoading(false);return;}
     setMatchLoading(true);
-    eppCall("epp-platform",{clubId:CLUB_ID,action:"prepare_match",matchId})
+    eppCall(scoringFunction,{clubId:CLUB_ID,action:"prepare_match",matchId})
       .then(r=>{if(active)setRoundId(r.round.id);})
       .catch(e=>{if(active)setStatus("Wedstrijd laden mislukt: "+eppPlatformError(e.message));})
       .finally(()=>{if(active)setMatchLoading(false);});
     return()=>{active=false;};
-  },[isTrainer,matchId]);
+  },[canInput,matchId,scoringFunction]);
   React.useEffect(()=>{
+    if(scoringMatch?.scoring&&selectedShooter?.id&&!reservation.token){setResultLoading(false);return;}
     let active=true;requestKey.current=newId();setReason("");setRevision(0);
     setRapid(emptyRapid);setRapidTime("");setTotalTime("");setPenaltyTime("0");setPenaltyReason("");
-    if(!roundId||!selectedShooter?.id){setCounts(emptyCounts);setResultLoading(false);return;}
+    if(!roundId||!selectedShooter?.id||(scoringMatch?.scoring&&!reservation.token)){setCounts(emptyCounts);setResultLoading(false);return;}
     setResultLoading(true);
-    eppCall("epp-platform",{clubId:CLUB_ID,action:"get_result",roundId,shooterId:selectedShooter.id,discipline})
+    eppCall(scoringFunction,{clubId:CLUB_ID,action:"get_result",matchId,roundId,shooterId:selectedShooter.id,discipline})
       .then(r=>{if(!active)return;const x=r.result;setRevision(x?.revision||0);setCounts(x?{hits5:String(x.hits5??""),hits4:String(x.hits4??""),hits3:String(x.hits3??""),hits2:String(x.hits2??""),misses:String(x.misses??""),penaltyPoints:String(x.penalty_points??0)}:emptyCounts);if(x){setRapid(x.rapid_counts||emptyRapid);setRapidTime(x.rapid_time_ms==null?"":String(x.rapid_time_ms/1000));setTotalTime(x.measured_total_time_ms==null?"":EppScoreRanking.parcoursTime(x.measured_total_time_ms));setPenaltyTime(String((x.penalty_time_ms||0)/1000));setPenaltyReason(x.penalty_reason||"");}})
       .catch(e=>{if(active)setStatus("Score ophalen mislukt: "+e.message);})
       .finally(()=>{if(active)setResultLoading(false);});
     return()=>{active=false;};
-  },[roundId,selectedShooter?.id,discipline]);
+  },[roundId,selectedShooter?.id,discipline,scoringFunction,reservation.token]);
   const n = k => counts[k]===""?0:Number(counts[k]);
   const validCounts=Object.keys(emptyCounts).every(k=>Number.isSafeInteger(n(k))&&n(k)>=0);
   const shots = n("hits5")+n("hits4")+n("hits3")+n("hits2")+n("misses");
@@ -1509,7 +1518,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
   const search = shooterName.trim().toLocaleLowerCase("nl-NL");
   const matches = search ? candidates.filter(s=>(s.name+" "+s.club+" "+(s.publicId||"")).toLocaleLowerCase("nl-NL").includes(search)).slice(0,20) : [];
   const exactMatch = candidates.some(s=>s.name.toLocaleLowerCase("nl-NL")===search);
-  const canConfirm = isTrainer && roundId && !participantLoading && !participantStatus && allowedDiscipline && validRapid && validTimes && (!(penalty>0||penaltyTimeMs>0)||penaltyReason.trim().length>=3) && !matchLoading && !resultLoading && validCounts && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250 && (!revision||reason.trim().length>=3);
+  const canConfirm = canInput && (!scoringMatch?.scoring||reservation.token) && roundId && !participantLoading && !participantStatus && allowedDiscipline && validRapid && validTimes && (!(penalty>0||penaltyTimeMs>0)||penaltyReason.trim().length>=3) && !matchLoading && !resultLoading && validCounts && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250 && (!revision||reason.trim().length>=3);
   const resetForm = () => {setShooterName("");setSelectedShooter(null);setNewShooter(false);setCounts(emptyCounts);setRapid(emptyRapid);setRapidTime("");setTotalTime("");setPenaltyTime("0");setPenaltyReason("");setRevision(0);setReason("");requestKey.current=newId();newShooterId.current=newId();};
   const confirm = async () => {
     if(!canConfirm)return flash("Controleer de invoer");
@@ -1522,22 +1531,22 @@ const TabLandelijk = ({isTrainer, flash}) => {
       const fingerprint=JSON.stringify({...payload,idempotencyKey:undefined});
       if(fingerprint!==requestFingerprint.current){requestKey.current=newId();requestFingerprint.current=fingerprint;}
       payload.idempotencyKey=requestKey.current;
-      const r = await eppCall("epp-platform",payload);
-      setRanking(r.ranking||[]);
-      setMatchRanking(r.matchRanking||[]);
+      const r = await eppCall(scoringFunction,{...payload,leaseToken:reservation.token});
+      if(!scoringMatch?.scoring){setRanking(r.ranking||[]);setMatchRanking(r.matchRanking||[]);}else await load();
       if(r.shooter)setDirectory(p=>[...p.filter(s=>s.id!==r.shooter.id),r.shooter]);
       resetForm();
       setStatus("Opgeslagen — klassement bijgewerkt");
       flash("Landelijke score opgeslagen");
-    }catch(e){setStatus("Opslaan mislukt: "+eppPlatformError(e.message));}
+    }catch(e){setStatus("Opslaan mislukt: "+(scoringMatch?.scoring?scoringError(e):eppPlatformError(e.message)));}
     finally{setBusy(false);}
   };
-  const navigation=h('div',{className:'sub-tab-row'},[['individual','Individueel'],['teams','Teams'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label)));
+  const navigation=h('div',{className:'sub-tab-row'},[['individual','Individueel'],['teams','Teams'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
   if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters'}));
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},navigation,
     h("label",null,"Discipline",h("select",{className:"txt-in","aria-label":"Discipline",value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setRanking([]);setMatchRanking([]);resetForm();}},h("option",{value:"pistool"},"EPP pistool"),h("option",{value:"optiek"},"Open (Optics)"))),
-    h("label",null,"Wedstrijd",h("select",{className:"txt-in","aria-label":"Wedstrijd",value:matchId,disabled:busy,onChange:e=>{setMatchId(e.target.value);setRoundId("");setMatchRanking([]);}},h("option",{value:""},"Kies wedstrijd"),matchesCalendar.map(m=>h("option",{key:m.id,value:m.id},m.match_date+" - "+m.organizer)))),
-    isTrainer && h("div",{className:"card"},
+    h("label",null,"Wedstrijd",h("select",{className:"txt-in","aria-label":"Wedstrijd",value:matchId,disabled:busy,onChange:e=>{resetForm();setMatchId(e.target.value);setRoundId("");setMatchRanking([]);}},h("option",{value:""},"Kies wedstrijd"),matchesCalendar.map(m=>h("option",{key:m.id,value:m.id},m.match_date+" - "+m.organizer)))),
+    scoringMatch?.scoring&&h(MatchScoringManagement,{key:matchId,matchId,discipline,onClosed:()=>{resetForm();load();}}),
+    canInput && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Score bevestigen")),
       h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
         matchLoading && h("p",{className:"hint",role:"status"},"Wedstrijd laden..."),
@@ -1547,13 +1556,15 @@ const TabLandelijk = ({isTrainer, flash}) => {
         h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);newShooterId.current=newId();}}),
         !selectedShooter && !newShooter && search && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
           matches.map(s=>h("button",{key:s.key,type:"button",className:"btn btn-ghost",style:{textAlign:"left",whiteSpace:"normal",minHeight:48},onClick:()=>{setSelectedShooter(s);setShooterName(s.name);}},
-            h("span",{style:{overflowWrap:"anywhere"}},s.name,h("small",{style:{display:"block",color:C.muted}},s.id?"Database · "+s.publicId:"Klassement 2026 · "+s.club))
+            h("span",{style:{overflowWrap:"anywhere"}},s.name,h("small",{style:{display:"block",color:C.muted}},s.id?s.club+" · "+s.publicId+(s.lease?" · In bewerking":""):"Klassement 2026 · "+s.club))
           )),
           !matches.length && h("p",{className:"hint"},"Geen schutter gevonden."),
           !participants?.planned && !exactMatch && !directoryBusy && h("button",{type:"button",className:"btn btn-ghost",style:{whiteSpace:"normal",overflowWrap:"anywhere"},onClick:()=>setNewShooter(true)},"+ Nieuwe schutter: ",shooterName.trim())
         ),
-        (selectedShooter || newShooter) && h("p",{className:"hint"},newShooter?"Nieuwe schutter: "+shooterName:selectedShooter.id?"Geselecteerd: "+selectedShooter.name+" · "+selectedShooter.publicId:"Geselecteerd uit klassement 2026: "+selectedShooter.name),
-        selectedShooter?.id&&eppSession()?.account?.isAdmin&&h(QualificationEditor,{key:selectedShooter.id+discipline,shooterId:selectedShooter.id,discipline,onSaved:load}),
+        (selectedShooter || newShooter) && h("p",{className:"hint"},newShooter?"Nieuwe schutter: "+shooterName:selectedShooter.id?"Geselecteerd: "+selectedShooter.name+" · "+selectedShooter.club+" · "+selectedShooter.publicId:"Geselecteerd uit klassement 2026: "+selectedShooter.name),
+        scoringMatch?.scoring&&selectedShooter?.id&&h('div',null,h('p',{className:'hint',role:'status'},reservation.status||'Schutter reserveren...'),h('button',{className:'btn btn-ghost',onClick:resetForm,disabled:busy},'Invoer annuleren'),!reservation.token&&h('button',{className:'btn btn-ghost',onClick:()=>{if(window.confirm('De opgeslagen score wordt opnieuw geladen. Niet-opgeslagen invoer wordt vervangen. Doorgaan?'))reservation.retry();},disabled:busy},'Opnieuw reserveren')),
+        selectedShooter?.id&&!scoringMatch?.scoring&&eppSession()?.account?.isAdmin&&h(QualificationEditor,{key:selectedShooter.id+discipline,shooterId:selectedShooter.id,discipline,onSaved:load}),
+        h('fieldset',{disabled:busy||resultLoading||(!!scoringMatch?.scoring&&!reservation.token),style:{border:0,padding:0,margin:0,minWidth:0}},
         revision>0&&h("label",null,"Reden van correctie",h("input",{className:"txt-in",value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
         !allowedDiscipline&&h("p",{className:"hint",role:"alert"},"Open is niet aangeboden bij deze wedstrijd."),
         h("h3",{style:{margin:"8px 0",fontSize:18}},resultLoading?"Score ophalen...":"Snelvuurscore · 7 meter · 2 × 5 schoten"),
@@ -1590,6 +1601,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
           (!validRapid||shots!==50) && h("p",{className:"hint",style:{color:C.red}},"Vereist: 10 snelvuurschoten + 40 overige schoten."),
           !validTimes&&h("p",{className:"hint",style:{color:C.red}},!Number.isSafeInteger(totalTimeMs)?"Vul de eindtijd in als minuten:seconden, bijvoorbeeld 4:53. Seconden mogen niet hoger zijn dan 59.":"Controleer snelvuurtijd en straftijd; de eindtijd kan niet korter zijn dan de snelvuurtijd.")
         ),
+        ),
         h("button",{className:"btn btn-gold btn-full",disabled:busy||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan"),
         h("p",{className:"hint",role:"status"},status)
       )
@@ -1600,7 +1612,7 @@ const TabLandelijk = ({isTrainer, flash}) => {
     ),
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Landelijke seizoensranking · beste wedstrijdscore")),
-      h("div",{className:"card-body"},!isTrainer && h("p",{className:"hint",role:"status"},status),h(RankingTable,{items:ranking}))
+      h("div",{className:"card-body"},!canInput && h("p",{className:"hint",role:"status"},status),h(RankingTable,{items:ranking}))
     ),
     h(PublishedStandings)
   );
