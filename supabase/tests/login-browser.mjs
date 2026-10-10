@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {tmpdir} from 'node:os';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
@@ -39,7 +40,7 @@ try{
     await page.getByLabel('Wachtwoord',{exact:true}).fill('ab');
     await page.evaluate(()=>{eppShowLoginGate();document.getElementById('loginRole').dispatchEvent(new Event('change'));});
     assert.equal(await page.getByLabel('Wachtwoord',{exact:true}).inputValue(),'ab');
-    await page.screenshot({path:'/private/tmp/epp-login-'+viewport.width+'.png'});
+    await page.screenshot({path:resolve(tmpdir(),'epp-login-'+viewport.width+'.png')});
     await page.evaluate(()=>{window.eppRawCall=(fn,payload)=>{window.loginRequest={fn,payload};return new Promise(()=>{});};});
     await page.getByLabel('Voornaam',{exact:true}).fill('Anne');
     await page.getByLabel('Achternaam',{exact:true}).fill('de Vries');

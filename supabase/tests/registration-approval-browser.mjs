@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {tmpdir} from 'node:os';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {resolve,extname} from 'node:path';
@@ -30,7 +31,7 @@ try{
     });
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.getByRole('button',{name:'Ik heb nog geen account',exact:true}).click();
-    await page.getByText('Eigen account aanmaken',{exact:true}).waitFor({timeout:5000}).catch(async e=>{console.log(await page.locator('body').innerText());console.log(errors);await page.screenshot({path:'/private/tmp/epp-approval-debug.png',fullPage:true});throw e;});
+    await page.getByText('Eigen account aanmaken',{exact:true}).waitFor({timeout:5000}).catch(async e=>{console.log(await page.locator('body').innerText());console.log(errors);await page.screenshot({path:resolve(tmpdir(),'epp-approval-debug.png'),fullPage:true});throw e;});
     await page.locator('#root select').selectOption('apgs');
     await page.locator('#root').getByLabel('Voornaam',{exact:true}).fill('Shared');
     await page.locator('#root').getByLabel('Achternaam',{exact:true}).fill('Name');
@@ -55,7 +56,7 @@ try{
     assert.ok(await page.evaluate(()=>sessionStorage.getItem(EPP_SESSION_KEY)));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     assert.deepEqual(errors,[]);
-    await page.screenshot({path:'/private/tmp/epp-approved-registration-'+width+'.png'});
+    await page.screenshot({path:resolve(tmpdir(),'epp-approved-registration-'+width+'.png')});
     await page.close();console.log('PASS '+width+': registration, pending denial, approval, email login, correct club, session-only storage');
   }
 }finally{await browser.close();await new Promise(r=>server.close(r));}

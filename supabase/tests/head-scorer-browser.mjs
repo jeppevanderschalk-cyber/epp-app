@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {tmpdir} from 'node:os';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {resolve,extname} from 'node:path';
@@ -63,7 +64,7 @@ try{
     await page.waitForTimeout(150);
     assert.equal(await member.getByRole('button',{name:'Scoorderrechten geven',exact:true}).isDisabled(),true);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await page.screenshot({path:'/private/tmp/epp-head-scorer-'+width+'.png',fullPage:true});
+    await page.screenshot({path:resolve(tmpdir(),'epp-head-scorer-'+width+'.png'),fullPage:true});
     await page.close();console.log('PASS '+width+': independent scorer rights, revoke, conflict refresh and definitive guard');
   }
   assert.deepEqual(errors,[]);
