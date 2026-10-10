@@ -1,6 +1,17 @@
 const plannerClock=value=>new Intl.DateTimeFormat('nl-NL',{timeZone:'Europe/Amsterdam',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(value));
 const plannerDay=value=>new Intl.DateTimeFormat('nl-NL',{timeZone:'Europe/Amsterdam',day:'numeric',month:'short',year:'numeric'}).format(new Date(value));
 const plannerSlot=value=>plannerDay(value)+' · '+plannerClock(value);
+const plannerLastRound=config=>{
+  const minutes=value=>/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
+  const first=minutes(config.first),last=minutes(config.last),duration=Number(config.duration),changeover=Number(config.changeover),step=duration+changeover;
+  if(!Number.isFinite(first)||!Number.isFinite(last)||last<first||!Number.isInteger(duration)||duration<1||!Number.isInteger(changeover)||changeover<0)return '';
+  let actual=first+Math.floor((last-first)/step)*step;
+  while(actual>=first&&(config.breaks||[]).some(pause=>actual<minutes(pause.end)&&actual+duration>minutes(pause.start)))actual-=step;
+  if(actual<first)return '';
+  if(actual+duration>1440)return '';
+  const clock=value=>String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');
+  return clock(actual)+' – '+clock(actual+duration);
+};
 const plannerConfigErrors={laatste_ronde_sluit_niet_aan:'De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',ongeldige_capaciteit:'Kies een bestaande ronde en een capaciteit van 1 tot 100.',ongeldige_planning:'Controleer de starttijden, rondeduur, capaciteit en inschrijfperiode.'};
 const plannerError=e=>({tijdslot_vol:'Dit tijdslot is net volgeboekt. Kies een andere tijd.',overlappende_boeking:'Deze deelnames overlappen of hebben onvoldoende pauze ertussen.',planning_conflict:'De planning is elders gewijzigd. Haal de nieuwste versie op.',boeking_conflict:'Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.',bestaande_inschrijvingen_eerst_plannen:'Er zijn bestaande inschrijvingen zonder tijdslot. Deze moeten eerst gecontroleerd worden verwerkt; de app verplaatst ze niet automatisch.',geboekte_tijdsloten_behouden:'Deze wijziging zou bestaande boekingen veranderen of de capaciteit overschrijden.',geen_beheerrechten:'Je hebt geen beheerrechten voor deze vereniging.',inschrijving_gesloten:'De inschrijving is gesloten.',persoonlijk_schutterprofiel_verplicht:'Gebruik een persoonlijk account met schutter-ID.'}[e.message]||e.message);
 
@@ -65,7 +76,9 @@ const PlannerEditor=({view,onSaved,onReload,saveNotice='',onEdited})=>{
     try{await eppCall('epp-planner',{clubId:CLUB_ID,action:'configure',matchId:m.id,config,expectedRevision:revision});const message=await onSaved();setStatus(message||'Planning online opgeslagen');}
     catch(error){setStatus(plannerConfigErrors[error.message]||plannerError(error));setConflict(error.message==='planning_conflict');}finally{setBusy(false);}
   }},h('h3',{style:{fontSize:18}},'Planning instellen'),h('p',{className:'hint'},eppFmtMatchDates(m)),h('fieldset',{disabled:busy,style:{border:0,padding:0,minWidth:0,display:'grid',gap:12}},
-    field('first','Eerste ronde start','time'),field('last','Laatste ronde start','time'),field('duration','Rondeduur (minuten)','number'),field('changeover','Wisseltijd (minuten)','number'),field('capacity','Schietplaatsen per ronde','number'),field('gap','Minimale pauze tussen deelnames (minuten)','number'),dateField('opens','Inschrijving opent'),dateField('closes','Inschrijving sluit'),
+    field('first','Eerste ronde start','time'),field('last','Laatste ronde start uiterlijk','time'),field('duration','Rondeduur (minuten)','number'),field('changeover','Wisseltijd (minuten)','number'),
+    plannerLastRound(config)&&h('p',{className:'hint',role:'status',style:{margin:0}},'Laatste ronde: '+plannerLastRound(config)),
+    field('capacity','Schietplaatsen per ronde','number'),field('gap','Minimale pauze tussen deelnames (minuten)','number'),dateField('opens','Inschrijving opent'),dateField('closes','Inschrijving sluit'),
     list('breaks',[['start','Pauze vanaf','time'],['end','Pauze tot','time']]),list('overrides',[['start','Start ronde','time'],['capacity','Schietplaatsen','number']]),
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:config.published,onChange:e=>setConfig(p=>({...p,published:e.target.checked}))}),'Planner publiceren'),
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:confirmed,onChange:e=>setConfirmed(e.target.checked)}),'Onze vereniging organiseert deze wedstrijd'),

@@ -32,6 +32,8 @@ try{
     });
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.evaluate(()=>{window.feedbackRoot=ReactDOM.createRoot(document.getElementById('root'));window.feedbackRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(MatchPlanner,{matchId:'fixture',manage:true}))));eppShowApp();});
+    await page.getByLabel('Laatste ronde start uiterlijk',{exact:true}).fill('16:05');
+    await page.getByText('Laatste ronde: 16:00 – 16:07',{exact:true}).waitFor();
     await page.getByLabel('Onze vereniging organiseert deze wedstrijd').check();
     await page.getByRole('button',{name:'Planning opslaan',exact:true}).click();
     await page.getByText('Planning online opgeslagen.',{exact:true}).waitFor();

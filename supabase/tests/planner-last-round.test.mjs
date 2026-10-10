@@ -1,0 +1,17 @@
+import {readFile} from 'node:fs/promises';
+import {runInNewContext} from 'node:vm';
+import assert from 'node:assert/strict';
+const source=await readFile(new URL('../../match-planner-ui.js',import.meta.url),'utf8');
+const context={};
+runInNewContext(source.split('const plannerConfigErrors=')[0]+';globalThis.lastRound=plannerLastRound;',context);
+const base={first:'09:00',last:'16:05',duration:7,changeover:3,breaks:[]};
+assert.equal(context.lastRound(base),'16:00 – 16:07');
+assert.equal(context.lastRound({...base,last:'16:00'}),'16:00 – 16:07');
+assert.equal(context.lastRound({...base,last:'09:05'}),'09:00 – 09:07');
+assert.equal(context.lastRound({...base,first:'09:03'}),'16:03 – 16:10');
+assert.equal(context.lastRound({...base,breaks:[{start:'15:55',end:'16:30'}]}),'15:40 – 15:47');
+assert.equal(context.lastRound({...base,breaks:[{start:'08:00',end:'17:00'}]}),'');
+assert.equal(context.lastRound({...base,first:'17:00'}),'');
+assert.equal(context.lastRound({...base,duration:0,changeover:0}),'');
+assert.equal(context.lastRound({...base,last:''}),'');
+console.log('PASS last matching round: exact/nonmatching limit, short window, offset, breaks, invalid input');

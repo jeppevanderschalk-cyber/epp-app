@@ -9,9 +9,10 @@ begin
   insert into memberships(shooter_id,club_id)select sid,id from clubs where code='gast';
   insert into epp_matches(club_id,organizer,match_dates,offered_disciplines)values('gast','Two Day Test',array['2032-05-29','2032-05-28']::date[],array['pistool','optiek'])returning id into mid;
   assert (select match_date='2032-05-28' and match_dates=array['2032-05-28','2032-05-29']::date[] from epp_matches where id=mid),'canonical first date and sorted days';
-  cfg:='{"first":"09:00","last":"10:00","duration":30,"changeover":0,"capacity":1,"gap":0,"opens":"2020-01-01T00:00:00Z","closes":"2032-05-27T00:00:00Z","published":true,"breaks":[],"overrides":[]}';
+  cfg:='{"first":"09:00","last":"10:05","duration":30,"changeover":0,"capacity":1,"gap":0,"opens":"2020-01-01T00:00:00Z","closes":"2032-05-27T00:00:00Z","published":true,"breaks":[],"overrides":[]}';
   perform epp_planner_configure(aid,mid,cfg,0);
   assert (select count(*)=6 from epp_match_slots where match_id=mid),'three slots on each day';
+  assert (select max((starts_at at time zone 'Europe/Amsterdam')::time)='10:00'::time from epp_match_slots where match_id=mid),'last matching start is before requested 10:05';
   assert (select count(distinct (starts_at at time zone 'Europe/Amsterdam')::date)=2 from epp_match_slots where match_id=mid),'both days available';
   select id into slot from epp_match_slots where match_id=mid and (starts_at at time zone 'Europe/Amsterdam')::date='2032-05-29' order by starts_at limit 1;
   perform epp_planner_book(uid,mid,sid,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot)),0);
