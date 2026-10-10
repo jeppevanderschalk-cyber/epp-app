@@ -63,6 +63,11 @@ try{
     await page.getByRole('button',{name:'Inschrijven wedstrijd',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Meer',exact:true}).click();
+    const donation=page.getByRole('link',{name:'Doneer via iDEAL',exact:true});
+    assert.equal(await donation.evaluate(el=>el.closest('.page-fade').lastElementChild===el.closest('.card')),true);
+    assert.equal(await donation.getAttribute('href'),'https://www.ing.nl/payreq/m/?trxid=WHUfzGumUOrs0LK419CNQYuHLT9dGwQt');
+    await donation.scrollIntoViewIfNeeded();
+    await page.screenshot({path:'/private/tmp/epp-donation-member-'+viewport.width+'.png'});
     assert.equal(await page.getByRole('button',{name:'Inschrijven voor wedstrijden',exact:true}).count(),0);
     await page.getByRole('button',{name:'Landelijk',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();

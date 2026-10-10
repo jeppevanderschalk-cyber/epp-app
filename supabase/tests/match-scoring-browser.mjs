@@ -74,6 +74,11 @@ try{
     admin.page.on('dialog',d=>d.accept());
     await admin.page.getByRole('button',{name:'Uitslag definitief maken',exact:true}).click();
     await admin.page.getByText('Uitslag definitief gemaakt',{exact:true}).waitFor();assert.equal(closed,true);
+    await admin.page.getByRole('button',{name:'Meer',exact:true}).click();
+    const donation=admin.page.getByRole('link',{name:'Doneer via iDEAL',exact:true});
+    assert.equal(await donation.evaluate(el=>el.closest('.page-fade').lastElementChild===el.closest('.card')),true);
+    await donation.scrollIntoViewIfNeeded();
+    await admin.page.screenshot({path:'/private/tmp/epp-donation-trainer-'+viewport.width+'.png'});
     await admin.context.close();
     console.log('PASS '+viewport.width+': delegated input, two scorers, collision blocking, save, rights and closing');
   }
