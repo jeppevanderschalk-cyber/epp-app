@@ -35,7 +35,7 @@ const PlannerBooking=({view,target,onSaved,onReload})=>{
   );
 };
 
-const PlannerEditor=({view,onSaved,onReload})=>{
+const PlannerEditor=({view,onSaved,onReload,saveNotice='',onEdited})=>{
   const m=view.match;
   const defaults={first:'09:00',last:'16:00',duration:30,changeover:0,capacity:4,gap:0,opens:new Date().toISOString(),closes:new Date(m.match_date+'T08:00:00+01:00').toISOString(),breaks:[],overrides:[],published:false};
   const [config,setConfig]=React.useState(view.planner?.config||defaults),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[confirmed,setConfirmed]=React.useState(false);
@@ -46,9 +46,9 @@ const PlannerEditor=({view,onSaved,onReload})=>{
     return h('label',{key},label,h('input',{className:'txt-in',type:'datetime-local',required:true,value:text,onChange:e=>{if(e.target.value)setConfig(p=>({...p,[key]:e.target.value}));}}));
   };
   const list=(key,labels)=>h('div',null,config[key].map((row,i)=>h('div',{key:i,style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'end'}},labels.map(([k,label,type])=>h('label',{key:k,style:{flex:'1 1 100px'}},label,h('input',{className:'txt-in',type,required:true,min:type==='number'?1:undefined,max:type==='number'?100:undefined,value:row[k],onChange:e=>setConfig(p=>({...p,[key]:p[key].map((r,j)=>j===i?{...r,[k]:type==='number'?Number(e.target.value):e.target.value}:r)}))}))),h('button',{type:'button',className:'btn btn-ghost','aria-label':'Verwijder '+key+' '+(i+1),onClick:()=>setConfig(p=>({...p,[key]:p[key].filter((_,j)=>j!==i)}))},'×'))),h('button',{type:'button',className:'btn btn-ghost',onClick:()=>setConfig(p=>({...p,[key]:[...p[key],key==='breaks'?{start:'12:00',end:'13:00'}:{start:'09:00',capacity:p.capacity}]}))},key==='breaks'?'+ Pauze':'+ Afwijkende capaciteit'));
-  return h('form',{style:{display:'grid',gap:12},onSubmit:async e=>{
-    e.preventDefault();if(busy||!confirmed)return;setBusy(true);setStatus('');
-    try{await eppCall('epp-planner',{clubId:CLUB_ID,action:'configure',matchId:m.id,config,expectedRevision:revision});await onSaved();setStatus('Planning online opgeslagen');}
+  return h('form',{style:{display:'grid',gap:12},onChange:()=>{setStatus('');onEdited?.();},onSubmit:async e=>{
+    e.preventDefault();if(busy||!confirmed)return;setBusy(true);setStatus('');onEdited?.();
+    try{await eppCall('epp-planner',{clubId:CLUB_ID,action:'configure',matchId:m.id,config,expectedRevision:revision});const message=await onSaved();setStatus(message||'Planning online opgeslagen');}
     catch(error){setStatus(plannerConfigErrors[error.message]||plannerError(error));setConflict(error.message==='planning_conflict');}finally{setBusy(false);}
   }},h('h3',{style:{fontSize:18}},'Planning instellen'),h('p',{className:'hint'},eppFmtMatchDates(m)),h('fieldset',{disabled:busy,style:{border:0,padding:0,minWidth:0,display:'grid',gap:12}},
     field('first','Eerste ronde start','time'),field('last','Laatste ronde start','time'),field('duration','Rondeduur (minuten)','number'),field('changeover','Wisseltijd (minuten)','number'),field('capacity','Schietplaatsen per ronde','number'),field('gap','Minimale pauze tussen deelnames (minuten)','number'),dateField('opens','Inschrijving opent'),dateField('closes','Inschrijving sluit'),
@@ -56,21 +56,29 @@ const PlannerEditor=({view,onSaved,onReload})=>{
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:config.published,onChange:e=>setConfig(p=>({...p,published:e.target.checked}))}),'Planner publiceren'),
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:confirmed,onChange:e=>setConfirmed(e.target.checked)}),'Onze vereniging organiseert deze wedstrijd'),
     h('button',{type:'submit',className:'btn btn-gold',disabled:!confirmed},busy?'Opslaan...':'Planning opslaan')),
-    status&&h('p',{className:'hint',role:'status'},status),conflict&&h('button',{type:'button',className:'btn btn-ghost',disabled:busy,onClick:()=>{if(confirm('Niet opgeslagen wijzigingen vervallen. Nieuwste planning ophalen?'))onReload();}},'Nieuwste planning ophalen'));
+    (status||saveNotice)&&h('p',{className:'hint',role:conflict?'alert':'status',style:{margin:0,padding:'10px 0',fontWeight:700}},status||saveNotice),conflict&&h('button',{type:'button',className:'btn btn-ghost',disabled:busy,onClick:()=>{if(confirm('Niet opgeslagen wijzigingen vervallen. Nieuwste planning ophalen?'))onReload();}},'Nieuwste planning ophalen'));
 };
 
 const MatchPlanner=({matchId,manage=false})=>{
   const [view,setView]=React.useState(null),[status,setStatus]=React.useState(''),[version,setVersion]=React.useState(0),[target,setTarget]=React.useState(null);
+  const [planningNotice,setPlanningNotice]=React.useState('');
   const load=React.useCallback(async()=>{
     try{const r=await eppCall('epp-planner',{clubId:CLUB_ID,action:'view',matchId});setView(r);setStatus('');return r;}catch(e){setStatus(plannerError(e));}
   },[matchId]);
   React.useEffect(()=>{let active=true;load();const timer=setInterval(()=>{if(active)load();},10000);return()=>{active=false;clearInterval(timer);};},[load]);
-  const saved=async()=>{await load();setVersion(v=>v+1);setTarget(null);setStatus('Online opgeslagen');};
+  const saved=async(planning=false)=>{
+    const latest=await load();
+    if(latest){setVersion(v=>v+1);setTarget(null);setStatus('Online opgeslagen');}
+    if(planning){
+      const message=latest?'Planning online opgeslagen.':'Planning online opgeslagen. De tijdsloten konden niet worden vernieuwd; probeer de planning opnieuw te laden.';
+      setPlanningNotice(message);return message;
+    }
+  };
   const reload=async()=>{const latest=await load();if(!latest)return;setVersion(v=>v+1);if(target)setTarget(latest.roster.find(r=>r.shooterId===target.shooterId)||null);};
   return h('section',{style:{display:'grid',gap:14}},
     status&&h('p',{className:'hint',role:'status'},status),
     !view?h('p',{className:'hint'},'Planner laden...'):h(React.Fragment,null,
-      manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:saved,onReload:reload}),
+      manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:()=>saved(true),onReload:reload,saveNotice:planningNotice,onEdited:()=>setPlanningNotice('')}),
       view.planner&&h(React.Fragment,null,
         h('h3',{style:{fontSize:18,margin:0}},'Tijdsloten'),
         h('div',{style:{display:'grid',gap:6}},view.slots.map(s=>h('div',{key:s.id,style:{display:'flex',gap:8,justifyContent:'space-between',borderBottom:'1px solid '+C.border,padding:'8px 0'}},h('span',{style:{minWidth:0,overflowWrap:'anywhere'}},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)),h('span',null,s.booked+'/'+s.capacity)))),

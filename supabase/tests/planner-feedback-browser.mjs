@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {resolve,extname} from 'node:path';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
+const root=resolve(import.meta.dirname,'../..');
+const server=createServer(async(req,res)=>{try{const p=new URL(req.url,'http://localhost').pathname,file=resolve(root,'.'+(p==='/'?'/index.html':p));if(!file.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',extname(file)==='.html'?'text/html':extname(file)==='.js'?'text/javascript':'application/octet-stream');res.end(await readFile(file));}catch{res.writeHead(404);res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
+try{
+  for(const width of [390,1440]){
+    const page=await browser.newPage({viewport:{width,height:900}}),errors=[];let mode='ok',saved=false,configures=0,views=0;
+    page.on('pageerror',e=>errors.push(e.message));
+    await page.route('**/functions/v1/**',async route=>{
+      const b=route.request().postDataJSON();
+      if(b.action==='configure'){
+        configures++;await new Promise(r=>setTimeout(r,200));
+        if(mode==='error')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({ok:false,error:'laatste_ronde_sluit_niet_aan'})});
+        saved=true;
+      }
+      if(b.action==='view'){
+        views++;
+        if(saved&&mode==='refresh-error')return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({ok:false,error:'server_fout'})});
+      }
+      const config={first:'09:00',last:'16:00',duration:7,changeover:3,capacity:2,gap:0,opens:'2026-01-01T09:00',closes:'2027-05-27T18:00',breaks:[],overrides:[],published:true};
+      const view={ok:true,match:{id:'fixture',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:[]},planner:{revision:saved?2:1,config},managing:true,profile:null,slots:Array.from({length:40},(_,i)=>({id:'slot-'+i,starts_at:new Date(Date.UTC(2027,4,28,7,i*10)).toISOString(),ends_at:new Date(Date.UTC(2027,4,28,7,i*10+7)).toISOString(),capacity:2,booked:0})),mine:{choices:[]},roster:[],audit:[]};
+      await route.fulfill({contentType:'application/json',body:JSON.stringify(view)});
+    });
+    await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.evaluate(()=>{window.feedbackRoot=ReactDOM.createRoot(document.getElementById('root'));window.feedbackRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(MatchPlanner,{matchId:'fixture',manage:true}))));eppShowApp();});
+    await page.getByLabel('Onze vereniging organiseert deze wedstrijd').check();
+    await page.getByRole('button',{name:'Planning opslaan',exact:true}).click();
+    await page.getByText('Planning online opgeslagen.',{exact:true}).waitFor();
+    const count=configures;await page.waitForTimeout(10500);assert.equal(configures,count);assert.ok(views>=3);
+    await page.getByText('Planning online opgeslagen.',{exact:true}).scrollIntoViewIfNeeded();
+    const position=await page.getByText('Planning online opgeslagen.',{exact:true}).evaluate(el=>el.getBoundingClientRect().top-el.previousElementSibling.querySelector('button[type="submit"]').getBoundingClientRect().bottom);assert.ok(position>=0&&position<30);
+    await page.screenshot({path:'/private/tmp/epp-planner-feedback-'+width+'.png'});
+    await page.getByLabel('Rondeduur (minuten)',{exact:true}).fill('8');assert.equal(await page.getByText('Planning online opgeslagen.',{exact:true}).count(),0);
+    mode='error';await page.getByLabel('Onze vereniging organiseert deze wedstrijd').check();await page.getByRole('button',{name:'Planning opslaan',exact:true}).click();
+    await page.getByText('De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',{exact:true}).waitFor();assert.equal(await page.getByLabel('Rondeduur (minuten)',{exact:true}).inputValue(),'8');
+    mode='refresh-error';await page.getByRole('button',{name:'Planning opslaan',exact:true}).click();
+    await page.getByText('Planning online opgeslagen. De tijdsloten konden niet worden vernieuwd; probeer de planning opnieuw te laden.',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);await page.close();
+    console.log('PASS '+width+': adjacent confirmation survives remount/poll, edits clear success, errors retain input, refresh failure is distinguished');
+  }
+}finally{await browser.close();await new Promise(r=>server.close(r));}
