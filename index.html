@@ -78,7 +78,7 @@
 <div id="root" hidden></div>
 <script src="training-store.js"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
-<script src="match-planner-ui.js?v=multiday-1"></script>
+<script src="match-planner-ui.js?v=accounts-2"></script>
 <script src="head-view-ui.js?v=2"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=1"></script>
@@ -2133,6 +2133,11 @@ const BackupManagement = ({canRestore,onRestored}) => {
       h("button",{className:"btn btn-danger",disabled:busy||!id||!canRestore,onClick:restore},"Training herstellen"),
       h("p",{role:"status",className:"hint"},status)));
 };
+const removeAccountWithConfirmation = async account => {
+  if(!confirm('Account van '+account.display_name+' verwijderen?\n\nDeze persoon kan niet meer inloggen. Scores, inschrijvingen en het auditlog blijven behouden.'))return false;
+  await eppCall('epp-auth',{clubId:CLUB_ID,action:'delete_account',accountId:account.id,confirmAccountId:account.id});
+  return true;
+};
 const AccountManagement = () => {
   const [accounts,setAccounts]=React.useState([]);
   const [shooters,setShooters]=React.useState([]);
@@ -2160,13 +2165,20 @@ const AccountManagement = () => {
     catch(e){setStatus(e.message);}
     finally{setBusy(false);}
   };
+  const remove=async a=>{
+    if(busy)return;setBusy(true);
+    try{if(await removeAccountWithConfirmation(a)){setStatus('Account verwijderd. Scores en inschrijvingen zijn behouden.');await load();}}
+    catch(e){setStatus(e.message);}
+    finally{setBusy(false);}
+  };
   const field=(key,label,type="text")=>h("label",null,label,h("input",{className:"txt-in",type,required:true,disabled:busy,value:form[key],minLength:key==="newPassword"?10:undefined,autoComplete:type==="password"?"new-password":"off",onChange:e=>setForm(p=>({...p,[key]:e.target.value}))}));
   return h("section",null,
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Accounts - "+CLUB.label)),
     h("div",{className:"card-body",style:{display:"grid",gap:12}},
       accounts.map(a=>h("div",{key:a.id,style:{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",borderBottom:"1px solid "+C.border,paddingBottom:8}},
         h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+a.role+(a.active?"":" - geblokkeerd"))),
-        a.active&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-danger",disabled:busy,onClick:()=>disable(a)},"Blokkeren"))),
+        a.active&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-danger",disabled:busy,onClick:()=>disable(a)},"Blokkeren"),
+        eppSession()?.account?.isPlatformAdmin&&a.id!==eppSession()?.account?.id&&!a.is_platform_admin&&!['kijker','hoofdbeheer'].includes(a.username)&&h('button',{className:'btn btn-danger',disabled:busy,onClick:()=>remove(a)},'Account verwijderen'))),
       h("form",{onSubmit:create,style:{display:"grid",gap:10}},
         field("displayName","Naam"),field("username","Gebruikersnaam"),field("newPassword","Tijdelijk wachtwoord","password"),
         h("label",null,"Rol",h("select",{className:"txt-in",disabled:busy,value:form.role,onChange:e=>setForm(p=>({...p,role:e.target.value}))},

@@ -64,7 +64,7 @@ Deno.serve(async req=>{
     if(body.action==='list_club_access'){
       if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
       const {data:clubs,error:cErr}=await db.from('clubs').select('code,naam').order('naam');if(cErr)throw cErr;
-      const {data:accounts,error}=await db.from('app_accounts').select('id,club_code,display_name,role,is_admin,active,is_platform_admin').eq('active',true).neq('username','kijker').order('display_name');if(error)throw error;
+      const {data:accounts,error}=await db.from('app_accounts').select('id,club_code,display_name,role,is_admin,active,is_platform_admin').is('deleted_at',null).neq('username','kijker').order('display_name');if(error)throw error;
       return json({ok:true,clubs,accounts});
     }
     if(body.action==='set_club_admin'){
@@ -73,7 +73,7 @@ Deno.serve(async req=>{
       return json({ok:true});
     }
     if(body.action==='list_accounts'){
-      const {data,error}=await db.from('app_accounts').select('id,username,display_name,role,is_admin,active').eq('club_code',actor.club_code).order('display_name');if(error)throw error;
+      const {data,error}=await db.from('app_accounts').select('id,username,display_name,role,is_admin,active,is_platform_admin').eq('club_code',actor.club_code).is('deleted_at',null).order('display_name');if(error)throw error;
       return json({ok:true,accounts:data});
     }
     if(body.action==='create_account'){
@@ -83,6 +83,13 @@ Deno.serve(async req=>{
       const {data,error}=await db.rpc('epp_create_account',{p_actor:actor.id,p_username:username,p_name:name,p_role:body.role==='schutter'?'schutter':'trainer',p_admin:body.isAdmin===true,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt),p_shooter:body.role==='schutter'?body.shooterId:null});
       if(error)throw error;
       return json({ok:true,accountId:data});
+    }
+    if(body.action==='delete_account'){
+      if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
+      if(body.accountId===actor.id)throw new Error('eigen_account_niet_verwijderen');
+      if(body.confirmAccountId!==body.accountId)throw new Error('verwijderen_bevestigen');
+      const {error}=await db.rpc('epp_delete_account',{p_actor:actor.id,p_target:body.accountId});if(error)throw error;
+      return json({ok:true});
     }
     if(body.action==='disable_account'){
       if(body.accountId===actor.id)throw new Error('eigen_account_niet_blokkeren');
