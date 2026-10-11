@@ -22,7 +22,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;
 try{
   browser=await chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{})});
-  for(const viewport of [{width:390,height:844},{width:375,height:667},{width:1440,height:1000}]){
+  for(const viewport of [{width:320,height:568},{width:360,height:640},{width:375,height:667},{width:390,height:844},{width:667,height:375},{width:1440,height:1000}]){
     const page=await browser.newPage({viewport});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.route('https://**/*',route=>route.abort());
@@ -34,9 +34,14 @@ try{
     assert.equal(await page.locator('.login-logo').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     assert.equal(await page.locator('.login-wordmark').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     const panel=await page.locator('.login-card').boundingBox();
-    assert.ok(panel.x>=32&&viewport.width-(panel.x+panel.width)>=32);
+    assert.ok(panel.x>=15&&viewport.width-(panel.x+panel.width)>=15);
+    assert.ok(panel.y>=0&&panel.y+panel.height<=viewport.height,'Login card must fit on one screen');
+    assert.equal(await page.locator('#loginGate').evaluate(el=>el.scrollHeight>el.clientHeight),false);
+    for(const name of ['Inloggen','Ik heb nog geen account','Wachtwoord vergeten?']){
+      const bounds=await page.getByRole('button',{name,exact:true}).boundingBox();assert.ok(bounds.y+bounds.height<=viewport.height,name+' must be visible without scrolling');
+    }
     const badge=await page.locator('.login-logo').boundingBox(),wordmark=await page.locator('.login-wordmark').boundingBox();
-    assert.ok(badge.width>=180&&wordmark.width/badge.width<1.2);
+    assert.ok(badge.width>=64&&badge.width<=120);assert.ok(wordmark.width>0);
     assert.deepEqual(await page.locator('#loginRole option').evaluateAll(options=>options.map(option=>option.value)),['schutter','hoofdbeheer']);
     await page.getByLabel('Inloggen als').selectOption('hoofdbeheer');
     await page.getByLabel('Wachtwoord',{exact:true}).fill('VisibilityTest123');
