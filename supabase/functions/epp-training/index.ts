@@ -6,8 +6,15 @@ Deno.serve(async req=>{
   if(req.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
   let body:any;try{body=await req.json();}catch{return json({ok:false,error:'invalid_json'},400);}
   try{
-    const actor=await requireAccount(body,body.action==='save');
+    const actor=await requireAccount(body);
     const db=serviceClient();
+    const personal=actor.role==='schutter';
+    let profile:any=null;
+    if(personal){
+      const {data,error}=await db.from('shooters').select('id,display_name').eq('linked_user_id',actor.id).single();if(error)throw error;profile=data;
+      if(!['load','save'].includes(body.action))throw new Error('geen_schrijfrechten');
+    }
+    const ownEntities=(entities:any[])=>personal?[...entities,{kind:'shooter',id:profile.id,data:{id:profile.id,naam:profile.display_name}}]:entities;
     if(body.action==='save'){
       if(!Array.isArray(body.ops)||body.ops.length>5000)throw new Error('ongeldige_bewerking');
       for(const op of body.ops){
@@ -17,19 +24,19 @@ Deno.serve(async req=>{
         if(op.kind==='round' && op.value && (!Number.isInteger(op.value.score)||op.value.score<0||op.value.score>(op.value.type==='parcours'?250:['s1','s4','s7'].includes(op.value.stage)?50:25)))throw new Error('ongeldige_score');
         if(op.kind==='shot' && op.value && ![0,2,3,4,5].includes(op.value.score))throw new Error('ongeldige_score');
       }
-      const {data,error}=await db.rpc('epp_training_apply',{p_club:actor.club_code,p_actor:actor.id,p_ops:body.ops});
+      const {data,error}=await db.rpc(personal?'epp_personal_training_apply':'epp_training_apply',{p_club:actor.club_code,p_actor:actor.id,p_ops:body.ops});
       if(error)throw error;
-      return json(data);
+      return json({...data,entities:ownEntities(data.entities||[])});
     }
     if(body.action==='load'){
       const all:any[]=[];
       for(let offset=0;;offset+=1000){
-        const {data,error}=await db.from('training_entities').select('kind,entity_id,data').eq('club_code',actor.club_code).order('kind').order('entity_id').range(offset,offset+999);
+        const {data,error}=await db.from(personal?'epp_personal_training_entities':'training_entities').select('kind,entity_id,data').eq(personal?'account_id':'club_code',personal?actor.id:actor.club_code).order('kind').order('entity_id').range(offset,offset+999);
         if(error)throw error;
         all.push(...(data||[]).map(r=>({kind:r.kind,id:r.entity_id,data:r.data})));
         if(!data || data.length<1000)break;
       }
-      return json({ok:true,entities:all});
+      return json({ok:true,entities:ownEntities(all)});
     }
     if(body.action==='backup_status' && actor.is_admin){
       const {data,error}=await db.from('platform_backups').select('id,created_at,checksum').order('created_at',{ascending:false}).limit(20);

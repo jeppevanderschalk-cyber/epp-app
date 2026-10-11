@@ -1,0 +1,32 @@
+begin;
+do $$
+declare actor uuid;other uuid;sid uuid;foreign_sid uuid;ops jsonb;result jsonb;denied boolean;clubcount bigint;
+begin
+ insert into app_accounts(club_code,username,display_name,role,membership_approved) values('svbb','personal.test.'||gen_random_uuid(),'Personal Test','schutter',true) returning id into actor;
+ insert into app_accounts(club_code,username,display_name,role,membership_approved) values('svbb','personal.other.'||gen_random_uuid(),'Other Test','schutter',true) returning id into other;
+ insert into platform_users(id) values(actor),(other);
+ insert into shooters(display_name,linked_user_id) values('Personal Test',actor) returning id into sid;
+ insert into shooters(display_name,linked_user_id) values('Other Test',other) returning id into foreign_sid;
+ select count(*) into clubcount from training_entities;
+ ops:=jsonb_build_array(jsonb_build_object('kind','round','id','own-round','expected',null,'value',jsonb_build_object('id','own-round','sid',sid,'type','parcours','score',200)));
+ result:=epp_personal_training_apply('svbb',actor,ops);
+ assert jsonb_array_length(result->'entities')=1,'own result saved';
+ perform epp_personal_training_apply('svbb',actor,ops);
+ assert (select count(*) from epp_personal_training_audit where account_id=actor)=1,'same request is idempotent';
+ result:=epp_personal_training_apply('svbb',other,'[]');
+ assert jsonb_array_length(result->'entities')=0,'another account cannot read own results';
+ denied:=false;begin perform epp_personal_training_apply('svbb',actor,jsonb_build_array(jsonb_build_object('kind','round','id','foreign','value',jsonb_build_object('sid',foreign_sid,'score',100))));exception when others then if sqlerrm='alleen_eigen_training' then denied:=true;else raise;end if;end;
+ assert denied,'foreign score denied';
+ denied:=false;begin perform epp_personal_training_apply('svbb',actor,jsonb_build_array(jsonb_build_object('kind','archive','id','foreign-archive','value',jsonb_build_object('rounds',jsonb_build_array(jsonb_build_object('sid',foreign_sid))))));exception when others then if sqlerrm='alleen_eigen_training' then denied:=true;else raise;end if;end;
+ assert denied,'foreign archived score denied';
+ denied:=false;begin perform epp_personal_training_apply('svbb',actor,jsonb_build_array(jsonb_build_object('kind','round','id','own-round','expected',null,'value',jsonb_build_object('sid',sid,'score',210))));exception when others then if sqlerrm like 'opslag_conflict:%' then denied:=true;else raise;end if;end;
+ assert denied,'conflicting edit protected';
+ denied:=false;begin perform epp_personal_training_apply('gast',actor,'[]');exception when others then if sqlerrm='geen_schrijfrechten' then denied:=true;else raise;end if;end;
+ assert denied,'wrong association denied';
+ assert clubcount=(select count(*) from training_entities),'club training unchanged';
+ assert not has_table_privilege('anon','epp_personal_training_entities','select'),'private storage';
+ assert not has_function_privilege('authenticated','epp_personal_training_apply(text,uuid,jsonb)','execute'),'RPC only backend';
+ assert position('epp_personal_training_entities' in pg_get_functiondef('epp_capture_backup()'::regprocedure))>0,'personal training included in backup';
+end $$;
+select 'PASS personal training: ownership, isolation, conflicts, idempotency and backup' as result;
+rollback;

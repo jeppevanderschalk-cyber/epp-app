@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-uA9LKx/i9gmitPh8LQytqFee2IZ6W4qIuwoDgD4Tf40='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-uXhSjMB+Ll8G/QoWzKSlWt+6v9j0q11/uJ1Fv3sud/4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -1190,7 +1190,7 @@ const RankList = ({items, max}) => {
 const TabInvoer = ({
   shooters, nieuw, setNieuw, addShooter, removeShooter,
   currentTraining, setTrainingMode, setTrainingStage, addRound,
-  setTab, maxOf, fixedMode="parcours", onOverview
+  setTab, maxOf, personalTraining=false, fixedMode="parcours", onOverview
 }) => {
   const mode = fixedMode;
   const stage = currentTraining.stage;
@@ -1214,7 +1214,7 @@ const TabInvoer = ({
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schutters")),
       h("div",{className:"card-body"},
-        h("div",{style:{display:"flex",gap:8,marginBottom:10}},
+        !personalTraining&&h("div",{style:{display:"flex",gap:8,marginBottom:10}},
           h("input",{
             className:"txt-in",style:{flex:1},placeholder:"Naam toevoegen…",
             value:nieuw,
@@ -1227,7 +1227,7 @@ const TabInvoer = ({
           ? h("p",{style:{fontSize:13,color:C.muted,margin:0}},"Nog geen schutters toegevoegd.")
           : h("div",{style:{display:"flex",gap:8,alignItems:"end"}},
               h("label",{style:{flex:1,minWidth:0}},"Schutter",h("select",{className:"txt-in","aria-label":"Schutter voor score-invoer",value:activeSid,onChange:e=>setActiveSid(e.target.value)},shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam)))),
-              h("button",{className:"btn btn-danger",type:"button",title:"Geselecteerde schutter verwijderen","aria-label":"Geselecteerde schutter verwijderen",onClick:()=>removeShooter(activeSid)},"×")
+              !personalTraining&&h("button",{className:"btn btn-danger",type:"button",title:"Geselecteerde schutter verwijderen","aria-label":"Geselecteerde schutter verwijderen",onClick:()=>removeShooter(activeSid)},"×")
             )
       )
     ),
@@ -1359,10 +1359,10 @@ const TabTraining = ({shooters, currentTraining, finishTraining, isTrainer,archi
 const TrainingHub = props => {
   const view=props.trainingView,setView=props.setTrainingView;
   return h('div',{style:{display:'flex',flexDirection:'column',gap:12,minWidth:0}},
-    props.isTrainer&&h('div',{className:'sub-tab-row'},[['parcours','Parcours'],['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
-    props.isTrainer&&view!=='overview'
+    props.canTrain&&h('div',{className:'sub-tab-row'},[['parcours','Parcours'],['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
+    props.canTrain&&view!=='overview'
       ?h(TabInvoer,{...props,key:view,fixedMode:view==='stages'?'stage':'parcours',onOverview:()=>setView('overview')})
-      :h(TabTraining,{...props,onInput:mode=>setView(mode==='stage'?'stages':'parcours')})
+      :h(TabTraining,{...props,isTrainer:props.canTrain,onInput:mode=>setView(mode==='stage'?'stages':'parcours')})
   );
 };
 
@@ -2419,6 +2419,8 @@ with check (true);`)
 // ═══════════════════════════════════════════════════════════════════
 function App({headClubs,onHeadClubChange}={}) {
   const isTrainer = eppSession()?.account?.role === "trainer";
+  const personalTraining=eppSession()?.account?.role==='schutter'&&eppSession()?.account?.username!=='kijker';
+  const canTrain=isTrainer||personalTraining;
   const [trainingView,setTrainingView]=React.useState('parcours');
   const accountClubId=eppSession()?.account?.clubId;
   const accountClubName=EPP_CLUBS.find(c=>c.id===accountClubId)?.label||accountClubId||"Vereniging";
@@ -2437,7 +2439,7 @@ function App({headClubs,onHeadClubChange}={}) {
     try{return {...DEFAULT_SYNC,...JSON.parse(localStorage.getItem(SYNC_KEY)||"{}")};}catch(e){return DEFAULT_SYNC;}
   });
   const [syncStatus, setSyncStatus] = React.useState(HAS_CENTRAL_SYNC ? "live meekijken wordt gestart..." : "sync uit");
-  const [tab,        setTab]        = React.useState(isTrainer ? "training" : "landelijk");
+  const [tab,        setTab]        = React.useState(canTrain ? "training" : "landelijk");
   const [eppPassword,setEppPassword]= React.useState("");
   const [platformPassword,setPlatformPassword]= React.useState("");
   const [nieuw,      setNieuw]      = React.useState("");
@@ -2475,7 +2477,7 @@ function App({headClubs,onHeadClubChange}={}) {
     setTombstones({shooters:{...(payload.tombstones?.shooters)},shots:{...(payload.tombstones?.shots)},monthWipes:{...(payload.tombstones?.monthWipes)},resetAt:payload.tombstones?.resetAt||0});
     latestPayload.current={...payload,stageShots:{...DEFAULT_SHOTS,...payload.stageShots},currentTraining:normalizedTraining};
   };
-  const queueKey=KEY+"-records-v3";
+  const queueKey=KEY+"-records-v3"+(personalTraining?"-personal-"+eppSession().account.id:"");
   const store=React.useRef({base:{},busy:false,hydrated:false,restored:false,conflict:false,localOk:true});
   const persistQueue=()=>{
     try{
@@ -2497,7 +2499,7 @@ function App({headClubs,onHeadClubChange}={}) {
   };
   const pushRemote=async()=>{
     const state=store.current;
-    if(!isTrainer||!state.hydrated||state.busy||state.conflict)return false;
+    if(!canTrain||!state.hydrated||state.busy||state.conflict)return false;
     const sent=latestPayload.current;
     const ops=EppStore.diff(state.base,sent);
     if(!ops.length)return true;
@@ -2524,12 +2526,12 @@ function App({headClubs,onHeadClubChange}={}) {
   const pullRemote=async()=>{
     const state=store.current;
     if(state.busy||state.conflict)return false;
-    if(state.hydrated&&isTrainer&&EppStore.diff(state.base,latestPayload.current).length)return pushRemote();
+    if(state.hydrated&&canTrain&&EppStore.diff(state.base,latestPayload.current).length)return pushRemote();
     state.busy=true;
     try{
       const result=await eppCall("epp-training",{clubId:CLUB_ID,action:"load"});
       const remote=EppStore.decode(result.entities||[]);
-      if(!state.hydrated&&(!isTrainer||!state.restored)){state.base=remote;applyPayload(remote);persistQueue();}
+      if(!state.hydrated&&(!canTrain||!state.restored)){state.base=remote;applyPayload(remote);persistQueue();}
       else if(!installRemote(remote)){state.hydrated=true;setLoaded(true);return false;}
       state.hydrated=true;setLoaded(true);
       setSyncStatus(EppStore.diff(state.base,latestPayload.current).length?"Invoer wacht op online opslag...":"Online bijgewerkt");
@@ -2546,14 +2548,14 @@ function App({headClubs,onHeadClubChange}={}) {
     pullRemote();
     const timer=setInterval(()=>pullRemote(),10000);
     const online=()=>pullRemote();
-    const unload=e=>{if(isTrainer&&EppStore.diff(store.current.base,latestPayload.current).length){persistQueue();e.preventDefault();e.returnValue="";}};
+    const unload=e=>{if(canTrain&&EppStore.diff(store.current.base,latestPayload.current).length){persistQueue();e.preventDefault();e.returnValue="";}};
     window.addEventListener("online",online);window.addEventListener("beforeunload",unload);
     return()=>{clearInterval(timer);window.removeEventListener("online",online);window.removeEventListener("beforeunload",unload);};
   },[]);
   React.useEffect(()=>{
     if(!loaded||!store.current.hydrated)return;
     persistQueue();
-    if(!isTrainer)return;
+    if(!canTrain)return;
     const timer=setTimeout(()=>pushRemote(),600);
     return()=>clearTimeout(timer);
   },[shooters,scores,cameraShots,stageShots,currentTraining,bestParcours,bestStageAverages,archives,loaded]);
@@ -2628,7 +2630,7 @@ function App({headClubs,onHeadClubChange}={}) {
     setShooters([]);setScores({});setCameraShots([]);setCurrentTraining(newTraining());setBestParcours({});setBestStageAverages({});setStageShots(DEFAULT_SHOTS);flash("Alles gewist");
   }};
   const logout = async () => {
-    if(isTrainer&&EppStore.diff(store.current.base,latestPayload.current).length&&!confirm("Er is nog niet online opgeslagen invoer. Die blijft lokaal bewaard. Toch uitloggen?"))return;
+    if(canTrain&&EppStore.diff(store.current.base,latestPayload.current).length&&!confirm("Er is nog niet online opgeslagen invoer. Die blijft lokaal bewaard. Toch uitloggen?"))return;
     persistQueue();
     try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"logout"});}catch(e){}
     sessionStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();
@@ -2667,7 +2669,7 @@ function App({headClubs,onHeadClubChange}={}) {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,archives,trainingView,setTrainingView})
+    : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,canTrain,personalTraining,archives,trainingView,setTrainingView})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
     : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:isTrainer?'individual':'signup'})
