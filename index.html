@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-Gg0dc+srKndumau3sdR8ex89Opo7yGINJNH7lbfhWoI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-9V8yWvwVa03K2xgg1cCW2B345I7DnFszC8dubMPiqdM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -1038,6 +1038,25 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .chk-lbl{flex:1;font-size:14px;font-weight:800;color:${C.ink}}
 .sel-in{width:100%;font-size:14px;padding:0 12px;min-height:48px;border:1px solid ${C.border};border-radius:14px;background:#081026;color:${C.ink};outline:none;font-family:'Archivo',sans-serif;font-weight:700}
 .sel-in:focus{border-color:${C.goldLt};box-shadow:inset 0 0 0 2px ${C.goldLt}}
+.account-card{display:flex;align-items:center;gap:14px;padding:16px 18px}
+.account-avatar{width:48px;height:48px;flex-shrink:0;border-radius:999px;display:grid;place-items:center;background:${C.gradGold};color:${C.navy};font-weight:900;font-size:17px}
+.account-name{font-size:17px;font-weight:900;color:${C.ink};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-sub{font-size:13px;font-weight:600;color:${C.muted};margin-top:2px}
+.more-item{border-bottom:1px solid ${C.border}}
+.more-item:last-child{border-bottom:0}
+.more-item summary{list-style:none;display:flex;align-items:center;gap:12px;min-height:62px;padding:12px 18px;cursor:pointer}
+.more-item summary::-webkit-details-marker{display:none}
+.more-item summary:focus-visible{outline:2px solid ${C.goldLt};outline-offset:-2px;border-radius:14px}
+.more-title{flex:1;min-width:0;display:grid;gap:3px;font-size:15px;font-weight:800;color:${C.ink}}
+.more-sub{font-size:12.5px;font-weight:600;color:${C.muted};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more-item.danger .more-title{color:${C.red}}
+.more-chev{flex-shrink:0;color:${C.muted};transition:transform .15s}
+.more-item[open] .more-chev{transform:rotate(90deg);color:${C.goldLt}}
+.more-body{padding:0 18px 18px}
+.more-body .card-head{display:none}
+.more-body .card-body{padding:0}
+.logout-link{align-self:center;background:none;border:0;color:${C.red};font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;min-height:48px;padding:0 20px;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.logout-link:focus-visible{outline:2px solid ${C.goldLt};outline-offset:2px;border-radius:10px}
 .mail-box{white-space:pre-wrap;font-size:12.5px;line-height:1.6;color:${C.ink};background:#081026;border:1px solid ${C.border};border-radius:14px;padding:14px;font-family:ui-monospace,monospace;max-height:340px;overflow-y:auto}
 `;
 // ─── Icons ───────────────────────────────────────────────────────────
@@ -2305,38 +2324,37 @@ const AccountManagement = () => {
         h("button",{className:"btn btn-gold",disabled:busy},busy?"Opslaan...":"Account aanmaken")),
       h("p",{role:"status",className:"hint"},status)));
 };
-const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout, setTab,canRestore,onRestored}) =>
-  h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Sessie")),
-      h("div",{className:"card-body"},
-        h("p",{className:"hint",style:{marginBottom:10}},"Ingelogd als ",eppSession()?.account?.displayName||"Gebruiker"," (",isTrainer?"Trainer":"Schutter",") — ",CLUB.label,"."),
-        h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
-      )
-    ),
-    eppSession()?.account?.role==='schutter' && eppSession()?.account?.username!=='kijker' && h(ShooterUsername),
-    eppSession()?.account?.username!=='kijker' && h(ChangeTrainerPassword,{logout}),
-    eppSession()?.account?.isAdmin&&h(PlatformAccessManagement),
-    eppSession()?.account?.isAdmin && h(AccountManagement),
-    eppSession()?.account?.isAdmin && h(BackupManagement,{canRestore,onRestored}),
-    isTrainer && h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Camera beta")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h("p",{className:"beta-note"},"De camerafunctie is nog Beta. Gebruik handmatige invoer als hoofdroute."),
-        h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("camera")},"Camera beta openen")
-      )
-    ),
-    isTrainer && h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Training")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+const MoreItem = ({title,sub,danger,children}) => h("details",{className:"more-item"+(danger?" danger":"")},
+  h("summary",null,
+    h("span",{className:"more-title"},title,sub&&h("span",{className:"more-sub"},sub)),
+    h("svg",{className:"more-chev",width:18,height:18,viewBox:"0 0 24 24",fill:"none","aria-hidden":"true"},h("path",{d:"M9 6l6 6-6 6",stroke:"currentColor",strokeWidth:2.4,strokeLinecap:"round",strokeLinejoin:"round"}))),
+  h("div",{className:"more-body"},children));
+
+const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, clearCurrentTraining, resetAll, syncConfig, setSyncConfig, syncStatus, syncNow, logout, setTab,canRestore,onRestored}) => {
+  const account=eppSession()?.account||{};
+  const personal=account.username!=='kijker';
+  const name=account.displayName||"Gebruiker";
+  const initials=name.split(/\s+/).filter(Boolean).map(w=>w[0]).filter(c=>/[A-Za-zÀ-ÿ]/.test(c)).slice(0,2).join("").toUpperCase()||"?";
+  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("div",{className:"card account-card"},
+      h("div",{className:"account-avatar","aria-hidden":"true"},initials),
+      h("div",{style:{minWidth:0}},
+        h("div",{className:"account-name"},name),
+        h("div",{className:"account-sub"},(isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
+    account.isAdmin&&h(PlatformAccessManagement),
+    account.isAdmin&&h(AccountManagement),
+    account.isAdmin&&h(BackupManagement,{canRestore,onRestored}),
+    h("div",{className:"card more-list"},
+      account.role==='schutter'&&personal&&h(MoreItem,{title:"Gebruikersnaam",sub:account.loginUsername?"Inloggen als "+account.loginUsername:"Nog niet gekozen"},h(ShooterUsername)),
+      personal&&h(MoreItem,{title:"Wachtwoord",sub:"Wijzig je wachtwoord"},h(ChangeTrainerPassword,{logout})),
+      isTrainer&&h(MoreItem,{title:"Training afsluiten",sub:"Bewaar de rondes in de stand of begin opnieuw"},
+        h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
         h("p",{className:"hint"},"Gebruik Training afsluiten voor bewaren in de stand. Nieuwe trainingsdag starten wist alleen de tijdelijke rondes en behoudt de stand."),
         h("button",{className:"btn btn-gold btn-full",onClick:finishTraining},"Training afsluiten en nieuwe starten"),
         h("button",{className:"btn btn-ghost btn-full",onClick:clearCurrentTraining},"Nieuwe trainingsdag starten")
-      )
-    ),
-    isTrainer && h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schoten per stage")),
-      h("div",{className:"card-body"},
+      )),
+      isTrainer&&h(MoreItem,{title:"Schoten per stage",sub:"Aantal schoten en maximale score"},
+        h("div",{className:"card-body"},
         h("div",{style:{fontSize:12,color:C.muted,marginBottom:10}},"Max score = schoten × 5"),
         STAGES.map((s,i)=>h("div",{key:s.key,className:"set-row"},
           h("div",{className:"set-lbl"},
@@ -2350,17 +2368,14 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
           }),
           h("div",{className:"set-max"},stageShots[s.key]*5)
         ))
-      )
-    ),
-    isTrainer && h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Beheer")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
-        h("button",{className:"btn btn-danger btn-full",onClick:resetAll},"Alles wissen")
-      )
-    ),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Online synchronisatie")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
+      )),
+      isTrainer&&h(MoreItem,{title:"Camera beta",sub:"Scores invoeren met de camera"},
+        h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+        h("p",{className:"beta-note"},"De camerafunctie is nog Beta. Gebruik handmatige invoer als hoofdroute."),
+        h("button",{className:"btn btn-ghost btn-full",onClick:()=>setTab("camera")},"Camera beta openen")
+      )),
+      isTrainer&&h(MoreItem,{title:"Online synchronisatie",sub:syncStatus||"niet verbonden"},
+        h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:10}},
         HAS_CENTRAL_SYNC
           ? h("p",{className:"hint"},"Live meekijken staat centraal aan. Iedere gebruiker van epp-app.nl ziet dezelfde schutters en scores zodra de app online is.")
           : h("p",{className:"hint"},"Vul eenmalig de centrale Supabase-gegevens in de app-code in. Daarna hoeven gebruikers zelf niets meer in te stellen."),
@@ -2427,18 +2442,18 @@ to anon
 using (true)
 with check (true);`)
         )
-      )
-    ),
-    h("p",{style:{fontSize:11,color:C.muted,textAlign:"center",padding:"4px 0 8px"}},"Scores worden automatisch online opgeslagen."),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Steun dit project")),
-      h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
+      )),
+      isTrainer&&h(MoreItem,{title:"Alles wissen",sub:"Verwijdert alle trainingsgegevens",danger:true},
+        h("button",{className:"btn btn-danger btn-full",onClick:resetAll},"Alles wissen")),
+      h(MoreItem,{title:"Steun dit project",sub:"Doneer voor hosting en ontwikkeling"},
+        h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
         h("a",{className:"btn btn-gold btn-full",href:"https://www.ing.nl/payreq/m/?trxid=WHUfzGumUOrs0LK419CNQYuHLT9dGwQt",target:"_blank",rel:"noopener noreferrer"},"Doneer via iDEAL"),
         h("p",{className:"hint",style:{textAlign:"center"}},"Donatie voor hosting en ontwikkeling"),
         h("p",{className:"hint",style:{textAlign:"center",opacity:.6}},"Of maak zelf over naar NL89 INGB 0796 2022 57")
-      )
-    )
+      ))),
+    h("button",{type:"button",className:"logout-link",onClick:logout},"Uitloggen")
   );
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // APP — bevat alleen state en logica, geen geneste component-definities

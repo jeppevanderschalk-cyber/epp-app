@@ -30,6 +30,7 @@ try{
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.getByRole('button',{name:'Meer',exact:true}).click();
+    await page.locator('summary',{hasText:'Camera beta'}).click();
     await page.getByRole('button',{name:'Camera beta openen',exact:true}).click();
     await page.getByText('Camera per serie',{exact:false}).waitFor();
     const sectionBox=await page.locator('.series-camera').boundingBox();

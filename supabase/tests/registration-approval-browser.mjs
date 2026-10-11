@@ -58,6 +58,7 @@ try{
     assert.ok(await page.evaluate(()=>sessionStorage.getItem(EPP_SESSION_KEY)));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.getByRole('button',{name:'Meer',exact:true}).click();
+    await page.locator('summary',{hasText:'Gebruikersnaam'}).click();
     await page.getByLabel('Gebruikersnaam',{exact:true}).fill('new.shooter');
     await page.getByRole('button',{name:'Gebruikersnaam opslaan',exact:true}).click();
     await page.getByText('Gebruikersnaam opgeslagen. Je kunt hiermee en je wachtwoord inloggen.',{exact:true}).waitFor();

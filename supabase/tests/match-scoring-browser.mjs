@@ -75,8 +75,9 @@ try{
     await admin.page.getByRole('button',{name:'Uitslag definitief maken',exact:true}).click();
     await admin.page.getByText('Uitslag definitief gemaakt',{exact:true}).waitFor();assert.equal(closed,true);
     await admin.page.getByRole('button',{name:'Meer',exact:true}).click();
+    await admin.page.locator('summary',{hasText:'Steun dit project'}).click();
     const donation=admin.page.getByRole('link',{name:'Doneer via iDEAL',exact:true});
-    assert.equal(await donation.evaluate(el=>el.closest('.page-fade').lastElementChild===el.closest('.card')),true);
+    assert.equal(await donation.evaluate(el=>el.closest('.more-list').lastElementChild===el.closest('.more-item')),true);
     await donation.scrollIntoViewIfNeeded();
     await admin.page.screenshot({path:'/private/tmp/epp-donation-trainer-'+viewport.width+'.png'});
     await admin.context.close();
