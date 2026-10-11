@@ -3,11 +3,11 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-1rQfGCLFjxCo2ZZ6BmI9U1Ebqu2C6Is8/pdbC2loE9w='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-31oOmZWIuDE7CNavkxK5lYEmsDGhcTe9sIUB2+vmSvo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
-<meta name="theme-color" content="#063971" />
+<meta name="theme-color" content="#0a1128" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="EPP" />
@@ -855,20 +855,22 @@ const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .app{font-family:'Archivo',system-ui,sans-serif;color:${C.ink};min-height:100dvh;display:flex;flex-direction:column;background:${C.bg}}
-.topbar{background:rgba(7,13,32,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);color:${C.ink};border-bottom:1px solid rgba(228,187,74,.32);padding:env(safe-area-inset-top,0) 0 0;position:sticky;top:0;z-index:100}
-.topbar-inner{display:flex;align-items:center;gap:10px;padding:9px 16px;max-width:760px;margin:0 auto}
-.topbar-logo{flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:0}
-.topbar-title{flex:1;min-width:0}
+.topbar{background:transparent;color:${C.ink};border-bottom:1px solid rgba(228,187,74,.16);padding:env(safe-area-inset-top,0) 0 0;position:relative;z-index:100}
+.topbar-inner{display:flex;align-items:center;gap:12px;padding:12px 16px;max-width:760px;margin:0 auto}
+.topbar-logo{flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:0;filter:drop-shadow(0 0 12px rgba(228,187,74,.38))}
+.topbar-wordmark{display:block;width:clamp(84px,24vw,150px);max-width:100%;aspect-ratio:4.6/1;object-fit:cover}
+.topbar-title{flex:0 0 auto;min-width:0}
 .topbar-title h1{font-family:'Archivo',sans-serif;font-size:1.05rem;font-weight:900;letter-spacing:.06em;color:${C.goldLt};margin:0;line-height:1.1;overflow-wrap:break-word;word-break:break-word;-webkit-hyphens:auto;hyphens:auto}
 .topbar-sub{font-size:.58rem;font-weight:700;color:${C.muted};letter-spacing:.08em;text-transform:uppercase;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sync-dot{width:10px;height:10px;border-radius:999px;flex-shrink:0;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}
+.sync-dot{width:10px;height:10px;border-radius:999px;flex-shrink:0;margin-left:auto;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.15)}
 .sync-dot.busy{background:#f0a94a;box-shadow:0 0 0 3px rgba(240,169,74,.15)}
 .sync-dot.warn{background:${C.red};box-shadow:0 0 0 3px rgba(255,107,93,.18)}
 .sync-line{margin:0;font-size:12px;font-weight:600;color:${C.muted};overflow-wrap:anywhere}
 .sync-note{margin:0;font-size:13px;font-weight:600;line-height:1.45;color:#ffd2cc;background:rgba(255,107,93,.1);border:1px solid rgba(255,107,93,.3);border-radius:12px;padding:10px 12px;overflow-wrap:anywhere}
-.club-tag{font-family:'Archivo',sans-serif;font-size:.75rem;font-weight:700;line-height:1.25;color:${C.goldLt};flex:0 1 auto;min-width:0;max-width:58%;padding:6px 12px;border:1px solid rgba(228,187,74,.35);border-radius:14px;background:rgba(228,187,74,.08);text-align:center;overflow-wrap:normal;word-break:normal;hyphens:manual;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-@media(max-width:430px){.topbar-sub{display:none}.club-tag{font-size:.72rem;padding:5px 10px}}
-.head-club-selector{flex:0 1 130px;min-width:0;max-width:32%;display:grid;gap:4px;font-size:.65rem;font-weight:800;color:${C.muted}}
+.club-tag{font-family:'Archivo',sans-serif;font-size:.75rem;font-weight:700;line-height:1.25;color:${C.goldLt};flex:0 1 auto;min-width:0;padding:6px 12px;border:1px solid rgba(228,187,74,.35);border-radius:14px;background:rgba(228,187,74,.08);text-align:center;overflow-wrap:normal;word-break:normal;hyphens:manual;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+@media(max-width:430px){.topbar-sub{display:none}.topbar-inner{gap:10px}.club-tag{font-size:.72rem;padding:5px 10px;-webkit-line-clamp:3}}
+.head-club-selector span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.head-club-selector{flex:0 1 150px;min-width:0;max-width:32%;display:grid;gap:4px;font-size:.65rem;font-weight:800;color:${C.muted}}
 .head-club-selector select{width:100%;min-width:0;height:36px;border:1px solid rgba(228,187,74,.35);border-radius:10px;background:#081026;color:${C.ink};font:inherit;font-size:.75rem;padding:0 4px;text-overflow:ellipsis}
 .gold-stripe{display:none}
 .bottomnav{position:fixed;bottom:0;left:0;right:0;margin:0 auto;width:min(100%,430px);display:grid;grid-template-columns:repeat(5,1fr);background:#090f24;border-top:1px solid ${C.border};z-index:200;isolation:isolate;pointer-events:auto;touch-action:manipulation;padding-bottom:env(safe-area-inset-bottom,0)}
@@ -2721,9 +2723,9 @@ function App({headClubs,onHeadClubChange}={}) {
     h("style",null,CSS),
     h("header",{className:"topbar"},
       h("div",{className:"topbar-inner"},
-        h("div",{className:"topbar-logo"},h(EPPLogo,{size:38})),
+        h("div",{className:"topbar-logo"},h(EPPLogo,{size:60})),
         h("div",{className:"topbar-title"},
-          h("h1",null,"EPP"),
+          h("h1",null,h("img",{className:"topbar-wordmark",src:"epp-wordmark.png",alt:"EPP"})),
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
         h("span",{className:"sync-dot "+syncLevel,role:"img","aria-label":"Opslagstatus: "+(syncStatus||"onbekend"),title:syncStatus}),
