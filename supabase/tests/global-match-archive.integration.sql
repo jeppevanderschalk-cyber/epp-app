@@ -1,6 +1,6 @@
 begin;
 do $$
-declare admin uuid;head uuid;outsider uuid;one uuid;two uuid;separate uuid;gid uuid:=gen_random_uuid();denied boolean;audits bigint;
+declare admin uuid;head uuid;outsider uuid;one uuid;two uuid;separate uuid;gid uuid:=gen_random_uuid();denied boolean;audits bigint;signup uuid;slots bigint;
 begin
  insert into app_accounts(club_code,username,display_name,role,is_admin) values('svbb','archive.admin.'||gen_random_uuid(),'Archive Admin','trainer',true) returning id into admin;
  insert into app_accounts(club_code,username,display_name,role,is_admin,is_platform_admin) values('eppnationaal','archive.head.'||gen_random_uuid(),'Archive Head','trainer',true,true) returning id into head;
@@ -10,8 +10,14 @@ begin
  insert into epp_matches(club_id,organizer,match_date) values('gast','Archive Group Test','2035-01-01') returning id into separate;
  denied:=false;begin perform epp_archive_match(outsider,one);exception when others then if sqlerrm='geen_beheerrechten' then denied:=true;else raise;end if;end;
  assert denied,'foreign administrator cannot archive unrelated event';
+ perform epp_planner_configure(head,two,'{"first":"09:00","last":"10:00","duration":10,"changeover":0,"capacity":2,"gap":0,"opens":"2020-01-01T00:00:00Z","closes":"2034-12-31T00:00:00Z","published":true,"breaks":[],"overrides":[]}',0);
+ select count(*) into slots from epp_match_slots where match_id=two;
+ insert into epp_signups(match_id,shooter_name) values(one,'Archived Signup Test') returning id into signup;
+ insert into epp_signup_disciplines(signup_id,discipline,time_block) values(signup,'pistool','ochtend');
  perform epp_archive_match(admin,one);
  assert (select bool_and(archived_at is not null) from epp_matches where event_group_id=gid),'local administrator archives all copies';
+ assert slots=(select count(*) from epp_match_slots where match_id=two),'planner slots preserved';
+ assert exists(select 1 from epp_signup_disciplines where signup_id=signup),'registration retained';
  assert (select archived_at is null from epp_matches where id=separate),'same name/date alone does not link events';
  select count(*) into audits from epp_planner_audit where match_id in (one,two) and action='archive';
  assert audits=2,'each copy has an audit';
