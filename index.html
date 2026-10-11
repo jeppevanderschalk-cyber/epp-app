@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-bqfT/fh7U7foxiZKEWYUJQAW/7QxU60AkIzunjYWYck=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-9Te2PieRAjzeuXZljNg8HrRb71ssJOXzkXbyEqCHOTc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-1T5GJyajHjChf1At2dfTEYmG3aU20YKo/6ub+9ZxbOg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -84,7 +84,7 @@
     </label>
     <label id="loginFirstLabel" hidden><span>Voornaam</span><input id="loginFirstName" autocomplete="given-name" maxlength="70" /></label>
     <label id="loginLastLabel" hidden><span>Achternaam</span><input id="loginLastName" autocomplete="family-name" maxlength="70" /></label>
-    <label id="loginEmailLabel" hidden><span>E-mailadres van je account</span><input id="loginEmail" type="email" autocomplete="username" maxlength="254" /></label>
+    <label id="loginEmailLabel" hidden><span>Gebruikersnaam of e-mailadres</span><input id="loginEmail" type="text" autocomplete="username" maxlength="254" /></label>
     <label>
       <span>Wachtwoord</span>
       <span class="login-password-wrap">
@@ -175,7 +175,7 @@ function eppShowLoginGate(){
   document.getElementById("loginError").textContent="";
   var registration=sessionStorage.getItem('epp-registration-login');
   if(registration){
-    try{var details=JSON.parse(registration);clubSel.value=details.clubId;document.getElementById('loginFirstName').value=details.firstName;document.getElementById('loginLastName').value=details.lastName;document.getElementById('loginEmail').value=details.email||'';document.getElementById('loginStatus').textContent=details.pendingApproval?'Account aangemaakt. Je vereniging moet je lidmaatschap eerst goedkeuren. Daarna kun je inloggen.':'Account aangemaakt. Log in met je eigen wachtwoord.';eppApplyLoginEmail();}catch{}
+    try{var details=JSON.parse(registration);clubSel.value=details.clubId;document.getElementById('loginFirstName').value=details.firstName;document.getElementById('loginLastName').value=details.lastName;document.getElementById('loginEmail').value=details.username||details.email||'';document.getElementById('loginStatus').textContent=details.pendingApproval?'Account aangemaakt. Je vereniging moet je lidmaatschap eerst goedkeuren. Daarna kun je inloggen.':'Account aangemaakt. Log in met je eigen wachtwoord.';eppApplyLoginEmail();}catch{}
     sessionStorage.removeItem('epp-registration-login');
   }
   pw.focus({preventScroll:true});
@@ -185,9 +185,9 @@ function eppSetPersonalLogin(enabled){
   eppPersonalLogin=enabled&&document.getElementById('loginRole').value!=='hoofdbeheer';
   if(document.getElementById('loginRole').value==='schutter')localStorage.setItem('epp-personal-login-preferred',eppPersonalLogin?'1':'0');
   ['First','Last'].forEach(function(part){
-    document.getElementById('login'+part+'Label').hidden=!eppPersonalLogin;
-    document.getElementById('login'+part+'Name').required=eppPersonalLogin;
-    document.getElementById('login'+part+'Name').disabled=!eppPersonalLogin;
+    document.getElementById('login'+part+'Label').hidden=true;
+    document.getElementById('login'+part+'Name').required=false;
+    document.getElementById('login'+part+'Name').disabled=true;
   });
   document.getElementById('loginEmailLabel').hidden=!eppPersonalLogin;
   document.getElementById('loginEmail').disabled=!eppPersonalLogin;
@@ -199,7 +199,7 @@ function eppSetPersonalLogin(enabled){
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 }
-function eppApplyLoginEmail(){['First','Last'].forEach(function(part){document.getElementById('login'+part+'Name').required=eppPersonalLogin&&!document.getElementById('loginEmail').value.trim();});}
+function eppApplyLoginEmail(){document.getElementById('loginEmail').required=eppPersonalLogin;}
 document.getElementById('loginEmail').addEventListener('input',eppApplyLoginEmail);
 document.getElementById('loginPersonalToggle').addEventListener('click',function(){
   if(document.getElementById('loginRole').value!=='schutter')return;
@@ -236,7 +236,8 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
     var submitButton=document.querySelector(".login-submit");
     submitButton.disabled=true;
     var username=role==='hoofdbeheer'?'hoofdbeheer':'kijker';
-    var credentials=eppPersonalLogin?(document.getElementById('loginEmail').value.trim()?{email:document.getElementById('loginEmail').value}:{firstName:document.getElementById('loginFirstName').value,lastName:document.getElementById('loginLastName').value}):{username:username};
+    var identifier=document.getElementById('loginEmail').value.trim();
+    var credentials=eppPersonalLogin?(identifier.includes('@')?{email:identifier}:{username:identifier}):{username:username};
     eppRawCall("epp-auth",{clubId:club.id,action:"login",...credentials,password:entered}).then(function(result){
       sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
       localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
@@ -1792,7 +1793,7 @@ const EppDisciplineRow = ({d, checked, value, onToggle, onChange, disabled}) =>
   );
 
 const MemberRegistration = () => {
-  const [form,setForm]=React.useState({clubId:"",firstName:"",lastName:"",email:"",password:"",repeat:""});
+  const [form,setForm]=React.useState({clubId:"",firstName:"",lastName:"",email:"",username:"",password:"",repeat:""});
   const [busy,setBusy]=React.useState(false);
   const [error,setError]=React.useState("");
   const submit=async event=>{
@@ -1800,17 +1801,18 @@ const MemberRegistration = () => {
     if(form.password!==form.repeat){setError("De wachtwoorden zijn niet gelijk.");return;}
     setBusy(true);setError("");
     try{
-      const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,firstName:form.firstName,lastName:form.lastName,email:form.email,newPassword:form.password});
+      const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,username:form.username,firstName:form.firstName,lastName:form.lastName,email:form.email,newPassword:form.password});
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       localStorage.setItem('epp-personal-login-preferred','1');
       sessionStorage.setItem('epp-personal-login','1');
-      sessionStorage.setItem('epp-registration-login',JSON.stringify({clubId:result.account.clubId,firstName:form.firstName.trim(),lastName:form.lastName.trim(),email:form.email.trim(),pendingApproval:result.pendingApproval}));
+      sessionStorage.setItem('epp-registration-login',JSON.stringify({clubId:result.account.clubId,firstName:form.firstName.trim(),lastName:form.lastName.trim(),email:form.email.trim(),username:form.username.trim(),pendingApproval:result.pendingApproval}));
       sessionStorage.removeItem(EPP_SESSION_KEY);
       localStorage.removeItem(EPP_AUTH_STORAGE_KEY);
       localStorage.removeItem(EPP_AUTH_ROLE_KEY);
       history.replaceState(null,'',location.pathname+location.search);
       location.reload();
     }catch(e){
+      if(e.message==='gebruikersnaam_ongeldig'||e.message==='gebruikersnaam_bestaat'||e.message==='gebruikersnaam_al_geregistreerd'){setError(e.message==='gebruikersnaam_ongeldig'?'Gebruik 3 tot 30 letters, cijfers, punten, streepjes of underscores. Kies een eigen gebruikersnaam.':'Deze gebruikersnaam is al in gebruik. Kies een andere.');return;}
       const message=(e.message||'').replace('voornaam_achternaam_verplicht','naam_ongeldig');
       if(message==='email_ongeldig'||message==='email_al_geregistreerd'){setError(message==='email_ongeldig'?'Vul een geldig e-mailadres in.':'Met dit e-mailadres bestaat al een account. Log daarmee in of neem contact op met beheer.');return;}
       setError(message.includes('persoonlijk_account_bestaat_al')||message.includes('naam_al_geregistreerd')||message.includes('gebruikersnaam_bestaat')?'Met deze naam bestaat al een account. Log in met je eigen account of neem contact op met beheer.':message.includes('registratielimiet')?'Er zijn te veel registratiepogingen. Probeer later opnieuw of neem contact op met beheer.':message.includes('nieuw_wachtwoord_ongeldig')?'Gebruik een eigen wachtwoord van minimaal 10 en maximaal 256 tekens.':message.includes('naam_ongeldig')?'Vul een geldige voornaam en achternaam in.':message.includes('vereniging_verplicht')?'Kies je vereniging voordat je het account opslaat.':message.includes('sessie_verlopen')||message.includes('registratie_niet_toegestaan')?'Je registratiesessie is verlopen. Ga via "Ik heb al een account" terug naar inloggen en start de registratie opnieuw.':'De opslag kon niet worden bevestigd. Controleer je internetverbinding. Probeer eerst inloggen met je eigen account; mogelijk is het account al aangemaakt. Je invoer blijft hier staan.');
@@ -1828,6 +1830,8 @@ const MemberRegistration = () => {
       h("label",null,"Voornaam",h("input",{className:"txt-in",autoComplete:"given-name",required:true,maxLength:70,value:form.firstName,disabled:busy,onChange:e=>setForm(p=>({...p,firstName:e.target.value}))})),
       h("label",null,"Achternaam",h("input",{className:"txt-in",autoComplete:"family-name",required:true,maxLength:70,value:form.lastName,disabled:busy,onChange:e=>setForm(p=>({...p,lastName:e.target.value}))})),
       h("label",null,"E-mailadres",h("input",{className:"txt-in",type:"email",autoComplete:"email",required:true,maxLength:254,value:form.email,disabled:busy,onChange:e=>setForm(p=>({...p,email:e.target.value}))})),
+      h("label",null,"Gebruikersnaam",h("input",{className:"txt-in",autoComplete:"username",required:true,minLength:3,maxLength:30,pattern:"[A-Za-z0-9._\\-]{3,30}",value:form.username,disabled:busy,onChange:e=>setForm(p=>({...p,username:e.target.value}))})),
+      h("p",{className:"hint"},"Kies 3 tot 30 letters, cijfers, punten, streepjes of underscores. Hiermee log je voortaan in met je wachtwoord."),
       h("label",null,"Eigen wachtwoord",h("input",{className:"txt-in",type:"password",autoComplete:"new-password",minLength:10,maxLength:256,required:true,value:form.password,disabled:busy,onChange:e=>setForm(p=>({...p,password:e.target.value}))})),
       h("label",null,"Herhaal wachtwoord",h("input",{className:"txt-in",type:"password",autoComplete:"new-password",minLength:10,maxLength:256,required:true,value:form.repeat,disabled:busy,onChange:e=>setForm(p=>({...p,repeat:e.target.value}))})),
       error&&h("p",{role:"alert",className:"hint"},error),
@@ -2124,6 +2128,29 @@ const TabInschrijven = ({isTrainer, shooters, eppPassword, setEppPassword, flash
   );
 };
 
+const ShooterUsername = () => {
+  const [username,setUsername]=React.useState(eppSession()?.account?.loginUsername||"");
+  const [busy,setBusy]=React.useState(false);
+  const [status,setStatus]=React.useState("");
+  const submit=async event=>{
+    event.preventDefault();if(busy)return;setBusy(true);setStatus("");
+    try{
+      const result=await eppCall("epp-auth",{clubId:CLUB_ID,action:"set_username",username});
+      const session=eppSession();session.account.loginUsername=result.loginUsername;
+      sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify(session));setUsername(result.loginUsername);
+      setStatus("Gebruikersnaam opgeslagen. Je kunt hiermee en je wachtwoord inloggen.");
+    }catch(error){setStatus(error.message==='gebruikersnaam_bestaat'?"Deze gebruikersnaam is al in gebruik. Kies een andere.":error.message==='gebruikersnaam_ongeldig'?"Gebruik 3 tot 30 letters, cijfers, punten, streepjes of underscores. Kies een eigen gebruikersnaam.":"Opslaan is niet gelukt. Probeer opnieuw.");}
+    finally{setBusy(false);}
+  };
+  return h("section",null,
+    h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Gebruikersnaam kiezen")),
+    h("form",{className:"card-body",onSubmit:submit,style:{display:"grid",gap:12}},
+      h("p",{className:"hint"},"Kies een gebruikersnaam om samen met je wachtwoord in te loggen. Je e-mailadres blijft ook werken."),
+      h("label",null,"Gebruikersnaam",h("input",{className:"txt-in",autoComplete:"username",required:true,minLength:3,maxLength:30,pattern:"[A-Za-z0-9._\\-]{3,30}",value:username,disabled:busy,onChange:e=>setUsername(e.target.value)})),
+      h("button",{className:"btn btn-gold btn-full",type:"submit",disabled:busy},busy?"Opslaan...":"Gebruikersnaam opslaan"),
+      status&&h("p",{className:"hint",role:"status"},status)));
+};
+
 const ChangeTrainerPassword = ({logout}) => {
   const [current,setCurrent] = React.useState("");
   const [next,setNext] = React.useState("");
@@ -2259,6 +2286,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
         h("button",{className:"btn btn-ghost btn-full",onClick:logout},"Uitloggen")
       )
     ),
+    eppSession()?.account?.role==='schutter' && eppSession()?.account?.username!=='kijker' && h(ShooterUsername),
     eppSession()?.account?.username!=='kijker' && h(ChangeTrainerPassword,{logout}),
     eppSession()?.account?.isAdmin&&h(PlatformAccessManagement),
     eppSession()?.account?.isAdmin && h(AccountManagement),

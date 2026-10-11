@@ -1,7 +1,7 @@
 import {corsHeaders,json,serviceClient,isKnownClub,checkPassword,sha256Hex} from '../_shared/epp.ts';
 import {passwordHash,randomSalt} from '../_shared/trainer-auth.ts';
 import {requireAccount,createSession} from '../_shared/session.ts';
-import {memberNames,memberUsername,memberEmail,emailUsername} from '../_shared/member-account.ts';
+import {memberNames,memberUsername,memberEmail,emailUsername,loginUsername} from '../_shared/member-account.ts';
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
@@ -14,6 +14,11 @@ Deno.serve(async req=>{
       if(typeof body.password!=='string'||body.password.length>256)return json({ok:false,error:'ongeldig_wachtwoord'},401);
       let username=String(body.username||'').trim().toLowerCase();
       if(body.email)username=await emailUsername(body.email);
+      else if(username){
+        const {data:member,error:lookupError}=await db.from('app_accounts').select('username').eq('club_code',body.clubId).eq('login_username',username).is('deleted_at',null).maybeSingle();
+        if(lookupError)throw lookupError;
+        if(member)username=member.username;
+      }
       else if(body.firstName!==undefined||body.lastName!==undefined){
         const names=memberNames(body.firstName,body.lastName);
         const literal=(value:string)=>value.replace(/[\\%_]/g,'\\$&');
@@ -46,14 +51,21 @@ Deno.serve(async req=>{
       if(!isKnownClub(body.registrationClubId)||['gast','eppnationaal'].includes(body.registrationClubId))throw new Error('vereniging_verplicht');
       const names=memberNames(body.firstName,body.lastName);
       if(typeof body.newPassword!=='string'||body.newPassword.length<10||body.newPassword.length>256)throw new Error('nieuw_wachtwoord_ongeldig');
-      const email=memberEmail(body.email),username=await emailUsername(email),salt=randomSalt();
-      const {data:id,error}=await db.rpc('epp_register_public_pending_member',{p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_email:email,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
+      const email=memberEmail(body.email),username=await emailUsername(email),chosenUsername=body.username===undefined?null:loginUsername(body.username),salt=randomSalt();
+      const {data:id,error}=await db.rpc('epp_register_public_member_username',{p_login_username:chosenUsername,p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_email:email,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
       if(error)throw error;
       const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin').eq('id',id).single();if(accountError)throw accountError;
       return json({ok:true,pendingApproval:true,account:{clubId:account.club_code}});
     }
     const actor=await requireAccount(body,false,true);
-    if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin,isPlatformAdmin:actor.is_platform_admin,mustChangePassword:actor.must_change_password}});
+    if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin,isPlatformAdmin:actor.is_platform_admin,mustChangePassword:actor.must_change_password,loginUsername:actor.login_username}});
+    if(body.action==='set_username'){
+      if(actor.role!=='schutter'||actor.username==='kijker')throw new Error('persoonlijk_account_verplicht');
+      const username=loginUsername(body.username);
+      const {error}=await db.from('app_accounts').update({login_username:username}).eq('id',actor.id).is('deleted_at',null);
+      if(error){if(error.code==='23505')throw new Error('gebruikersnaam_bestaat');throw error;}
+      return json({ok:true,loginUsername:username});
+    }
     if(body.action==='logout'){
       const {error}=await db.from('app_sessions').delete().eq('token_hash',await sha256Hex(body.sessionToken));if(error)throw error;
       return json({ok:true});

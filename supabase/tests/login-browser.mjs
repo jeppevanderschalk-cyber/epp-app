@@ -30,7 +30,7 @@ try{
     assert.equal(await page.getByLabel('Inloggen als').inputValue(),'schutter');
     assert.equal(await page.locator('#loginClub option[value="beemtebroekland"]').count(),0);
     assert.equal(await page.locator('#loginClub option[value="svbb"]').count(),1);
-    assert.equal(await page.getByLabel('Gebruikersnaam').count(),0);
+    assert.equal(await page.getByLabel('Gebruikersnaam of e-mailadres',{exact:true}).isVisible(),true);
     assert.equal(await page.locator('.login-logo').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     assert.equal(await page.locator('.login-wordmark').evaluate(img=>img.complete&&img.naturalWidth>0),true);
     const panel=await page.locator('.login-card').boundingBox();
@@ -62,14 +62,17 @@ try{
     await page.screenshot({path:resolve(tmpdir(),'epp-login-head-'+viewport.width+'.png')});
     await page.getByLabel('Inloggen als').selectOption('schutter');
     await page.evaluate(()=>{window.eppRawCall=(fn,payload)=>{window.loginRequest={fn,payload};return new Promise(()=>{});};});
-    await page.getByLabel('Voornaam',{exact:true}).fill('Anne');
-    await page.getByLabel('Achternaam',{exact:true}).fill('de Vries');
+    await page.getByLabel('Gebruikersnaam of e-mailadres',{exact:true}).fill('anne.schutter');
     await page.getByLabel('Wachtwoord',{exact:true}).fill('personal-password');
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     const personalRequest=await page.evaluate(()=>window.loginRequest);
-    assert.equal(personalRequest.payload.username,undefined);
+    assert.equal(personalRequest.payload.username,'anne.schutter');
     assert.equal(personalRequest.payload.role,undefined);
-    assert.equal(personalRequest.payload.firstName,'Anne');assert.equal(personalRequest.payload.lastName,'de Vries');
+    assert.equal(personalRequest.payload.firstName,undefined);assert.equal(personalRequest.payload.lastName,undefined);
+    await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
+    await page.getByLabel('Gebruikersnaam of e-mailadres',{exact:true}).fill('anne@example.nl');
+    await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+    assert.equal((await page.evaluate(()=>window.loginRequest)).payload.email,'anne@example.nl');
     await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
     await page.getByLabel('Inloggen als').selectOption('hoofdbeheer');
     await page.getByLabel('Wachtwoord',{exact:true}).fill('personal-password');
@@ -102,8 +105,7 @@ try{
     await page.getByLabel('Wachtwoord',{exact:true}).pressSequentially('ab',{delay:150});
     if(succeeds){
       await page.evaluate(()=>{eppRawCall=()=>new Promise(()=>{});});
-      await page.getByLabel('Voornaam',{exact:true}).fill('Anne');
-      await page.getByLabel('Achternaam',{exact:true}).fill('de Vries');
+      await page.getByLabel('Gebruikersnaam of e-mailadres',{exact:true}).fill('anne.schutter');
       await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     }
     release();
@@ -133,7 +135,8 @@ try{
     await page.waitForFunction(()=>document.getElementById('loginError').textContent.length>0);
     assert.equal(loginBody.clubId,'eppnationaal');assert.equal(loginBody.username,'hoofdbeheer');assert.equal(loginBody.email,undefined);
     await page.locator('#loginRole').selectOption('schutter');
-    for(const id of ['loginEmail','loginFirstName','loginLastName'])assert.equal(await page.locator('#'+id).isEnabled(),true);
+    assert.equal(await page.locator('#loginEmail').isEnabled(),true);
+    for(const id of ['loginFirstName','loginLastName'])assert.equal(await page.locator('#'+id).isDisabled(),true);
     assert.equal(await page.locator('#loginEmail').inputValue(),'hoofdbeheer');
     console.log('PASS hidden invalid email does not block head login at '+width+'px; member fields restored');
     await page.close();

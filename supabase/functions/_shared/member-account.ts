@@ -18,3 +18,9 @@ export async function emailUsername(value: unknown) {
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('email:'+memberEmail(value)));
   return 'lid.'+Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('').slice(0,40);
 }
+
+export function loginUsername(value: unknown) {
+  const username=typeof value==='string'?value.trim().toLowerCase():'';
+  if(!/^[a-z0-9._-]{3,30}$/.test(username)||/^(lid\.|removed\.)/.test(username)||['kijker','beheer','hoofdbeheer','trainer'].includes(username))throw new Error('gebruikersnaam_ongeldig');
+  return username;
+}

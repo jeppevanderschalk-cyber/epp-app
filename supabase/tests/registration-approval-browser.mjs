@@ -19,12 +19,13 @@ try{
       let r={ok:true,matches:[],shooters:[],ranking:[],matchRanking:[],qualifications:[],events:[],signups:[],entities:[]},status=200;
       if(fn==='epp-auth'){
         if(b.action==='login'&&b.username==='kijker'){account={id:'viewer',username:'kijker',clubId:'svbb',role:'schutter'};r={ok:true,sessionToken:'a'.repeat(64),account};}
-        else if(b.action==='register_member'){assert.equal(b.registrationClubId,'apgs');assert.equal(b.email,'same.name@example.nl');registered=true;r={ok:true,pendingApproval:true,account:{clubId:'apgs'}};}
+        else if(b.action==='register_member'){assert.equal(b.registrationClubId,'apgs');assert.equal(b.email,'same.name@example.nl');assert.equal(b.username,'shared.name');registered=true;r={ok:true,pendingApproval:true,account:{clubId:'apgs'}};}
         else if(b.action==='login'){
-          assert.equal(registered,true);assert.equal(b.email,'same.name@example.nl');assert.equal(b.clubId,'apgs');
+          assert.equal(registered,true);assert.equal(b.username,'shared.name');assert.equal(b.clubId,'apgs');
           if(!approved){r={ok:false,error:'vereniging_goedkeuring_nodig'};status=403;}
           else{account={id:'member',username:'lid.email',displayName:'Shared Name',clubId:'apgs',role:'schutter',isAdmin:false};r={ok:true,sessionToken:'b'.repeat(64),account};}
         }else if(b.action==='session')r={ok:true,account};
+        else if(b.action==='set_username'){assert.equal(b.username,'new.shooter');r={ok:true,loginUsername:b.username};}
         else if(b.action==='approve_member'){assert.equal(b.accountId,'member');approved=true;r={ok:true};}
       }
       await route.fulfill({status,contentType:'application/json',body:JSON.stringify(r)});
@@ -36,6 +37,7 @@ try{
     await page.locator('#root').getByLabel('Voornaam',{exact:true}).fill('Shared');
     await page.locator('#root').getByLabel('Achternaam',{exact:true}).fill('Name');
     await page.locator('#root').getByLabel('E-mailadres',{exact:true}).fill('same.name@example.nl');
+    await page.getByLabel('Gebruikersnaam',{exact:true}).fill('shared.name');
     await page.getByLabel('Eigen wachtwoord',{exact:true}).fill('TestPassword123');
     await page.getByLabel('Herhaal wachtwoord',{exact:true}).fill('TestPassword123');
     await page.getByRole('button',{name:'Account aanmaken',exact:true}).click();
@@ -55,6 +57,11 @@ try{
     assert.equal(await page.evaluate(()=>localStorage.getItem(EPP_SESSION_KEY)),null);
     assert.ok(await page.evaluate(()=>sessionStorage.getItem(EPP_SESSION_KEY)));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.getByRole('button',{name:'Meer',exact:true}).click();
+    await page.getByLabel('Gebruikersnaam',{exact:true}).fill('new.shooter');
+    await page.getByRole('button',{name:'Gebruikersnaam opslaan',exact:true}).click();
+    await page.getByText('Gebruikersnaam opgeslagen. Je kunt hiermee en je wachtwoord inloggen.',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>eppSession().account.loginUsername),'new.shooter');
     assert.deepEqual(errors,[]);
     await page.screenshot({path:resolve(tmpdir(),'epp-approved-registration-'+width+'.png')});
     await page.close();console.log('PASS '+width+': registration, pending denial, approval, email login, correct club, session-only storage');
