@@ -30,7 +30,7 @@ try{
           assert.equal(await page.locator('#loginGate').evaluate(el=>el.hidden&&el.inert),true);
           const nav=page.locator('nav.bottomnav');
           assert.equal(await nav.evaluate(el=>getComputedStyle(el).transform),'none');
-          for(const name of ['Meer','Landelijk','Stand','Training']){
+          for(const name of ['Meer','Stand','Wedstrijden','Training']){
             const button=nav.getByRole('button',{name,exact:true});
             const bounds=await button.boundingBox();
             assert.ok(bounds&&bounds.y>=0&&bounds.y+bounds.height<=844);

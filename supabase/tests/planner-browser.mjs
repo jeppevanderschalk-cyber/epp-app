@@ -59,7 +59,7 @@ try{
     assert.equal(configuration.config.capacity,2);assert.equal(configuration.config.breaks.length,1);assert.equal(configuration.expectedRevision,0);
     await p.waitForTimeout(700);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:'/private/tmp/epp-planner-admin-'+width+'.png',fullPage:true});
-    await p.getByRole('button',{name:'Landelijk',exact:true}).click();
+    await p.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     await p.getByLabel('Wedstrijd',{exact:true}).selectOption('match-test');
     await p.getByText('Ingeschreven deelnemers · Pistool',{exact:true}).waitFor();
     await p.getByLabel('Schutter zoeken',{exact:true}).fill('Niet ingeschreven');

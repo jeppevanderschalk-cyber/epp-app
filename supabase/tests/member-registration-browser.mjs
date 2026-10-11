@@ -94,7 +94,7 @@ try{
     await page.locator('#loginPassword').fill('SafePassword123!');
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'Landelijk',exact:true}).getAttribute('data-on'),'1');
+    assert.equal(await page.getByRole('button',{name:'Wedstrijden',exact:true}).getAttribute('data-on'),'1');
     assert.equal(await page.getByRole('button',{name:'Inschrijven',exact:true}).getAttribute('data-on'),'1');
     await page.getByRole('button',{name:'Individueel',exact:true}).click();
     await page.getByLabel('Wedstrijd',{exact:true}).waitFor();
@@ -107,7 +107,7 @@ try{
     await donation.scrollIntoViewIfNeeded();
     await page.screenshot({path:'/private/tmp/epp-donation-member-'+viewport.width+'.png'});
     assert.equal(await page.getByRole('button',{name:'Inschrijven voor wedstrijden',exact:true}).count(),0);
-    await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+    await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
     assert.equal(registration.firstName,'Anne');assert.equal(registration.lastName,'de Vries');
     assert.equal(registration.clubId,'svbb');assert.equal(registration.registrationClubId,'apgs');

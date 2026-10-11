@@ -111,7 +111,7 @@ try{
     await page.getByRole('button',{name:'Meer',exact:true}).click();
     await page.getByRole('button',{name:'Nu synchroniseren',exact:true}).click();
     await page.getByRole('status').filter({hasText:'Online opgeslagen'}).first().waitFor({timeout:15000});
-    await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+    await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     const match=page.getByLabel('Wedstrijd',{exact:true});
     await match.selectOption('match-a');await match.selectOption('match-b');
     await page.getByLabel('Schutter zoeken').fill('Test Schutter');

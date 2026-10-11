@@ -37,7 +37,7 @@ async function open(account,viewport){
     await route.fulfill({status,contentType:'application/json',body:JSON.stringify(r)});
   });
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);
-  await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+  await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
   await page.getByRole('button',{name:'Scores',exact:true}).click();
   await page.getByLabel('Wedstrijd',{exact:true}).selectOption('match');
   return {page,context};

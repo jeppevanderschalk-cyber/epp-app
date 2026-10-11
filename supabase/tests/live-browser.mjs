@@ -21,7 +21,7 @@ try{
       await page.getByRole('button',{name:'Back-up maken',exact:true}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       await page.screenshot({path:'/private/tmp/epp-live-'+viewport.width+'.png',fullPage:true});
-      await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+      await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
       await page.getByText('Score bevestigen',{exact:true}).waitFor();
       assert(await page.getByLabel('Wedstrijd',{exact:true}).count()>0);
       assert.equal(await page.getByLabel('Ronde',{exact:true}).count(),0);

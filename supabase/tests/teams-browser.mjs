@@ -35,7 +35,7 @@ try{
     });
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(url);
-    await page.getByRole('button',{name:'Landelijk',exact:true}).click();
+    await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     await page.getByRole('button',{name:'Teams',exact:true}).first().click();
     await page.getByLabel('Teamwedstrijd').selectOption('team-match');
     if(manager){
