@@ -1,3 +1,4 @@
+import {trainingStandings} from '../_shared/training-standings.ts';
 import {corsHeaders,json,serviceClient} from '../_shared/epp.ts';
 import {requireAccount} from '../_shared/session.ts';
 
@@ -8,6 +9,26 @@ Deno.serve(async req=>{
   try{
     const actor=await requireAccount(body);
     const db=serviceClient();
+    if(body.action==='standings'){
+      const target=actor.is_platform_admin?String(body.targetClubId||actor.club_code):actor.club_code;
+      if(!actor.is_platform_admin&&body.targetClubId&&body.targetClubId!==actor.club_code)throw new Error('geen_toegang');
+      const allRows=async(make:any)=>{const rows:any[]=[];for(let n=0;;n+=1000){const {data,error}=await make().range(n,n+999);if(error)throw error;rows.push(...data);if(data.length<1000)return rows;}};
+      const accounts=await allRows(()=>db.from('app_accounts').select('id').eq('club_code',target).eq('active',true).eq('membership_approved',true).is('deleted_at',null).neq('username','kijker').order('id'));
+      const profiles:any[]=[],sources:any[]=[];
+      for(let n=0;n<accounts.length;n+=100){
+        const ids=accounts.slice(n,n+100).map(a=>a.id);
+        const linked=await allRows(()=>db.from('shooters').select('id,display_name,linked_user_id').in('linked_user_id',ids).order('id'));profiles.push(...linked);
+        const entries=await allRows(()=>db.from('epp_personal_training_entities').select('account_id,kind,entity_id,data').in('account_id',ids).order('account_id').order('kind').order('entity_id'));
+        for(const a of ids)sources.push({allowed:linked.filter(p=>p.linked_user_id===a).map(p=>p.id),entities:entries.filter(e=>e.account_id===a).map(e=>({kind:e.kind,id:e.entity_id,data:e.data}))});
+      }
+      const clubEntries=await allRows(()=>db.from('training_entities').select('kind,entity_id,data').eq('club_code',target).order('kind').order('entity_id'));
+      sources.push({clubSettings:true,entities:clubEntries.map(e=>({kind:e.kind,id:e.entity_id,data:e.data}))});
+      if(target!=='eppnationaal'){
+        const national=await allRows(()=>db.from('training_entities').select('kind,entity_id,data').eq('club_code','eppnationaal').order('kind').order('entity_id'));
+        sources.push({allowed:profiles.map(p=>p.id),entities:national.map(e=>({kind:e.kind,id:e.entity_id,data:e.data}))});
+      }
+      return json({ok:true,...trainingStandings(sources,profiles)});
+    }
     const personal=actor.role==='schutter';
     let profile:any=null;
     if(personal){

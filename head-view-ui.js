@@ -27,7 +27,7 @@ const HeadClubViewer=({clubId,clubs,onChange,onExit})=>{
       h('p',{role:'status',className:'hint'},status),
       !payload?h('p',{className:'hint'},'Gegevens laden...'):tab==='training'
         ?h(TabTraining,{shooters:payload.shooters||[],currentTraining:ensureTraining(payload.currentTraining),archives:payload.archives||[],isTrainer:false})
-        :h(TabStand,{shooters:payload.shooters||[],bestParcours:payload.bestParcours||{},bestStageAverages:payload.bestStageAverages||{},maxOf:key=>({...DEFAULT_SHOTS,...payload.stageShots}[key]||0)*5,qualificationRecords:snapshot.qualifications||[]})),
+        :h(SharedTrainingStand,{targetClubId:clubId,qualificationRecords:snapshot.qualifications||[]})),
     h('nav',{className:'bottomnav',style:{gridTemplateColumns:'repeat(3,1fr)'}},
       [['training','Training',Icon.chart],['stand','Stand',Icon.trophy]].map(([id,label,icon])=>h('button',{key:id,className:'bnav-btn','data-on':tab===id?'1':'0',onClick:()=>setTab(id)},icon(),label)),
       h('button',{className:'bnav-btn',onClick:onExit},Icon.gear(),'Hoofdbeheer')));
