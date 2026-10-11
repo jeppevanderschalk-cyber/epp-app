@@ -15,6 +15,26 @@ Deno.serve(async req=>{
       if(!['load','save'].includes(body.action))throw new Error('geen_schrijfrechten');
     }
     const ownEntities=(entities:any[])=>personal?[...entities,{kind:'shooter',id:profile.id,data:{id:profile.id,naam:profile.display_name}}]:entities;
+    const registeredShooters=async()=>{
+      const accounts:any[]=[];
+      for(let offset=0;;offset+=1000){
+        let accountsQuery=db.from('app_accounts').select('id');
+        if(!actor.is_platform_admin)accountsQuery=accountsQuery.eq('club_code',actor.club_code);
+        const {data,error}=await accountsQuery.eq('active',true).eq('membership_approved',true).is('deleted_at',null).neq('username','kijker').order('id').range(offset,offset+999);
+        if(error)throw error;
+        accounts.push(...(data||[]));if(!data||data.length<1000)break;
+      }
+      const shooters:any[]=[];
+      for(let offset=0;offset<accounts.length;offset+=100){
+        const {data,error}=await db.from('shooters').select('id,display_name,linked_user_id').in('linked_user_id',accounts.slice(offset,offset+100).map(a=>a.id));
+        if(error)throw error;shooters.push(...(data||[]));
+      }
+      return shooters.sort((a,b)=>a.display_name.localeCompare(b.display_name,'nl'));
+    };
+    if(body.action==='list_registered_shooters'){
+      if(actor.role!=='trainer')throw new Error('geen_schrijfrechten');
+      return json({ok:true,shooters:(await registeredShooters()).map(s=>({id:s.id,display_name:s.display_name}))});
+    }
     if(body.action==='save'){
       if(!Array.isArray(body.ops)||body.ops.length>5000)throw new Error('ongeldige_bewerking');
       for(const op of body.ops){
@@ -23,6 +43,15 @@ Deno.serve(async req=>{
         if(op.kind==='shooter' && op.value && (typeof op.value.naam!=='string'||!op.value.naam.trim()||op.value.naam.length>150||op.value.id!==op.id))throw new Error('ongeldige_schutter');
         if(op.kind==='round' && op.value && (!Number.isInteger(op.value.score)||op.value.score<0||op.value.score>(op.value.type==='parcours'?250:['s1','s4','s7'].includes(op.value.stage)?50:25)))throw new Error('ongeldige_score');
         if(op.kind==='shot' && op.value && ![0,2,3,4,5].includes(op.value.score))throw new Error('ongeldige_score');
+      }
+      const shooterOps=body.ops.filter(op=>op.kind==='shooter'&&op.value);
+      if(shooterOps.length){
+        const allowed=new Map((await registeredShooters()).map(s=>[s.id,s.display_name]));
+        for(const op of shooterOps){
+          // Preserve existing legacy entries; newly added or renamed entries require an account.
+          if(op.expected && op.expected.id===op.id && op.expected.naam===op.value.naam)continue;
+          if(allowed.get(op.id)!==op.value.naam)throw new Error('persoonlijk_account_verplicht');
+        }
       }
       const {data,error}=await db.rpc(personal?'epp_personal_training_apply':'epp_training_apply',{p_club:actor.club_code,p_actor:actor.id,p_ops:body.ops});
       if(error)throw error;

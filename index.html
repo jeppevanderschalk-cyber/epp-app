@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-uXhSjMB+Ll8G/QoWzKSlWt+6v9j0q11/uJ1Fv3sud/4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-TA4LXqAESO5AqItJYuVjDBN+nZL7E2dsAnSCnNS6i0c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -1188,7 +1188,7 @@ const RankList = ({items, max}) => {
 
 // ── TabInvoer ─────────────────────────────────────────────────────
 const TabInvoer = ({
-  shooters, nieuw, setNieuw, addShooter, removeShooter,
+  shooters, nieuw, setNieuw, addShooter, removeShooter, registeredShooters=[], shooterDirectoryStatus="",
   currentTraining, setTrainingMode, setTrainingStage, addRound,
   setTab, maxOf, personalTraining=false, fixedMode="parcours", onOverview
 }) => {
@@ -1215,13 +1215,12 @@ const TabInvoer = ({
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schutters")),
       h("div",{className:"card-body"},
         !personalTraining&&h("div",{style:{display:"flex",gap:8,marginBottom:10}},
-          h("input",{
-            className:"txt-in",style:{flex:1},placeholder:"Naam toevoegen…",
-            value:nieuw,
-            onChange:e=>setNieuw(e.target.value),
-            onKeyDown:e=>e.key==="Enter"&&addShooter()
-          }),
-          h("button",{className:"btn btn-gold",style:{flexShrink:0,padding:"13px 16px"},onClick:addShooter},"＋")
+          h("select",{
+            className:"txt-in",style:{flex:1,minWidth:0},"aria-label":"Schutter met account toevoegen",
+            value:nieuw,onChange:e=>setNieuw(e.target.value),disabled:!!shooterDirectoryStatus
+          },h("option",{value:""},shooterDirectoryStatus||"Kies een schutter met account…"),
+            registeredShooters.filter(s=>!shooters.some(existing=>existing.id===s.id)).map(s=>h("option",{key:s.id,value:s.id},s.display_name))),
+          h("button",{type:"button",className:"btn btn-gold",disabled:!nieuw||!!shooterDirectoryStatus,style:{flexShrink:0,padding:"13px 16px"},onClick:addShooter},"＋")
         ),
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:0}},"Nog geen schutters toegevoegd.")
@@ -2443,6 +2442,15 @@ function App({headClubs,onHeadClubChange}={}) {
   const [eppPassword,setEppPassword]= React.useState("");
   const [platformPassword,setPlatformPassword]= React.useState("");
   const [nieuw,      setNieuw]      = React.useState("");
+  const [registeredShooters,setRegisteredShooters]=React.useState([]);
+  const [shooterDirectoryStatus,setShooterDirectoryStatus]=React.useState("Accounts laden…");
+  React.useEffect(()=>{
+    let active=true;
+    if(isTrainer)eppCall("epp-training",{clubId:CLUB_ID,action:"list_registered_shooters"})
+      .then(r=>{if(active){setRegisteredShooters(r.shooters||[]);setShooterDirectoryStatus("");}})
+      .catch(()=>{if(active)setShooterDirectoryStatus("Accounts laden mislukt. Herlaad de pagina.");});
+    return ()=>{active=false;};
+  },[]);
   const [toast,      setToast]      = React.useState("");
   const firstSave = React.useRef(true);
   const applyingRemote = React.useRef(false);
@@ -2561,7 +2569,12 @@ function App({headClubs,onHeadClubChange}={}) {
   },[shooters,scores,cameraShots,stageShots,currentTraining,bestParcours,bestStageAverages,archives,loaded]);
 
   // State helpers
-  const addShooter = () => {const n=nieuw.trim().replace(/\s+/g,' ');if(!n)return;if(shooters.some(s=>s.naam.trim().replace(/\s+/g,' ').toLocaleLowerCase('nl-NL')===n.toLocaleLowerCase('nl-NL'))){flash('Deze schutter staat al in de trainingslijst.');return;}markLocalEdit();setShooters(p=>[...p,{id:newId(),naam:n}]);setNieuw("");};
+  const addShooter = () => {
+    const selected=registeredShooters.find(s=>s.id===nieuw);
+    if(!selected||shooterDirectoryStatus){flash('Kies een schutter met een aangemaakt account.');return;}
+    if(shooters.some(s=>s.id===selected.id)){flash('Deze schutter staat al in de trainingslijst.');return;}
+    markLocalEdit();setShooters(p=>[...p,{id:selected.id,naam:selected.display_name}]);setNieuw("");
+  };
   const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;markLocalEdit();setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
   const markShotsDeleted = ids => {markLocalEdit();setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));};
   const setTrainingMode = mode => {markLocalEdit();setCurrentTraining(t=>({...t,mode,updatedAt:Date.now()}));};
@@ -2669,7 +2682,7 @@ function App({headClubs,onHeadClubChange}={}) {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,canTrain,personalTraining,archives,trainingView,setTrainingView})
+    : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,registeredShooters,shooterDirectoryStatus,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,canTrain,personalTraining,archives,trainingView,setTrainingView})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf})
     : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:isTrainer?'individual':'signup'})
