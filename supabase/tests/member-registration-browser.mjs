@@ -95,10 +95,10 @@ try{
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Landelijk',exact:true}).getAttribute('data-on'),'1');
-    assert.equal(await page.getByRole('button',{name:'Inschrijven wedstrijd',exact:true}).getAttribute('data-on'),'1');
+    assert.equal(await page.getByRole('button',{name:'Inschrijven',exact:true}).getAttribute('data-on'),'1');
     await page.getByRole('button',{name:'Individueel',exact:true}).click();
     await page.getByLabel('Wedstrijd',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'Inschrijven wedstrijd',exact:true}).click();
+    await page.getByRole('button',{name:'Inschrijven',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Meer',exact:true}).click();
     const donation=page.getByRole('link',{name:'Doneer via iDEAL',exact:true});
