@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-fgv/MSIzQCLLjYr5TuDNrfW6lRfOjNfxZtip4IJqpEc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-1rQfGCLFjxCo2ZZ6BmI9U1Ebqu2C6Is8/pdbC2loE9w='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -866,7 +866,8 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .sync-dot.warn{background:${C.red};box-shadow:0 0 0 3px rgba(255,107,93,.18)}
 .sync-line{margin:0;font-size:12px;font-weight:600;color:${C.muted};overflow-wrap:anywhere}
 .sync-note{margin:0;font-size:13px;font-weight:600;line-height:1.45;color:#ffd2cc;background:rgba(255,107,93,.1);border:1px solid rgba(255,107,93,.3);border-radius:12px;padding:10px 12px;overflow-wrap:anywhere}
-.club-tag{font-family:'Archivo',sans-serif;font-size:.75rem;font-weight:700;color:${C.goldLt};flex:0 1 auto;min-width:0;max-width:46%;padding:6px 12px;border:1px solid rgba(228,187,74,.35);border-radius:999px;background:rgba(228,187,74,.08);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.club-tag{font-family:'Archivo',sans-serif;font-size:.75rem;font-weight:700;line-height:1.25;color:${C.goldLt};flex:0 1 auto;min-width:0;max-width:58%;padding:6px 12px;border:1px solid rgba(228,187,74,.35);border-radius:14px;background:rgba(228,187,74,.08);text-align:center;overflow-wrap:normal;word-break:normal;hyphens:manual;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+@media(max-width:430px){.topbar-sub{display:none}.club-tag{font-size:.72rem;padding:5px 10px}}
 .head-club-selector{flex:0 1 130px;min-width:0;max-width:32%;display:grid;gap:4px;font-size:.65rem;font-weight:800;color:${C.muted}}
 .head-club-selector select{width:100%;min-width:0;height:36px;border:1px solid rgba(228,187,74,.35);border-radius:10px;background:#081026;color:${C.ink};font:inherit;font-size:.75rem;padding:0 4px;text-overflow:ellipsis}
 .gold-stripe{display:none}
@@ -2726,7 +2727,7 @@ function App({headClubs,onHeadClubChange}={}) {
           h("div",{className:"topbar-sub"},"Europees Praktijk Parcours")
         ),
         h("span",{className:"sync-dot "+syncLevel,role:"img","aria-label":"Opslagstatus: "+(syncStatus||"onbekend"),title:syncStatus}),
-        onHeadClubChange?h(HeadClubSelector,{clubs:headClubs||[],value:'',onChange:viewHeadClub}):h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,style:accountClubName.split(/\s+/).some(word=>word.length>14)?{fontSize:'.65rem'}:undefined},accountClubName)
+        onHeadClubChange?h(HeadClubSelector,{clubs:headClubs||[],value:'',onChange:viewHeadClub}):h("div",{className:"club-tag","aria-label":"Ingelogde vereniging",title:accountClubName,},accountClubName)
       ),
       h("div",{className:"gold-stripe"})
     ),
