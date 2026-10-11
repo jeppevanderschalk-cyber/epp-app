@@ -45,7 +45,7 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   return h('section',{style:{display:'grid',gap:12}},
     h('h3',{style:{fontSize:18,margin:0}},target?'Inschrijving wijzigen: '+target.name:'Jouw inschrijving'),
     !canBook&&h('p',{className:'hint'},'Een persoonlijk schutterprofiel is nodig om te boeken.'),
-    !open&&h('p',{className:'hint'},Date.now()<Date.parse(view.planner.opens_at)?'Inschrijving opent '+new Date(view.planner.opens_at).toLocaleString('nl-NL'):'Inschrijving gesloten'),
+    !open&&h('p',{className:'hint'},Date.now()<Date.parse(view.planner.opens_at)?'Inschrijving opent '+plannerSlot(view.planner.opens_at):'Inschrijving gesloten'),
     view.match.offered_disciplines.map(d=>{
       const dates=[...new Set(view.slots.map(s=>plannerDay(s.starts_at)))];
       const chosen=view.slots.find(s=>s.id===choices[d]);
@@ -77,14 +77,14 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
 
 const PlannerEditor=({view,onSaved,onReload,saveNotice='',onEdited})=>{
   const m=view.match;
-  const defaults={first:'09:00',last:'16:00',duration:30,changeover:0,capacity:4,gap:0,opens:new Date().toISOString(),closes:new Date(m.match_date+'T08:00:00+01:00').toISOString(),breaks:[],overrides:[],published:false};
+  const defaults={first:'09:00',last:'16:00',duration:30,changeover:0,capacity:4,gap:0,opens:m.registration_opens_on?m.registration_opens_on+'T00:00':new Date().toISOString(),closes:new Date(m.match_date+'T08:00:00+01:00').toISOString(),breaks:[],overrides:[],published:false};
   const [config,setConfig]=React.useState(view.planner?.config||defaults),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[confirmed,setConfirmed]=React.useState(false);
   const [revision]=React.useState(view.planner?.revision||0),[conflict,setConflict]=React.useState(false);
   const inputValue=(value,type)=>type==='number'&&value!==''?Number(value):value;
   const field=(key,label,type)=>h('label',{key},label,h('input',{className:'txt-in',type,value:config[key],required:true,min:type==='number'?key==='capacity'||key==='duration'?1:0:undefined,max:type==='number'?key==='capacity'?100:180:undefined,onChange:e=>setConfig(p=>({...p,[key]:inputValue(e.target.value,type)}))}));
   const dateField=(key,label)=>{
     const local=new Date(config[key]);const text=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(config[key])?config[key]:Number.isNaN(local.valueOf())?'':new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Amsterdam',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(local).replace(' ','T');
-    return h('label',{key},label,h('input',{className:'txt-in',type:'datetime-local',required:true,value:text,onChange:e=>{if(e.target.value)setConfig(p=>({...p,[key]:e.target.value}));}}));
+    return h('label',{key},label,h('input',{className:'txt-in',type:'datetime-local',required:true,disabled:key==='opens'&&!!m.registration_opens_on,value:key==='opens'&&m.registration_opens_on?m.registration_opens_on+'T00:00':text,onChange:e=>{if(e.target.value)setConfig(p=>({...p,[key]:e.target.value}));}}));
   };
   const list=(key,labels)=>h('div',null,config[key].map((row,i)=>h('div',{key:i,style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'end'}},labels.map(([k,label,type])=>h('label',{key:k,style:{flex:'1 1 100px'}},label,h('input',{className:'txt-in',type,required:true,min:type==='number'?1:undefined,max:type==='number'?100:undefined,value:row[k],onChange:e=>setConfig(p=>({...p,[key]:p[key].map((r,j)=>j===i?{...r,[k]:inputValue(e.target.value,type)}:r)}))}))),h('button',{type:'button',className:'btn btn-ghost','aria-label':'Verwijder '+key+' '+(i+1),onClick:()=>setConfig(p=>({...p,[key]:p[key].filter((_,j)=>j!==i)}))},'×'))),h('button',{type:'button',className:'btn btn-ghost',onClick:()=>setConfig(p=>({...p,[key]:[...p[key],key==='breaks'?{start:'12:00',end:'13:00'}:{start:'09:00',capacity:p.capacity}]}))},key==='breaks'?'+ Pauze':'+ Afwijkende capaciteit'));
   return h('form',{style:{display:'grid',gap:12},onChange:()=>{setStatus('');onEdited?.();},onSubmit:async e=>{
@@ -95,6 +95,7 @@ const PlannerEditor=({view,onSaved,onReload,saveNotice='',onEdited})=>{
     field('first','Eerste ronde start','time'),field('last','Laatste ronde start uiterlijk','time'),field('duration','Rondeduur (minuten)','number'),field('changeover','Wisseltijd (minuten)','number'),
     plannerLastRound(config)&&h('p',{className:'hint',role:'status',style:{margin:0}},'Laatste ronde: '+plannerLastRound(config)),
     field('capacity','Schietplaatsen per ronde','number'),field('gap','Minimale pauze tussen deelnames (minuten)','number'),dateField('opens','Inschrijving opent'),dateField('closes','Inschrijving sluit'),
+    m.registration_opens_on&&h('p',{className:'hint'},'De openingsdatum is ingesteld bij de wedstrijd. Pas deze aan via Wedstrijd bewerken.'),
     list('breaks',[['start','Pauze vanaf','time'],['end','Pauze tot','time']]),list('overrides',[['start','Start ronde','time'],['capacity','Schietplaatsen','number']]),
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:config.published,onChange:e=>setConfig(p=>({...p,published:e.target.checked}))}),'Planner publiceren'),
     h('label',{className:'chk-row'},h('input',{type:'checkbox',checked:confirmed,onChange:e=>setConfirmed(e.target.checked)}),'Onze vereniging organiseert deze wedstrijd'),
@@ -144,9 +145,11 @@ const MatchPlanner=({matchId,manage=false})=>{
 
 const PlannerMatchCard=({match})=>{
   const [expanded,setExpanded]=React.useState(false);
+  const notOpen=match.registration_opens_on&&new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Amsterdam'}).format(new Date())<match.registration_opens_on;
   return h('section',{className:'match-card'},
     h('div',{className:'match-hd'},h('div',null,h('div',{className:'match-org'},match.organizer),h('div',{className:'match-sub'},eppFmtMatchDates(match)),match.location&&h('div',{className:'match-sub'},match.location))),
-    h('button',{className:'btn btn-gold btn-full','aria-expanded':expanded,onClick:()=>setExpanded(v=>!v)},expanded?'SLUITEN':'DOE MEE'),
+    h('button',{className:'btn btn-gold btn-full','aria-expanded':expanded,onClick:()=>setExpanded(v=>!v)},expanded?'SLUITEN':notOpen?'WEDSTRIJD BEKIJKEN':'DOE MEE'),
+    notOpen&&h('p',{className:'hint',role:'status'},'Inschrijving opent op '+eppFmtDate(match.registration_opens_on)+' om 00:00 uur.'),
     expanded&&h('div',{style:{marginTop:16}},h(MatchPlanner,{matchId:match.id}))
   );
 };

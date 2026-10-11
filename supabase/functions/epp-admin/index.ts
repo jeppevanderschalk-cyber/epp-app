@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
 
     if (action === "create_match") {
       const m = body.match || {};
+      if(m.registration_opens_on && (!isValidDate(m.registration_opens_on)||Number.isNaN(Date.parse(m.registration_opens_on))||new Date(m.registration_opens_on).toISOString().slice(0,10)!==m.registration_opens_on))return json({ok:false,error:'ongeldige_openingsdatum'},400);
       const dates=m.match_dates!==undefined?matchDates(m.match_dates):m.match_date?matchDates([m.match_date]):[];
       if (typeof m.organizer !== "string" || !m.organizer.trim()) {
         return json({ ok: false, error: "organizer_verplicht" }, 400);
@@ -105,6 +106,7 @@ Deno.serve(async (req) => {
           match_date: dates[0] ?? null,
           match_dates: dates,
           deadline: m.deadline ?? null,
+          registration_opens_on: m.registration_opens_on || null,
           organizer_email: m.organizer_email ?? null,
           offered_disciplines: offered,
           notes: m.notes ?? null,
@@ -121,6 +123,10 @@ Deno.serve(async (req) => {
       if (typeof id !== "string") return json({ ok: false, error: "id_verplicht" }, 400);
 
       const patch: Record<string, unknown> = {};
+      if(m.registration_opens_on!==undefined){
+        if(m.registration_opens_on && (!isValidDate(m.registration_opens_on)||Number.isNaN(Date.parse(m.registration_opens_on))||new Date(m.registration_opens_on).toISOString().slice(0,10)!==m.registration_opens_on))return json({ok:false,error:'ongeldige_openingsdatum'},400);
+        patch.registration_opens_on=m.registration_opens_on||null;
+      }
       if(m.match_dates!==undefined){const dates=matchDates(m.match_dates);patch.match_dates=dates;patch.match_date=dates[0];}
       if (m.organizer !== undefined) {
         if (typeof m.organizer !== "string" || !m.organizer.trim()) {

@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-z3JD0RF6b4Lcns6NUa1Zs3lQgXw3xJe72JtsQj3ifYg='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-CG1B6H8R72+KBrtpvLDW4jxhmYQe2PsEmsyKUB9kX9M='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -1948,7 +1948,8 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
     });
   },[matches,mySignups]);
 
-  const isClosed = m => !!m.planning_pending || !!(m.deadline && todayIso_client() > m.deadline);
+  const isNotOpen = m => !!m.registration_opens_on && new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Amsterdam'}).format(new Date()) < m.registration_opens_on;
+  const isClosed = m => isNotOpen(m) || !!m.planning_pending || !!(m.deadline && todayIso_client() > m.deadline);
   const serverStateFor = m => {
     const existing = mySignups[m.id];
     const disc={};
@@ -2011,13 +2012,13 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
           h("div",null,
             h("div",{className:"match-org"},m.organizer),
             h("div",{className:"match-sub"},eppFmtMatchDates(m)),
-            h("div",{className:"match-sub"},closed?"Inschrijving gesloten":`Deadline: ${eppFmtDate(m.deadline)}`)
+            h("div",{className:"match-sub"},isNotOpen(m)?"Inschrijving opent op "+eppFmtDate(m.registration_opens_on):closed?"Inschrijving gesloten":`Deadline: ${eppFmtDate(m.deadline)}`)
           ),
           h("div",{className:"status-dot "+dotClass},dotLabel)
         ),
         closed && h("p",{className:"hint"},
-          m.planning_pending?"De organisator bereidt de tijdsloten voor. Je bestaande inschrijving blijft behouden. ":"Inschrijven via de app kan niet meer. Wil je nog mee, mail dan zelf naar het inschrijfbureau: ",
-          m.organizer_email
+          isNotOpen(m)?"Aanmelden is mogelijk vanaf "+eppFmtDate(m.registration_opens_on)+". ":m.planning_pending?"De organisator bereidt de tijdsloten voor. Je bestaande inschrijving blijft behouden. ":"Inschrijven via de app kan niet meer. Wil je nog mee, mail dan zelf naar het inschrijfbureau: ",
+          isNotOpen(m)?null:m.organizer_email
             ? h("a",{href:`mailto:${m.organizer_email}`,style:{color:C.goldLt,fontWeight:800}},m.organizer_email)
             : "(geen e-mailadres bekend, vraag de trainer)"
         ),
@@ -2041,7 +2042,7 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
 };
 
 const EppMatchForm = ({initial, onSave, onCancel}) => {
-  const [f,setF] = React.useState(()=>({...({organizer:"",location:"",deadline:"",organizer_email:"",offered_disciplines:["pistool","optiek","pcc"],notes:""}),...initial,match_dates:initial?.match_dates?.length?initial.match_dates:[initial?.match_date||""]}));
+  const [f,setF] = React.useState(()=>({...({organizer:"",location:"",deadline:"",registration_opens_on:"",organizer_email:"",offered_disciplines:["pistool","optiek","pcc"],notes:""}),...initial,match_dates:initial?.match_dates?.length?initial.match_dates:[initial?.match_date||""]}));
   const [dateError,setDateError]=React.useState('');
   const toggleD = id => setF(p=>({...p,offered_disciplines:p.offered_disciplines.includes(id)?p.offered_disciplines.filter(x=>x!==id):[...p.offered_disciplines,id]}));
   return h("div",{className:"card"},
@@ -2054,6 +2055,8 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
         f.match_dates.length>1&&h('button',{type:'button',className:'btn btn-ghost','aria-label':'Verwijder wedstrijddag '+(i+1),onClick:()=>setF(p=>({...p,match_dates:p.match_dates.filter((_,j)=>j!==i)}))},'×'))),
       h('button',{type:'button',className:'btn btn-ghost',disabled:f.match_dates.length>=31,onClick:()=>setF(p=>({...p,match_dates:[...p.match_dates,'']}))},'+ Wedstrijddag'),
       dateError&&h('p',{role:'alert',className:'hint'},dateError),
+      h('label',null,'Inschrijving opent op',h('input',{className:'txt-in',type:'date','aria-label':'Inschrijving opent op',value:f.registration_opens_on||'',onChange:e=>setF(p=>({...p,registration_opens_on:e.target.value||null}))})),
+      h('p',{className:'hint'},'Optioneel. Aanmelden kan vanaf 00:00 uur Nederlandse tijd op deze datum. Wedstrijddagen en locatie zijn vooraf zichtbaar.'),
       h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Inschrijfdeadline"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.deadline||"",onChange:e=>setF(p=>({...p,deadline:e.target.value}))})),
       h("p",{className:"hint"},"Standaard 1 maand voor de wedstrijddatum, zelf aan te passen."),
       h("input",{className:"txt-in",placeholder:"E-mailadres inschrijfbureau",value:f.organizer_email||"",onChange:e=>setF(p=>({...p,organizer_email:e.target.value}))}),
