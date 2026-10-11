@@ -28,6 +28,7 @@ try{
           if(b.action==='get_result')r={ok:true,result:null};
         }
         if(fn==='epp-admin')r={ok:true,matches:[match]};
+        if(fn==='epp-scoring'&&b.action==='catalog')r={ok:true,matches:[match]};
         if(fn==='epp-signup')r={ok:true,matches:[],shooters:[{id:'shooter-test',naam:'Test Schutter'}],signups:[]};
         if(fn==='epp-planner'){
           if(b.action==='catalog')r={ok:true,matches:planner?.published?[match]:[]};
@@ -44,11 +45,11 @@ try{
     }
     const admin={id:'admin-test',username:'beheer',displayName:'Beheer',role:'trainer',clubId:'svbb',isAdmin:true};
     let {c,p}=await open(admin);
-    await p.getByRole('button',{name:'Meer',exact:true}).click();
-    await p.getByRole('button',{name:'Inschrijven voor wedstrijden',exact:true}).click();
+    await p.getByRole('button',{name:'Wedstrijden',exact:true}).click();
+    await p.getByRole('button',{name:'Inschrijven',exact:true}).click();
     await p.getByRole('button',{name:'Wedstrijdplanner',exact:true}).click();
     await p.getByLabel('Eerste ronde start',{exact:true}).fill('09:00');
-    await p.getByLabel('Laatste ronde start',{exact:true}).fill('16:00');
+    await p.getByLabel('Laatste ronde start uiterlijk',{exact:true}).fill('16:00');
     await p.getByLabel('Rondeduur (minuten)',{exact:true}).fill('30');
     await p.getByLabel('Schietplaatsen per ronde',{exact:true}).fill('2');
     await p.getByLabel('Planner publiceren',{exact:true}).check();
@@ -60,6 +61,7 @@ try{
     await p.waitForTimeout(700);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:'/private/tmp/epp-planner-admin-'+width+'.png',fullPage:true});
     await p.getByRole('button',{name:'Wedstrijden',exact:true}).click();
+    await p.getByRole('button',{name:'Scores',exact:true}).click();
     await p.getByLabel('Wedstrijd',{exact:true}).selectOption('match-test');
     await p.getByText('Ingeschreven deelnemers · Pistool',{exact:true}).waitFor();
     await p.getByLabel('Schutter zoeken',{exact:true}).fill('Niet ingeschreven');
@@ -68,15 +70,16 @@ try{
     await p.getByRole('button',{name:/Test Schutter.*EPP-PLANNER/}).click();
     await p.getByText(/Geselecteerd: Test Schutter/).waitFor();await c.close();
     ({c,p}=await open({id:'member-test',username:'lid.test',displayName:'Test Schutter',role:'schutter',clubId:'svbb',isAdmin:false}));
-    await p.getByRole('button',{name:'Meer',exact:true}).click();
-    await p.getByRole('button',{name:'Inschrijven voor wedstrijden',exact:true}).click();
-    await p.locator('summary').filter({hasText:'Planner Test'}).click();
-    await p.getByLabel('Tijdslot pistool',{exact:true}).selectOption('slot-a');
-    await p.getByLabel('Tijdslot optiek',{exact:true}).selectOption('slot-b');
+    await p.getByRole('button',{name:'Wedstrijden',exact:true}).click();
+    await p.getByRole('button',{name:'Inschrijven',exact:true}).click();
+    await p.locator('.match-card').filter({has:p.getByText('Planner Test',{exact:true})}).getByRole('button',{name:'DOE MEE',exact:true}).click();
+    const pistol=p.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}),optics=p.getByRole('radiogroup',{name:'Tijdslot optiek',exact:true});
+    await pistol.getByRole('radio',{name:'14 nov 2030 · 09:00',exact:true}).click();
+    await optics.getByRole('radio',{name:'14 nov 2030 · 09:30',exact:true}).click();
     rejectBooking=true;
     await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await p.getByText('Dit tijdslot is net volgeboekt. Kies een andere tijd.',{exact:true}).waitFor();
-    assert.equal(await p.getByLabel('Tijdslot pistool',{exact:true}).inputValue(),'slot-a');assert.equal(booked.length,0);
+    assert.equal(await pistol.getByRole('radio',{name:'14 nov 2030 · 09:00',exact:true}).getAttribute('aria-checked'),'true');assert.equal(booked.length,0);
     rejectBooking=false;await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await p.getByText('Online opgeslagen',{exact:true}).waitFor();assert.equal(booked.length,2);
     await p.waitForTimeout(700);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);

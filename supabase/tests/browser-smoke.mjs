@@ -34,6 +34,7 @@ try{
       localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account}));
       localStorage.setItem('epp-app-club-v1','svbb');
       localStorage.setItem('epp-app-role-v1','trainer');
+      localStorage.setItem('epp-reset-20261011-confirmed','1');
     },{account});
     await context.route('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/**',async route=>{
       const body=route.request().postDataJSON();
@@ -62,6 +63,7 @@ try{
         }
         if(body.action==='list_qualifications')response={ok:true,qualifications:[...qualifications.entries()].filter(([key])=>key.includes('|'+body.discipline+'|')).map(([,q])=>q)};
       }
+      if(fn==='epp-scoring'&&body.action==='catalog')response={ok:true,matches:[{id:'match-a',organizer:'Wedstrijd A',match_date:'2026-11-14'},{id:'match-b',organizer:'Wedstrijd B',match_date:'2026-12-14'}]};
       if(fn==='epp-training'){
         if(body.action==='save'){
           await new Promise(r=>setTimeout(r,250));
@@ -73,6 +75,10 @@ try{
           }
         }
         if(status===200)response={ok:true,entities:[...entities.values()]};
+        if(body.action==='standings'){
+          const sid='00000000-0000-4000-8000-000000000001';
+          response={ok:true,shooters:[{id:sid,naam:'Test Schutter'}],bestParcours:{[sid]:{score:240}},bestStageAverages:{},stageShots:entities.get('meta|stageShots').data,rounds:[]};
+        }
       }
       await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(response)});
     });
@@ -86,7 +92,7 @@ try{
     await page.getByRole('status').filter({hasText:'Online opgeslagen'}).waitFor({timeout:15000});
     assert([...entities.values()].some(e=>e.kind==='round'&&e.data?.score===210));
     await page.getByLabel('Kaarttelling en tijden',{exact:true}).check();
-    await page.locator('fieldset').filter({hasText:'Snelvuur 7 m'}).getByRole('spinbutton').first().fill('10');
+    await page.locator('fieldset').filter({hasText:'Snelvuurscore · 7 meter'}).getByRole('spinbutton').first().fill('10');
     await page.locator('fieldset').filter({hasText:'Overige parcours'}).getByRole('spinbutton').first().fill('40');
     await page.getByLabel('Snelvuurtijd (seconden en honderdsten)',{exact:true}).fill('12.40');
     await page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).fill('4:40');
@@ -95,6 +101,7 @@ try{
     await page.getByRole('status').filter({hasText:'Online opgeslagen'}).waitFor({timeout:15000});
     assert([...entities.values()].some(e=>e.kind==='round'&&e.data?.score===250&&e.data?.rapid_score===50&&e.data?.total_time_ms===280000));
     await page.getByRole('button',{name:'Training',exact:true}).click();
+    await page.getByRole('button',{name:'Overzicht',exact:true}).click();
     await page.getByText('Huidige training',{exact:true}).waitFor();
     await page.waitForTimeout(650);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -103,12 +110,13 @@ try{
     failSave=true;
     await score.fill('220');await score.press('Enter');
     await page.getByRole('status').filter({hasText:'nog niet online'}).waitFor({timeout:15000});
-    assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-data-svbb-registration-v1-records-v3')).wanted.currentTraining.rounds.some(r=>r.score===220)));
+    assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-data-reset-20261011-confirmed-svbb-records-v3')).wanted.currentTraining.rounds.some(r=>r.score===220)));
     await page.reload();
     await page.getByText('Volledig Parcours',{exact:true}).waitFor();
     assert((await page.locator('body').innerText()).includes('220'));
     failSave=false;
     await page.getByRole('button',{name:'Meer',exact:true}).click();
+    await page.locator('summary',{hasText:'Online synchronisatie'}).click();
     await page.getByRole('button',{name:'Nu synchroniseren',exact:true}).click();
     await page.getByRole('status').filter({hasText:'Online opgeslagen'}).first().waitFor({timeout:15000});
     await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();

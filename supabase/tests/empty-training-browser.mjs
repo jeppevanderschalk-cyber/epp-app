@@ -14,8 +14,8 @@ try{
     const records=new Map(),errors=[];let saves=0,conflicts=0;
     if(scenario==='stored-empty')records.set('meta|stageShots',{kind:'meta',id:'stageShots',data:{}});
     await context.addInitScript(({account,scenario})=>{
-      localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account}));localStorage.setItem('epp-app-club-v1',account.clubId);localStorage.setItem('epp-app-role-v1',account.role);
-      if(scenario==='old-queue')localStorage.setItem('epp-data-v1-eppnationaal-records-v3',JSON.stringify({base:{stageShots:{}},wanted:{stageShots:{s1:10},shooters:[{id:'saved-shooter',naam:'Preserved Shooter'}],currentTraining:{id:'saved-training',mode:'parcours',stage:'s1',startedAt:1,rounds:[{id:'saved-round',sid:'saved-shooter',trainingId:'saved-training',type:'parcours',score:230,ts:1}]}}}));
+      localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account}));localStorage.setItem('epp-app-club-v1',account.clubId);localStorage.setItem('epp-app-role-v1',account.role);localStorage.setItem('epp-reset-20261011-confirmed','1');
+      if(scenario==='old-queue')localStorage.setItem('epp-data-reset-20261011-confirmed-eppnationaal-records-v3',JSON.stringify({base:{stageShots:{}},wanted:{stageShots:{s1:10},shooters:[{id:'saved-shooter',naam:'Preserved Shooter'}],currentTraining:{id:'saved-training',mode:'parcours',stage:'s1',startedAt:1,rounds:[{id:'saved-round',sid:'saved-shooter',trainingId:'saved-training',type:'parcours',score:230,ts:1}]}}}));
     },{account,scenario});
     await context.route('**/functions/v1/**',async route=>{
       const b=route.request().postDataJSON(),fn=route.request().url().split('/').pop();let data={ok:true,account,entities:[],clubs:[{code:'svbb',naam:'SVBB'}],matches:[],shooters:[],accounts:[]};
@@ -37,11 +37,11 @@ try{
     const savedCount=saves;await page.waitForTimeout(1800);assert.equal(saves,savedCount);assert.equal(conflicts,0);
     assert.equal(await page.getByText('Online opslaan...',{exact:true}).count(),0);
     const training=records.get('meta|currentTraining').data;
-    const queued=await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-data-v1-eppnationaal-records-v3')));
+    const queued=await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-data-reset-20261011-confirmed-eppnationaal-records-v3')));
     assert.equal(queued.wanted.currentTraining.id,training.id);assert.deepEqual(EppStore.diff(queued.base,queued.wanted),[]);
     if(scenario==='old-queue'){assert.equal(training.id,'saved-training');assert.equal(records.get('round|saved-round').data.score,230);}
     await page.locator('[aria-label="Vereniging bekijken"]:visible').selectOption('svbb');await page.getByText('Alleen bekijken',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'Hoofdbeheer',exact:true}).click();await page.getByRole('button',{name:'Meer',exact:true}).click();await page.getByText('Sessie',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Hoofdbeheer',exact:true}).click();await page.getByRole('button',{name:'Meer',exact:true}).click();await page.getByRole('button',{name:'Uitloggen',exact:true}).waitFor();
     assert.deepEqual(errors,[]);await context.close();console.log('PASS '+scenario+': storage settles without conflicts, pending scores retained, navigation responsive');
   }
 }finally{await browser.close();await new Promise(r=>server.close(r));}

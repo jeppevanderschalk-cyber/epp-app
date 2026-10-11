@@ -49,12 +49,12 @@ try{
     });
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.goto('http://127.0.0.1:'+server.address().port);
-    await page.locator('#loginFirstName').waitFor({state:'visible'});
+    await page.locator('#loginEmail').waitFor({state:'visible'});
     assert.equal(await page.locator('#loginPassword').inputValue(),'');
     await page.locator('#loginRole').selectOption('hoofdbeheer');
     assert.equal(await page.locator('#loginFirstName').isVisible(),false);
     await page.locator('#loginRole').selectOption('schutter');
-    assert.equal(await page.locator('#loginFirstName').isVisible(),true);
+    assert.equal(await page.locator('#loginEmail').isVisible(),true);
     await page.getByRole('button',{name:'Ik heb nog geen account',exact:true}).click();
     await page.getByText('Eigen account aanmaken',{exact:true}).waitFor();
     assert.equal(await page.getByRole('combobox',{name:'Vereniging',exact:true}).inputValue(),'');
@@ -64,6 +64,8 @@ try{
     await page.locator('section').filter({has:page.getByText('Eigen account aanmaken',{exact:true})}).locator('select').selectOption('apgs');
     await page.getByRole('textbox',{name:'Voornaam',exact:true}).fill('Anne');
     await page.getByRole('textbox',{name:'Achternaam',exact:true}).fill('de Vries');
+    await page.getByLabel('E-mailadres',{exact:true}).fill('anne@example.nl');
+    await page.getByLabel('Gebruikersnaam',{exact:true}).fill('anne.schutter');
     await page.getByLabel('Eigen wachtwoord',{exact:true}).fill('SafePassword123!');
     await page.getByLabel('Herhaal wachtwoord',{exact:true}).fill('DifferentPassword');
     await page.getByRole('button',{name:'Account aanmaken',exact:true}).click();
@@ -86,17 +88,19 @@ try{
     assert.equal(await page.locator('#loginPassword').inputValue(),'');
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-session-v2')),null);
     await page.reload();
-    await page.locator('#loginFirstName').waitFor({state:'visible'});
+    await page.locator('#loginEmail').waitFor({state:'visible'});
     assert.equal(await page.locator('#loginClub').inputValue(),'apgs');
     assert.equal(await page.locator('#loginPassword').inputValue(),'');
-    await page.locator('#loginFirstName').fill('Anne');
-    await page.locator('#loginLastName').fill('de Vries');
+    await page.locator('#loginEmail').fill('anne.schutter');
     await page.locator('#loginPassword').fill('SafePassword123!');
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+    // Personal accounts start on their own training; registration is one tap away.
+    await page.getByRole('button',{name:'Parcours',exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Training',exact:true}).getAttribute('data-on'),'1');
+    await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'Wedstrijden',exact:true}).getAttribute('data-on'),'1');
     assert.equal(await page.getByRole('button',{name:'Inschrijven',exact:true}).getAttribute('data-on'),'1');
-    await page.getByRole('button',{name:'Individueel',exact:true}).click();
+    await page.getByRole('button',{name:'Scores',exact:true}).click();
     await page.getByLabel('Wedstrijd',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Inschrijven',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();

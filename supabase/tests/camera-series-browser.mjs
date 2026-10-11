@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {resolve,extname} from 'node:path';
-const {chromium}=await import('/private/tmp/epp-audit-tools/node_modules/playwright/index.mjs');
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'/private/tmp/epp-audit-tools/node_modules/playwright/index.mjs');
 const root=resolve(import.meta.dirname,'../..');
 const server=createServer(async(req,res)=>{
   try{const path=resolve(root,'.'+decodeURIComponent(req.url.split('?')[0]==='/'?'/index.html':req.url.split('?')[0]));if(!path.startsWith(root+'/'))throw Error();
@@ -10,7 +10,7 @@ const server=createServer(async(req,res)=>{
   }catch{res.writeHead(404);res.end();}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const browser=await chromium.launch({headless:true}),errors=[];
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||undefined}),errors=[];
 const account={id:'test',username:'beheer',displayName:'Trainer',role:'trainer',clubId:'svbb',isAdmin:false};
 try{
   for(const width of [390,1440]){

@@ -8,7 +8,13 @@ const server=createServer(async(req,res)=>{try{const path=resolve(root,'.'+new U
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 try{
   for(const engine of [chromium,webkit]){
-    const browser=await engine.launch({headless:true,...(engine===chromium?{executablePath:process.env.CHROME_PATH}:process.env.WEBKIT_PATH?{executablePath:process.env.WEBKIT_PATH}:{})});
+    let browser;
+    try{browser=await engine.launch({headless:true,...(engine===chromium?{executablePath:process.env.CHROME_PATH}:process.env.WEBKIT_PATH?{executablePath:process.env.WEBKIT_PATH}:{})});}
+    catch(e){
+      // WebKit is optional locally; Chromium must always run.
+      if(engine===chromium||!/Executable doesn't exist/.test(e.message))throw e;
+      console.log('SKIP webkit: browser not installed');continue;
+    }
     try{
       for(const width of [375,390,1440]){
         const context=await browser.newContext({viewport:{width,height:844},hasTouch:true}),page=await context.newPage(),errors=[];
@@ -16,12 +22,11 @@ try{
         const account={id:'nav-test',username:'lid.test',displayName:'Test Schutter',role:'trainer',clubId:'svbb',isAdmin:false};
         await page.route('**/functions/v1/**',async route=>{
           const fn=route.request().url().split('/').pop();
-          const result=fn==='epp-auth'?{ok:true,account,sessionToken:'a'.repeat(64)}:fn==='epp-training'?{ok:true,entities:[],backups:[]}:{ok:true,matches:[],shooters:[],ranking:[],matchRanking:[],qualifications:[],events:[],signups:[]};
+          const result=fn==='epp-auth'?{ok:true,account,sessionToken:'a'.repeat(64)}:fn==='epp-training'?{ok:true,entities:[],backups:[],shooters:[],bestParcours:{},bestStageAverages:{},stageShots:{},rounds:[]}:{ok:true,matches:[],shooters:[],ranking:[],matchRanking:[],qualifications:[],events:[],signups:[]};
           await route.fulfill({contentType:'application/json',body:JSON.stringify(result)});
         });
         await page.goto('http://127.0.0.1:'+server.address().port);
-        await page.getByLabel('Voornaam',{exact:true}).fill('Test');
-        await page.getByLabel('Achternaam',{exact:true}).fill('Schutter');
+        await page.getByLabel('Gebruikersnaam of e-mailadres',{exact:true}).fill('test.schutter');
         await page.getByLabel('Wachtwoord',{exact:true}).fill('test-password');
         await page.getByRole('button',{name:'Inloggen',exact:true}).click();
         for(let attempt=0;attempt<2;attempt++){

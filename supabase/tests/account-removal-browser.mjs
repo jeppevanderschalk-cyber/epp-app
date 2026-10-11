@@ -28,13 +28,13 @@ try{
     const deletes=page.getByRole('button',{name:'Account verwijderen',exact:true});await deletes.first().waitFor();assert.equal(await deletes.count(),2);
     page.once('dialog',d=>d.dismiss());await deletes.first().click();assert.equal(requests.length,0);
     page.once('dialog',d=>d.accept());await deletes.first().click();await page.getByText('test_failure',{exact:true}).waitFor();assert.equal(await deletes.count(),2);
-    fail=false;page.once('dialog',d=>{assert.match(d.message(),/Scores, inschrijvingen en het auditlog blijven behouden/);d.accept();});await deletes.first().click();await page.getByText('Account verwijderd. Scores en inschrijvingen zijn behouden.',{exact:true}).waitFor();assert.equal(await deletes.count(),1);
+    fail=false;page.once('dialog',d=>{assert.match(d.message(),/Scores, inschrijvingen en het auditlog blijven behouden/);d.accept();});await deletes.first().click();await page.getByText('Account verwijderd. Scores en inschrijvingen zijn behouden.',{exact:true}).waitFor();await deletes.nth(1).waitFor({state:'detached'});assert.equal(await deletes.count(),1);
     assert.equal(requests.at(-1).accountId,'active');assert.equal(requests.at(-1).confirmAccountId,'active');assert.equal(requests.at(-1).clubId,'eppnationaal');
     page.once('dialog',d=>d.accept());await deletes.first().click();await deletes.waitFor({state:'detached'});assert.equal(requests.at(-1).accountId,'blocked');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);
     if(component==='AccountManagement'){
       records=[{id:'ordinary',display_name:'Ordinary',username:'lid.ordinary',role:'schutter',active:true}];
-      await page.evaluate(()=>{const s=eppSession();s.account.isPlatformAdmin=false;localStorage.setItem(EPP_SESSION_KEY,JSON.stringify(s));window.accountTestRoot.render(h(AccountManagement,{key:'ordinary'}));});
+      await page.evaluate(()=>{const s=eppSession();s.account.isPlatformAdmin=false;sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify(s));window.accountTestRoot.render(h(AccountManagement,{key:'ordinary'}));});
       await page.getByText('Ordinary',{exact:false}).waitFor();assert.equal(await deletes.count(),0);
     }
     await context.close();console.log('PASS '+component+' '+width+': confirmation, failure retention, active/blocked removal, protected accounts and role visibility');

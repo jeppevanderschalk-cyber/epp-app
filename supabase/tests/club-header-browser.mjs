@@ -8,7 +8,7 @@ const server=createServer(async(req,res)=>{try{const name=new URL(req.url,'http:
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 try{
-  for(const viewport of [{width:375,height:812},{width:390,height:844},{width:1440,height:1000}])for(const [clubId,label]of [['svbb','SVBB'],['dekorrel','SV De Korrel - Druten'],['politienoordholland','Schietvereniging Politie Noord-Holland']]){
+  for(const viewport of [{width:375,height:812},{width:390,height:844},{width:1440,height:1000}])for(const [clubId,label]of [['svbb','SV Beemte Broekland'],['dekorrel','SV De Korrel - Druten'],['politienoordholland','Schietvereniging Politie Noord-Holland']]){
     const context=await browser.newContext({viewport});
     const account={id:'test',username:'lid.test',role:'schutter',clubId,displayName:'Test Schutter',isAdmin:false};
     await context.addInitScript(a=>{localStorage.setItem('epp-session-v2',JSON.stringify({sessionToken:'a'.repeat(64),account:a}));localStorage.setItem('epp-app-club-v1',a.clubId);localStorage.setItem('epp-app-role-v1',a.role);},account);

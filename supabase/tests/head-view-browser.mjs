@@ -26,6 +26,11 @@ try{
       if(fn==='epp-training'){
         if(b.action==='save')for(const op of b.ops)nationalEntities.set(op.kind+'|'+op.id,{kind:op.kind,id:op.id,data:op.value});
         data={ok:true,entities:[...nationalEntities.values()]};
+        if(b.action==='standings'){
+          // Mirror the server-side shared standings for the viewed association.
+          const rows=fixture(b.targetClubId),shooter=rows.find(e=>e.kind==='shooter').data,round=rows.find(e=>e.kind==='round').data;
+          data={ok:true,shooters:[{id:shooter.id,naam:shooter.naam}],bestParcours:{[shooter.id]:round},bestStageAverages:{},stageShots:rows.find(e=>e.id==='stageShots').data,rounds:[{...round,naam:shooter.naam,source:'handmatig'}]};
+        }
       }
       if(fn==='epp-head-view'&&b.action==='view'){
         if(b.targetClubId==='svbb')await new Promise(r=>setTimeout(r,150));
@@ -49,7 +54,7 @@ try{
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     const overlap=await page.locator('.app:visible').evaluate(el=>el.querySelector('.head-club-selector').getBoundingClientRect().left<el.querySelector('.topbar-title').getBoundingClientRect().right-1);assert.equal(overlap,false);
     await page.waitForTimeout(600);await page.screenshot({path:'/private/tmp/epp-head-view-'+width+'.png',fullPage:true});
-    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-session-v2')).account.clubId),'eppnationaal');
+    assert.equal(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('epp-session-v2')).account.clubId),'eppnationaal');
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-app-club-v1')),'eppnationaal');
     assert.ok(calls.filter(c=>c.fn==='epp-head-view').every(c=>['view','catalog'].includes(c.action)&&c.clubId==='eppnationaal'));
     assert.ok(calls.filter(c=>c.fn==='epp-training').every(c=>c.clubId==='eppnationaal'));
@@ -71,14 +76,17 @@ try{
       }
       const data=fn==='epp-head-view'&&b.action==='view'
         ?{ok:true,club:clubs.find(c=>c.code===b.targetClubId),entities:fixture(b.targetClubId),qualifications:[]}
+        :fn==='epp-training'&&b.action==='list_registered_shooters'
+        ?{ok:true,shooters:[{id:'pending-head-shooter',display_name:'Pending Head Shooter'}]}
         :{ok:true,account,entities:[],clubs,matches:[],shooters:[]};
       await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
     });
     const page=await context.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
-    const input=page.getByPlaceholder('Naam toevoegen…');await input.waitFor();
-    await input.fill('Pending Head Shooter');await input.press('Enter');
+    const dropdown=page.getByLabel('Schutter met account toevoegen',{exact:true});
+    await dropdown.locator('option[value="pending-head-shooter"]').waitFor({state:'attached'});
+    await dropdown.selectOption('pending-head-shooter');await page.getByRole('button',{name:'＋',exact:true}).click();
     await page.getByLabel('Schutter voor score-invoer').waitFor();
-    await input.fill('Unsubmitted draft');
+    const input=page.locator('.num-in').first();await input.fill('123');
     await page.waitForTimeout(1000);assert.equal(saveStarted,true);
     if(failure==='conflict')await page.getByText('Wijzigingen samengevoegd; jouw invoer wacht op opslag.',{exact:true}).waitFor();
     await page.locator('[aria-label="Vereniging bekijken"]:visible').selectOption('svbb');
@@ -86,7 +94,7 @@ try{
     assert.equal(await page.getByText('Sla de openstaande invoer eerst online op.',{exact:true}).count(),0);
     assert.equal(await page.locator('#root input:visible').count(),0);
     await page.getByRole('button',{name:'Hoofdbeheer',exact:true}).click();
-    assert.equal(await input.inputValue(),'Unsubmitted draft');
+    assert.equal(await input.inputValue(),'123');
     assert.match(await page.getByLabel('Schutter voor score-invoer').innerText(),/Pending Head Shooter/);
     assert.ok(calls.filter(c=>c.fn==='epp-training').every(c=>c.clubId==='eppnationaal'));
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-app-club-v1')),'eppnationaal');

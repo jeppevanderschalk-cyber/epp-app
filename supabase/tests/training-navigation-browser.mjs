@@ -88,10 +88,12 @@ try{
       await page.getByLabel('Schutter in trainingsoverzicht').selectOption('a');
       await page.getByText('R1: 20',{exact:true}).waitFor();
     }else{
-      const choice=page.getByLabel('Schutter in trainingsoverzicht');
-      await choice.selectOption('b');assert.equal(await page.locator('.shooter-score-card').count(),1);
-      assert.equal(await page.getByRole('button',{name:'Ronde opslaan',exact:true}).count(),0);
-      await choice.selectOption('');assert.equal(await page.locator('.shooter-score-card').count(),2);
+      // Personal accounts keep their own training log and may save their own rounds.
+      await page.getByRole('button',{name:'Parcours',exact:true}).waitFor();
+      assert.equal(await page.getByRole('button',{name:'Parcours',exact:true}).getAttribute('data-on'),'1');
+      assert.equal(await page.getByRole('button',{name:'Ronde opslaan',exact:true}).count(),1);
+      await page.getByRole('button',{name:'Overzicht',exact:true}).click();
+      await page.getByLabel('Schutter in trainingsoverzicht').waitFor();
     }
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.waitForTimeout(600);
