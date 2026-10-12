@@ -4,7 +4,7 @@ const path=new URL('../index.html',import.meta.url);
 const html=await readFile(path,'utf8');
 const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].filter(m=>!/^<script[^>]*\bsrc=/i.test(m[0]));
 const hashes=scripts.map(m=>"'sha256-"+createHash('sha256').update(m[1]).digest('base64')+"'");
-const policy="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' "+hashes.join(' ')+"; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'";
+const policy="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' "+hashes.join(' ')+"; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'";
 const meta='<meta http-equiv="Content-Security-Policy" content="'+policy+'" />';
 const existing=/<meta http-equiv="Content-Security-Policy"[^>]*>/;
 if(process.argv.includes('--update')){
