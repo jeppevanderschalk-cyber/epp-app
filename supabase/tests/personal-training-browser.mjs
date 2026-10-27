@@ -27,6 +27,7 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.locator('#loginClub').selectOption('svbb');
   await page.getByLabel('Gebruikersnaam of e-mailadres',{exact:true}).fill('personal');await page.getByLabel('Wachtwoord',{exact:true}).fill('TestPassword123');await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+  await page.getByRole('button',{name:'Training',exact:true}).click();
   await page.getByRole('button',{name:'Parcours',exact:true}).waitFor();
   assert.equal(await page.getByPlaceholder('Naam toevoegen…').count(),0);assert.equal(await page.getByRole('button',{name:'Geselecteerde schutter verwijderen'}).count(),0);
   assert.equal(await page.locator('[aria-label="Schutter voor score-invoer"] option').count(),1);
@@ -41,7 +42,7 @@ try{
   await page.waitForFunction(()=>document.body.innerText.includes('Online opgeslagen'));
   for(let n=0;n<50&&!saves.some(r=>r.type==='stage');n++)await new Promise(r=>setTimeout(r,100));
   assert.ok(saves.some(r=>r.type==='stage'&&r.score===50&&r.stage_time_ms===12340));
-  await page.reload();await page.getByRole('button',{name:'Overzicht',exact:true}).click();
+  await page.reload();await page.getByRole('button',{name:'Training',exact:true}).click();await page.getByRole('button',{name:'Overzicht',exact:true}).click();
   await page.getByText('Online opgeslagen',{exact:true}).waitFor();
   await page.getByRole('button',{name:/Training afsluiten/}).click();
   await page.waitForFunction(()=>document.body.innerText.includes('Online opgeslagen'));

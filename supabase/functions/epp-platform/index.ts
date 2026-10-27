@@ -170,6 +170,7 @@ async function loadRanking(db: any, ctx: any, matchId?: string) {
       totalTimeMs: row.total_time_ms,
       resultId: row.id,
       matchId: rounds.find((r: any)=>r.id===row.round_id)?.event_id,
+      shooterId: row.shooter_id,
       publicId: shooter?.public_id,
       name: shooter?.display_name,
       club: club?.naam || club?.code,

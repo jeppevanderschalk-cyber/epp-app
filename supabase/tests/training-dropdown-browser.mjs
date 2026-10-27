@@ -25,6 +25,7 @@ try{
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.getByLabel('Inloggen als').selectOption('hoofdbeheer');await page.getByLabel('Wachtwoord',{exact:true}).fill('TestPassword123');await page.getByRole('button',{name:'Inloggen',exact:true}).click();
+  await page.getByRole('button',{name:'Training',exact:true}).click();
   await page.getByRole('button',{name:'Parcours',exact:true}).waitFor();
   const dropdown=page.getByLabel('Schutter met account toevoegen',{exact:true});
   await dropdown.locator('option[value="'+sid+'"]').waitFor({state:'attached'});
