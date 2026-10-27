@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {tmpdir} from 'node:os';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {resolve,extname} from 'node:path';
@@ -57,9 +58,9 @@ try{
   console.log('PASS ranking filters, paging and own position');
   await page.evaluate(()=>{testRoot.render(h('div',{className:'app'},h('style',null,CSS),h(PersonalHome,{shooters:[{id:'s1',naam:'Test Schutter'}],currentTraining:{rounds:[{id:'one',sid:'s1',type:'parcours',score:215,ts:Date.now()}]},archives:[],personalTraining:true,canTrain:true,setTab:tab=>window.lastTab=tab})));});
   await page.getByText('Testclub',{exact:true}).waitFor();await page.getByText('Mijn trainingsvoortgang',{exact:true}).waitFor();
-  await page.screenshot({path:'/private/tmp/epp-four-home-390.png',fullPage:true,animations:'disabled'});
+  await page.screenshot({path:resolve(tmpdir(),'epp-four-home-390.png'),fullPage:true,animations:'disabled'});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/private/tmp/epp-four-home-1440.png',fullPage:true,animations:'disabled'});
+  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:resolve(tmpdir(),'epp-four-home-1440.png'),fullPage:true,animations:'disabled'});
   console.log('PASS home progress and calendar at 390 and 1440');
   await page.setViewportSize({width:390,height:844});
   await page.evaluate(()=>{sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify({sessionToken:'a'.repeat(64),account:{id:'a1',clubId:'svbb',role:'trainer'}}));testRoot.render(h('div',{className:'app'},h('style',null,CSS),h(TabLandelijk,{isTrainer:true,flash:()=>{},shooters:[],eppPassword:'',setEppPassword:()=>{}})));});
@@ -69,7 +70,7 @@ try{
   await page.getByText('Snelvuurtijd (seconden en honderdsten)',{exact:true}).locator('input').fill('12,40');await page.getByText('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).locator('input').fill('4:53');
   failSave=true;await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).click();await page.getByText(/Opslaan mislukt:/).waitFor();
   assert.equal(await page.getByLabel('Snelvuur 5 punten',{exact:true}).inputValue(),'10');
-  await page.screenshot({path:'/private/tmp/epp-four-scores-390.png',fullPage:true,animations:'disabled'});
+  await page.screenshot({path:resolve(tmpdir(),'epp-four-scores-390.png'),fullPage:true,animations:'disabled'});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   // Unmount and select again to exercise restoration after getting the latest server revision.
   await page.getByRole('button',{name:'Invoer annuleren',exact:true}).click();await page.getByLabel('Schutter zoeken').fill('Test');await page.getByRole('button',{name:/Test Schutter/}).click();
@@ -86,15 +87,15 @@ try{
   // Exercise the real App and its persistent synchronisation queue.
   await page.evaluate(()=>testRoot.render(h(App)));
   await page.getByRole('heading',{name:'Welkom, schutter',exact:true}).waitFor();
-  await page.screenshot({path:'/private/tmp/epp-four-app-home-390.png',fullPage:true,animations:'disabled'});
-  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/private/tmp/epp-four-app-home-1440.png',fullPage:true,animations:'disabled'});
+  await page.screenshot({path:resolve(tmpdir(),'epp-four-app-home-390.png'),fullPage:true,animations:'disabled'});
+  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:resolve(tmpdir(),'epp-four-app-home-1440.png'),fullPage:true,animations:'disabled'});
   await page.setViewportSize({width:390,height:844});
   await page.getByRole('button',{name:'Score invoeren',exact:true}).click();
   await page.getByLabel('Rondescore').fill('210');failTraining=true;
   await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
   await page.getByText(/Lokaal bewaard, nog niet online/).waitFor();
   assert.ok(await page.evaluate(()=>Object.entries(localStorage).some(([k,v])=>k.includes('records-v3')&&v.includes('210'))));
-  await page.screenshot({path:'/private/tmp/epp-four-app-training-390.png',fullPage:true,animations:'disabled'});
+  await page.screenshot({path:resolve(tmpdir(),'epp-four-app-training-390.png'),fullPage:true,animations:'disabled'});
   const savedDock=await page.locator('.save-dock').boundingBox();const nav=await page.locator('.bottomnav').boundingBox();assert.ok(savedDock.y+savedDock.height<=nav.y+2);
   failTraining=false;await page.getByRole('button',{name:'Opslag opnieuw proberen',exact:true}).click();
   await page.getByText('Online opgeslagen',{exact:true}).waitFor();
