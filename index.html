@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-iWQXxMvqd6eyI8BprWe4SDIFJ0hQ6VngjHGM9tUxAfY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-8MW6yRrLUcupQOqID1Uaz08jEYgYzulpoxhezPdIz5w='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -106,7 +106,7 @@
   </form>
 </div>
 <div id="root" hidden></div>
-<link rel="stylesheet" href="experience.css?v=1" />
+<link rel="stylesheet" href="experience.css?v=2" />
 <script src="app-experience.js?v=1"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
@@ -931,6 +931,9 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .btn-danger{background:rgba(255,107,93,.12);color:${C.red};border-color:rgba(255,107,93,.3)}
 .btn-success{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.35)}
 .btn-full{width:100%}
+.app button:disabled{cursor:not-allowed}
+.btn:disabled,.score-save:disabled,.cal-btn:disabled,.manual-score:disabled{opacity:.45;box-shadow:none;transform:none}
+.btn:disabled:hover,.btn:disabled:active{transform:none;opacity:.45}
 .txt-in{width:100%;font-size:15px;padding:0 14px;min-height:56px;border:1px solid ${C.border};border-radius:16px;background:#081026;color:${C.ink};outline:none;font-family:'Archivo',sans-serif;font-weight:800;transition:border-color .15s,box-shadow .15s}
 .txt-in:focus{border-color:${C.goldLt};box-shadow:inset 0 0 0 2px ${C.goldLt}}
 .txt-in::placeholder{color:${C.muted};font-weight:600}
@@ -1019,10 +1022,10 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .empty p{font-size:14px;font-weight:600;margin:0;line-height:1.6}
 .empty .empty-hint{font-size:13px;color:${C.muted};max-width:30ch;margin:6px auto 0}
 .empty{padding:36px 20px}
-.toast{position:fixed;bottom:112px;left:50%;transform:translateX(-50%);background:${C.gradGold};border:none;color:${C.navy};padding:12px 22px;border-radius:999px;font-size:13px;font-weight:900;font-family:'Archivo',sans-serif;box-shadow:0 12px 28px rgba(200,160,48,.28);z-index:999;white-space:nowrap;pointer-events:none;animation:toastIn .25s cubic-bezier(.34,1.56,.64,1)}
+.toast{position:fixed;bottom:112px;left:50%;transform:translateX(-50%);background:${C.gradGold};border:none;color:${C.navy};padding:12px 22px;border-radius:20px;font-size:13px;font-weight:900;font-family:'Archivo',sans-serif;box-shadow:0 12px 28px rgba(200,160,48,.28);z-index:999;white-space:normal;width:max-content;max-width:calc(100vw - 32px);text-align:center;line-height:1.35;pointer-events:none;animation:toastIn .25s cubic-bezier(.34,1.56,.64,1)}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .page-fade{animation:pageFade .25s ease both}
-@keyframes pageFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pageFade{from{opacity:0}to{opacity:1}}
 .status-dot{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;font-family:'Archivo',sans-serif;color:${C.muted}}
 .status-dot::before{content:'';width:9px;height:9px;border-radius:999px;background:rgba(255,255,255,.25);box-shadow:0 0 0 3px rgba(255,255,255,.06);flex-shrink:0}
 .status-dot.red::before{background:${C.red};box-shadow:0 0 0 3px rgba(255,107,93,.12)}
@@ -1168,7 +1171,7 @@ const RoundInput = ({maxV, stage, onAdd, autoFocus=false}) => {
         save();
       }
     }),h("span",{className:"score-max"},"/ "+maxV)),
-    h("div",{className:"save-dock"},h("div",{className:"dock-summary"},(value||"0")+" / "+maxV+" punten",h("small",null,!detailsValid?"Maak telling en tijden compleet":"Controleer je score")),h("button",{className:"btn btn-gold",type:"button",disabled:!detailsValid||!value.trim(),onClick:save},"Ronde opslaan")),
+    h("div",{className:"save-dock"},h("div",{className:"dock-summary"},(value||"0")+" / "+maxV+" punten",h("small",null,!detailsValid?"Maak telling en tijden compleet":!value.trim()?"Vul eerst een score in":"Controleer je score")),h("button",{className:"btn btn-gold",type:"button",disabled:!detailsValid||!value.trim(),onClick:save},"Ronde opslaan")),
     error&&h("small",{role:"alert",style:{color:C.red}},error))
   );
 };
@@ -2300,6 +2303,16 @@ const ChangeTrainerPassword = ({logout}) => {
   );
 };
 
+const PasswordChangeWorkspace = ({logout}) => h('div',{className:'app'},
+  h('style',null,CSS),
+  h('header',{className:'topbar'},h('div',{className:'topbar-inner'},
+    h('div',{className:'topbar-logo'},h(EPPLogo,{size:60})),
+    h('div',{className:'topbar-title'},h('h1',null,h('img',{className:'topbar-wordmark',src:'epp-wordmark.png',alt:'EPP'})),h('div',{className:'topbar-sub'},'Europees Praktijk Parcours')))),
+  h('main',{className:'main'},
+    h('h2',{style:{margin:'4px 0 0'}},'Vervang je tijdelijke wachtwoord'),
+    h('p',{className:'hint'},'Je bent ingelogd met een tijdelijk wachtwoord. Kies een eigen wachtwoord om verder te gaan.'),
+    h('div',{className:'card'},h(ChangeTrainerPassword,{logout})))
+);
 const BackupManagement = ({canRestore,onRestored}) => {
   const [backups,setBackups]=React.useState([]);
   const [id,setId]=React.useState("");
@@ -2865,14 +2878,14 @@ function App({headClubs,onHeadClubChange}={}) {
         n.icon(),n.label
       ))
     ),
-    toast && h("div",{className:"toast"},toast)
+    toast && h("div",{className:"toast",role:"status","aria-live":"polite"},toast)
   );
 }
 
 eppAuthReady.then(function(verified){
   if(location.hash==='#account-aanmaken'){ReactDOM.createRoot(document.getElementById('root')).render(h(RegistrationWorkspace));eppShowApp();return;}
   if(!verified)return;
-  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.username==='kijker'?h(RegistrationWorkspace):eppSession()?.account?.mustChangePassword?h('main',{className:'main'},h('h2',null,'Vervang je tijdelijke wachtwoord'),h(ChangeTrainerPassword,{logout:()=>{sessionStorage.removeItem(EPP_SESSION_KEY);location.reload();}})):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
+  try{ReactDOM.createRoot(document.getElementById("root")).render(eppSession()?.account?.username==='kijker'?h(RegistrationWorkspace):eppSession()?.account?.mustChangePassword?h(PasswordChangeWorkspace,{logout:()=>{sessionStorage.removeItem(EPP_SESSION_KEY);location.reload();}}):h(eppSession()?.account?.isPlatformAdmin?HeadWorkspace:App));eppShowApp();}
   catch(e){if(window.__eppError)window.__eppError(e?.stack||String(e));}
 });
 

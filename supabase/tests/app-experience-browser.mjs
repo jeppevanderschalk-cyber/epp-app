@@ -96,10 +96,15 @@ try{
   await page.getByText(/Lokaal bewaard, nog niet online/).waitFor();
   assert.ok(await page.evaluate(()=>Object.entries(localStorage).some(([k,v])=>k.includes('records-v3')&&v.includes('210'))));
   await page.screenshot({path:resolve(tmpdir(),'epp-four-app-training-390.png'),fullPage:true,animations:'disabled'});
-  const savedDock=await page.locator('.save-dock').boundingBox();const nav=await page.locator('.bottomnav').boundingBox();assert.ok(savedDock.y+savedDock.height<=nav.y+2);
+  const savedDock=await page.locator('.save-dock').boundingBox();const nav=await page.locator('.bottomnav').boundingBox();assert.ok(Math.abs(savedDock.y+savedDock.height-nav.y)<=2,'save dock is fixed directly above the navigation');
+  assert.equal(await page.getByRole('button',{name:'Ronde opslaan',exact:true}).evaluate(b=>b.disabled&&getComputedStyle(b).opacity<1),true,'disabled save button looks disabled');
   failTraining=false;await page.getByRole('button',{name:'Opslag opnieuw proberen',exact:true}).click();
   await page.getByText('Online opgeslagen',{exact:true}).waitFor();
   assert.equal(entities.filter(e=>e.kind==='round').length,1);
   console.log('PASS real App queue preserves failed save and retries without duplicate round');
+  await page.evaluate(()=>testRoot.render(h(PasswordChangeWorkspace,{logout:()=>{}})));
+  const heading=page.getByRole('heading',{name:'Vervang je tijdelijke wachtwoord',exact:true});await heading.waitFor();
+  assert.equal(await heading.evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)','temporary password screen uses the app styles');
+  console.log('PASS temporary password screen is styled');
   assert.deepEqual(errors,[]);await page.close();
 }finally{await browser.close();await new Promise(r=>server.close(r));}
