@@ -29,6 +29,12 @@ Deno.serve(async req=>{
       const {data,error}=await db.rpc('epp_planner_configure',{p_actor:actor.id,p_match:match.id,p_config:body.config,p_expected:body.expectedRevision});if(error)throw error;
       return json({ok:true,planner:data});
     }
+    if(body.action==='set_slot_block'){
+      if(!managing)throw new Error('geen_beheerrechten');
+      if(typeof body.blocked!=='boolean'||!Number.isInteger(body.expectedRevision)||body.expectedRevision<0)throw new Error('ongeldige_blokkering');
+      const {data,error}=await db.rpc('epp_planner_set_slot_block',{p_actor:actor.id,p_match:match.id,p_slot:body.slotId,p_blocked:body.blocked,p_expected:body.expectedRevision});if(error)throw error;
+      return json({ok:true,slot:data});
+    }
     if(!planner&&!managing)throw new Error('planner_niet_beschikbaar');
     const {data:profile,error:profileError}=await db.from('shooters').select('id,display_name,public_id').eq('linked_user_id',actor.id).maybeSingle();if(profileError)throw profileError;
     if(planner&&!planner.published&&!managing){

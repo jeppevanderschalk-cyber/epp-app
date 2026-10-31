@@ -13,7 +13,7 @@ const plannerLastRound=config=>{
   return clock(actual)+' – '+clock(actual+duration);
 };
 const plannerConfigErrors={laatste_ronde_sluit_niet_aan:'De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',ongeldige_capaciteit:'Kies een bestaande ronde en een capaciteit van 1 tot 100.',ongeldige_planning:'Controleer de starttijden, rondeduur, capaciteit en inschrijfperiode.'};
-const plannerError=e=>({tijdslot_vol:'Dit tijdslot is net volgeboekt. Kies een andere tijd.',overlappende_boeking:'Deze deelnames overlappen of hebben onvoldoende pauze ertussen.',planning_conflict:'De planning is elders gewijzigd. Haal de nieuwste versie op.',boeking_conflict:'Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.',bestaande_inschrijvingen_eerst_plannen:'Er zijn bestaande inschrijvingen zonder tijdslot. Deze moeten eerst gecontroleerd worden verwerkt; de app verplaatst ze niet automatisch.',geboekte_tijdsloten_behouden:'Deze wijziging zou bestaande boekingen veranderen of de capaciteit overschrijden.',geen_beheerrechten:'Je hebt geen beheerrechten voor deze vereniging.',inschrijving_gesloten:'De inschrijving is gesloten.',persoonlijk_schutterprofiel_verplicht:'Gebruik een persoonlijk account met schutter-ID.'}[e.message]||'Dit is niet gelukt. Probeer opnieuw. Blijft het probleem bestaan, neem dan contact op met de beheerder.');
+const plannerError=e=>({tijdslot_geblokkeerd:'Dit tijdslot is geblokkeerd. Kies een andere tijd.',tijdslot_conflict:'Dit tijdslot is elders gewijzigd. De nieuwste planning is opgehaald; probeer opnieuw.',tijdslot_vol:'Dit tijdslot is net volgeboekt. Kies een andere tijd.',overlappende_boeking:'Deze deelnames overlappen of hebben onvoldoende pauze ertussen.',planning_conflict:'De planning is elders gewijzigd. Haal de nieuwste versie op.',boeking_conflict:'Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.',bestaande_inschrijvingen_eerst_plannen:'Er zijn bestaande inschrijvingen zonder tijdslot. Deze moeten eerst gecontroleerd worden verwerkt; de app verplaatst ze niet automatisch.',geboekte_tijdsloten_behouden:'Deze wijziging zou bestaande boekingen veranderen of de capaciteit overschrijden.',geen_beheerrechten:'Je hebt geen beheerrechten voor deze vereniging.',inschrijving_gesloten:'De inschrijving is gesloten.',persoonlijk_schutterprofiel_verplicht:'Gebruik een persoonlijk account met schutter-ID.'}[e.message]||'Dit is niet gelukt. Probeer opnieuw. Blijft het probleem bestaan, neem dan contact op met de beheerder.');
 
 const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const mine=target||view.mine;
@@ -56,8 +56,8 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
         h('div',{role:'group','aria-label':'Wedstrijddag '+d,style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}},dates.map(date=>h('button',{key:date,type:'button','aria-pressed':date===day,className:'btn '+(date===day?'btn-gold':'btn-ghost'),style:{padding:'10px 12px',fontSize:14},onClick:()=>setDays(p=>({...p,[d]:date}))},date))),
         h('div',{role:'radiogroup','aria-label':'Tijdslot '+d,style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(105px,1fr))',gap:8}},view.slots.filter(s=>plannerDay(s.starts_at)===day).map(s=>{
           const own=mine.choices.some(c=>c.slotId===s.id),full=s.booked>=s.capacity&&!own,past=Date.parse(s.starts_at)<=Date.now(),selected=choices[d]===s.id;
-          const reserved=mine.choices.some(c=>c.discipline===d&&c.slotId===s.id);
-          return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'aria-label':plannerSlot(s.starts_at)+(full?' · Vol':past?' · Verstreken':''),disabled:full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:88,padding:'12px 8px',borderRadius:8,opacity:full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},full?'Vol':past?'Verstreken':Math.max(0,s.capacity-s.booked)+' vrij'),h('small',{style:{fontSize:12,fontWeight:600,minHeight:15}},reserved?'Gereserveerd':selected?'Nog bevestigen':''));
+          const reserved=mine.choices.some(c=>c.discipline===d&&c.slotId===s.id),blocked=s.blocked&&!reserved;
+          return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'aria-label':plannerSlot(s.starts_at)+(s.blocked?' · Geblokkeerd':full?' · Vol':past?' · Verstreken':''),disabled:blocked||full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:88,padding:'12px 8px',borderRadius:8,opacity:blocked||full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},s.blocked?'Geblokkeerd':full?'Vol':past?'Verstreken':Math.max(0,s.capacity-s.booked)+' vrij'),h('small',{style:{fontSize:12,fontWeight:600,minHeight:15}},reserved?'Gereserveerd':selected?'Nog bevestigen':''));
         })),
         !dates.length&&h('p',{className:'hint'},'Nog geen tijdsloten beschikbaar.'),
         chosen&&h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10}},h('span',{style:{fontSize:14,fontWeight:700}},plannerSlot(chosen.starts_at)+' – '+plannerClock(chosen.ends_at)),h('button',{type:'button',className:'btn btn-ghost',style:{padding:'8px 10px',fontSize:12},onClick:()=>choose('')},'Niet deelnemen'))
@@ -103,6 +103,31 @@ const PlannerEditor=({view,onSaved,onReload,saveNotice='',onEdited})=>{
     (status||saveNotice)&&h('p',{className:'hint',role:conflict?'alert':'status',style:{margin:0,padding:'10px 0',fontWeight:700}},status||saveNotice),conflict&&h('button',{type:'button',className:'btn btn-ghost',disabled:busy,onClick:()=>{if(confirm('Niet opgeslagen wijzigingen vervallen. Nieuwste planning ophalen?'))onReload();}},'Nieuwste planning ophalen'));
 };
 
+const PlannerSlotBlocks=({view,onSaved})=>{
+  const [day,setDay]=React.useState(''),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState('');
+  const dates=[...new Set(view.slots.map(s=>plannerDay(s.starts_at)))];
+  const selectedDay=dates.includes(day)?day:dates[0];
+  const toggle=async slot=>{
+    if(busy)return;setBusy(true);setStatus('');
+    try{
+      await eppCall('epp-planner',{clubId:CLUB_ID,action:'set_slot_block',matchId:view.match.id,slotId:slot.id,blocked:!slot.blocked,expectedRevision:slot.block_revision||0});
+      const latest=await onSaved();
+      setStatus(plannerSlot(slot.starts_at)+(slot.blocked?' vrijgegeven.':' geblokkeerd voor nieuwe inschrijvingen.')+(latest?'':' Vernieuw de planning om de actuele status te zien.'));
+    }catch(error){
+      if(error.message==='tijdslot_conflict')await onSaved();
+      setStatus(plannerError(error));
+    }finally{setBusy(false);}
+  };
+  return view.planner&&h('details',{className:'card',style:{padding:14}},
+    h('summary',{style:{fontWeight:700}},'Tijdblokken blokkeren en vrijgeven'),
+    h('p',{className:'hint'},'Blokkeer een tijdslot voor nieuwe inschrijvingen. Bestaande reserveringen blijven behouden. Geef het tijdslot weer vrij om inschrijven mogelijk te maken.'),
+    dates.length>1&&h('label',null,'Wedstrijddag',h('select',{'aria-label':'Wedstrijddag',className:'txt-in',value:selectedDay,onChange:e=>setDay(e.target.value)},dates.map(date=>h('option',{key:date,value:date},date)))),
+    h('div',{style:{display:'grid',gap:8,marginTop:12}},view.slots.filter(s=>plannerDay(s.starts_at)===selectedDay).map(slot=>h('div',{key:slot.id,style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid '+C.border}},
+      h('div',null,h('strong',null,plannerClock(slot.starts_at)+' – '+plannerClock(slot.ends_at)),h('div',{className:'hint'},(slot.blocked?'Geblokkeerd':'Beschikbaar')+' · '+slot.booked+'/'+slot.capacity+' gereserveerd')),
+      h('button',{type:'button',className:'btn btn-ghost',disabled:busy,'aria-label':(slot.blocked?'Vrijgeven ':'Blokkeren ')+plannerSlot(slot.starts_at),onClick:()=>toggle(slot)},slot.blocked?'Vrijgeven':'Blokkeren')))),
+    status&&h('p',{className:'hint',role:'status',style:{fontWeight:700}},status));
+};
+
 const MatchPlanner=({matchId,manage=false})=>{
   const [view,setView]=React.useState(null),[status,setStatus]=React.useState(''),[version,setVersion]=React.useState(0),[target,setTarget]=React.useState(null);
   const [planningNotice,setPlanningNotice]=React.useState('');
@@ -129,16 +154,17 @@ const MatchPlanner=({matchId,manage=false})=>{
   return h('section',{style:{display:'grid',gap:14}},
     status&&h('p',{className:'hint',role:'status'},status),
     !view?h('p',{className:'hint'},'Planner laden...'):h(React.Fragment,null,
+      manage&&view.managing&&h(PlannerSlotBlocks,{view,onSaved:load}),
       manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:()=>saved(true),onReload:reload,saveNotice:planningNotice,onEdited:()=>setPlanningNotice('')}),
       view.planner&&h(React.Fragment,null,
         (!manage||view.profile||target)&&h('div',{ref:bookingRef},h(PlannerBooking,{key:'booking-'+version+(target?.shooterId||''),view,target,onSaved:cancel=>saved(false,cancel),onReload:reload,saveNotice:bookingNotice,onEdited:()=>setBookingNotice('')})),
         manage&&!view.profile&&!target&&bookingNotice&&h('p',{className:'hint',role:'status'},bookingNotice),
         h('details',null,h('summary',{style:{fontWeight:700}},'Alle tijdsloten ('+view.slots.length+')'),
         h('h3',{style:{fontSize:18,margin:0}},'Tijdsloten'),
-        h('div',{style:{display:'grid',gap:6}},view.slots.map(s=>h('div',{key:s.id,style:{display:'flex',gap:8,justifyContent:'space-between',borderBottom:'1px solid '+C.border,padding:'8px 0'}},h('span',{style:{minWidth:0,overflowWrap:'anywhere'}},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)),h('span',null,s.booked+'/'+s.capacity))))),
+        h('div',{style:{display:'grid',gap:6}},view.slots.map(s=>h('div',{key:s.id,style:{display:'flex',gap:8,justifyContent:'space-between',borderBottom:'1px solid '+C.border,padding:'8px 0'}},h('span',{style:{minWidth:0,overflowWrap:'anywhere'}},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)),h('span',null,(s.blocked?'Geblokkeerd · ':'')+s.booked+'/'+s.capacity))))),
         manage&&view.managing&&h(React.Fragment,null,h('h3',{style:{fontSize:18}},'Deelnemers per ronde'),
           view.roster.some(r=>r.choices.some(c=>!c.slotId))&&h('section',null,h('h4',null,'Nog in te plannen'),view.roster.filter(r=>r.choices.some(c=>!c.slotId)).map(r=>h('div',{key:r.shooterId||r.name,style:{display:'grid',gap:6,padding:'10px 0',borderBottom:'1px solid '+C.border}},h('strong',null,r.name),h('small',null,(r.preferences||[]).map(p=>(EPP_DISCIPLINES.find(d=>d.id===p.discipline)?.label||p.discipline)+' · '+(p.specific_time||p.time_block)).join(', ')),h('button',{className:'btn btn-ghost',disabled:!r.shooterId,onClick:()=>setTarget(r)},r.shooterId?'Tijdslot toewijzen':'Eerst schutter-ID koppelen in groepslijst')))),
-          view.slots.map(s=>h('section',{key:s.id},h('h4',{style:{margin:'12px 0 6px'}},plannerSlot(s.starts_at)+' · '+s.booked+'/'+s.capacity),view.roster.filter(r=>r.choices.some(c=>c.slotId===s.id)).map(r=>h('div',{key:r.shooterId,style:{padding:'8px 0',borderBottom:'1px solid '+C.border,display:'grid',gap:6}},h('strong',null,r.name),h('small',null,r.clubs.join(', ')+' · '+r.publicId+' · '+r.choices.filter(c=>c.slotId===s.id).map(c=>EPP_DISCIPLINES.find(d=>d.id===c.discipline)?.label||c.discipline).join(', ')),h('button',{className:'btn btn-ghost',onClick:()=>setTarget(r)},'Verplaatsen / afmelden'))))),
+          view.slots.map(s=>h('section',{key:s.id},h('h4',{style:{margin:'12px 0 6px'}},plannerSlot(s.starts_at)+(s.blocked?' · Geblokkeerd':'')+' · '+s.booked+'/'+s.capacity),view.roster.filter(r=>r.choices.some(c=>c.slotId===s.id)).map(r=>h('div',{key:r.shooterId,style:{padding:'8px 0',borderBottom:'1px solid '+C.border,display:'grid',gap:6}},h('strong',null,r.name),h('small',null,r.clubs.join(', ')+' · '+r.publicId+' · '+r.choices.filter(c=>c.slotId===s.id).map(c=>EPP_DISCIPLINES.find(d=>d.id===c.discipline)?.label||c.discipline).join(', ')),h('button',{className:'btn btn-ghost',onClick:()=>setTarget(r)},'Verplaatsen / afmelden'))))),
           h('details',null,h('summary',null,'Recente wijzigingen'),view.audit.map(a=>h('p',{key:a.id,className:'hint'},new Date(a.created_at).toLocaleString('nl-NL')+' · '+a.action+' · '+a.actor_id+(a.reason?' · '+a.reason:'')))))
       )));
 };

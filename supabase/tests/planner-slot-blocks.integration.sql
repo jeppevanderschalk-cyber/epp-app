@@ -1,0 +1,50 @@
+begin;
+do $$
+#variable_conflict use_variable
+declare admin_id uuid;other_admin uuid;member_id uuid;member2 uuid;head_id uuid;s1 uuid;s2 uuid;mid uuid;slot1 uuid;slot2 uuid;day2 uuid;cfg jsonb;result jsonb;rejected boolean;
+begin
+  insert into app_accounts(club_code,username,display_name,role,is_admin) values('gast','block-admin-'||gen_random_uuid(),'Block Test Admin','trainer',true) returning id into admin_id;
+  insert into app_accounts(club_code,username,display_name,role,is_admin) values('svbb','block-other-'||gen_random_uuid(),'Block Other Admin','trainer',true) returning id into other_admin;
+  insert into app_accounts(club_code,username,display_name,role,is_admin,is_platform_admin) values('eppnationaal','block-head-'||gen_random_uuid(),'Block Head Admin','trainer',true,true) returning id into head_id;
+  insert into app_accounts(club_code,username,display_name,role) values('gast','block-member-'||gen_random_uuid(),'Block Member','schutter') returning id into member_id;
+  insert into app_accounts(club_code,username,display_name,role) values('svbb','block-member-'||gen_random_uuid(),'Block Member Two','schutter') returning id into member2;
+  insert into platform_users(id,auth_provider_id) select id,'test:'||id from app_accounts where id in(admin_id,member_id,member2);
+  insert into shooters(display_name,linked_user_id)values('Block Member',member_id)returning id into s1;
+  insert into shooters(display_name,linked_user_id)values('Block Member Two',member2)returning id into s2;
+  insert into memberships(shooter_id,club_id)select s1,id from clubs where code='gast';
+  insert into memberships(shooter_id,club_id)select s2,id from clubs where code='svbb';
+  insert into epp_matches(club_id,organizer,match_date,match_dates,offered_disciplines)
+    values('gast','Slot Block Integration Test','2035-11-14',array['2035-11-14'::date,'2035-11-15'::date],array['pistool','optiek'])returning id into mid;
+  cfg:='{"first":"09:00","last":"09:30","duration":30,"changeover":0,"capacity":3,"gap":0,"opens":"2020-01-01T00:00","closes":"2035-11-13T23:00","published":true,"breaks":[],"overrides":[]}';
+  perform epp_planner_configure(admin_id,mid,cfg,0);
+  select id into slot1 from epp_match_slots where match_id=mid order by starts_at limit 1;
+  select id into slot2 from epp_match_slots where match_id=mid order by starts_at offset 1 limit 1;
+  select id into day2 from epp_match_slots where match_id=mid order by starts_at offset 2 limit 1;
+  perform epp_planner_book(member_id,mid,s1,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot1)),0);
+  perform epp_planner_set_slot_block(admin_id,mid,slot1,true,0);
+  assert (select blocked and block_revision=1 from epp_match_slots where id=slot1),'blocked';
+  assert (select count(*)=1 from epp_signup_disciplines where slot_id=slot1),'reservation preserved';
+  rejected:=false;begin perform epp_planner_book(member2,mid,s2,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot1)),0);exception when others then if sqlerrm='tijdslot_geblokkeerd' then rejected:=true;else raise;end if;end;assert rejected,'blocked booking rejected';
+  rejected:=false;begin perform epp_planner_book(admin_id,mid,s2,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot1)),0,'Test admin booking');exception when others then if sqlerrm='tijdslot_geblokkeerd' then rejected:=true;else raise;end if;end;assert rejected,'admin booking cannot bypass block';
+  perform epp_planner_book(member_id,mid,s1,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot1),jsonb_build_object('discipline','optiek','slotId',slot2)),1);
+  assert (select count(*)=1 from epp_signup_disciplines where slot_id=slot1),'existing slot retained on edit';
+  perform epp_planner_configure(admin_id,mid,cfg||'{"capacity":4}',1);
+  assert (select blocked and block_revision=1 from epp_match_slots where id=slot1),'block survives reconfiguration';
+  rejected:=false;begin perform epp_planner_set_slot_block(other_admin,mid,slot1,false,1);exception when others then if sqlerrm='geen_beheerrechten' then rejected:=true;else raise;end if;end;assert rejected,'other club denied';
+  rejected:=false;begin perform epp_planner_set_slot_block(member_id,mid,slot1,false,1);exception when others then if sqlerrm='geen_beheerrechten' then rejected:=true;else raise;end if;end;assert rejected,'member denied';
+  rejected:=false;begin perform epp_planner_set_slot_block(admin_id,mid,slot1,false,0);exception when others then if sqlerrm='tijdslot_conflict' then rejected:=true;else raise;end if;end;assert rejected,'stale unblock denied';
+  perform epp_planner_set_slot_block(admin_id,mid,slot1,true,0);
+  assert (select block_revision=1 from epp_match_slots where id=slot1),'idempotent block';
+  perform epp_planner_set_slot_block(head_id,mid,slot1,false,1);
+  perform epp_planner_book(member2,mid,s2,jsonb_build_array(jsonb_build_object('discipline','pistool','slotId',slot1)),0);
+  assert (select count(*)=2 from epp_signup_disciplines where slot_id=slot1),'unblocked booking accepted';
+  perform epp_planner_set_slot_block(admin_id,mid,day2,true,0);
+  assert (select not blocked from epp_match_slots where id=slot2),'other days unchanged';
+  perform epp_planner_set_slot_block(admin_id,mid,slot1,true,2);
+  perform epp_planner_book(member_id,mid,s1,'[]',2);
+  assert (select count(*)=1 from epp_signup_disciplines where slot_id=slot1),'cancellation works while blocked';
+  assert (select count(*)=4 from epp_planner_audit where match_id=mid and action in('block_slot','unblock_slot')),'audit every block and unblock';
+  assert not has_function_privilege('anon','epp_planner_set_slot_block(uuid,uuid,uuid,boolean,integer)','EXECUTE'),'anon RPC denied';
+  assert not has_function_privilege('authenticated','epp_planner_set_slot_block(uuid,uuid,uuid,boolean,integer)','EXECUTE'),'authenticated RPC denied';
+end $$;
+rollback;
