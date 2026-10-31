@@ -1,7 +1,7 @@
 (function(root){
   'use strict';
   root.createEppSeriesCamera=function({React,h,STAGES,StageCarousel,scoreAtTargetPoint,newId}){
-    return function SeriesCamera({shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId}){
+    return function SeriesCamera({shooters,registeredShooters=[],shooterDirectoryStatus="",addShooter,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId}){
       const [sid,setSid]=React.useState(shooters[0]?.id||''),[stage,setStage]=React.useState('s1');
       const [before,setBefore]=React.useState(null),[after,setAfter]=React.useState(null);
       const [result,setResult]=React.useState(null),[shots,setShots]=React.useState([]);
@@ -87,11 +87,17 @@
           )
         );
       }
-      if(!shooters.length)return h('p',{className:'hint'},'Voeg eerst een schutter toe via Parcours of Stages.');
+      const available=[...shooters,...registeredShooters.filter(s=>!shooters.some(existing=>existing.id===s.id)).map(s=>({id:s.id,naam:s.display_name}))];
+      const selectShooter=value=>{
+        change(id=>{if(id&&!shooters.some(s=>s.id===id))addShooter(id);setSid(id);},value);
+      };
+      const shooterPicker=h('select',{className:'cam-select',value:sid,disabled:busy||!!shooterDirectoryStatus,'aria-label':'Schutter',onChange:e=>selectShooter(e.target.value)},h('option',{value:''},'Kies een schutter'),available.map(s=>h('option',{key:s.id,value:s.id},s.naam)));
+      if(!sid||!shooters.some(s=>s.id===sid))return h('div',{className:'page-fade series-camera'},h('h2',null,'Camera per serie ',h('span',{className:'series-beta'},'Beta')),h('p',{className:'hint'},'Selecteer een schutter om de camerafunctie te starten.'),shooterPicker,h('p',{className:'hint',role:'status'},shooterDirectoryStatus||(!available.length?'Er zijn nog geen schutters met een goedgekeurd account beschikbaar.':'')));
+
       return h('div',{className:'page-fade series-camera'},
         h('section',null,
           h('h2',null,'Camera per serie ',h('span',{className:'series-beta'},'Beta')),
-          h('select',{className:'cam-select',value:sid,disabled:busy,'aria-label':'Schutter',onChange:e=>change(setSid,e.target.value)},shooters.map(s=>h('option',{key:s.id,value:s.id},s.naam))),
+          shooterPicker,
           h(StageCarousel,{stageKey:stage,onSelect:s=>change(setStage,s)}),
           h('div',{className:'series-count'},
             h('label',null,'Schoten in deze serie',h('select',{className:'sel-in',value:expected,disabled:busy||saved||!remaining,onChange:e=>setExpected(Number(e.target.value))},Array.from({length:remaining},(_,i)=>h('option',{key:i+1,value:i+1},i+1)))),

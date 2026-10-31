@@ -1,0 +1,35 @@
+begin;
+do $$
+declare aid uuid;sid uuid;mid uuid;suid uuid;ev uuid;queued uuid;lease uuid;n integer;denied boolean;
+begin
+ update clubs set notification_email='notification-test@example.invalid',notifications_enabled=true where code='svbb';
+ aid:=epp_register_public_member_username('svbb','lid.'||repeat('f',40),'Mailtest','Volledige Naam','notification-member@example.invalid',repeat('b',48),repeat('c',64),'mailtest.schutter');
+ if (select count(*) from epp_email_notifications where account_id=aid)<>1 then raise exception 'account_notification_missing';end if;
+ if not exists(select 1 from epp_email_notifications where account_id=aid and recipient='notification-test@example.invalid' and payload->>'name'='Mailtest Volledige Naam') then raise exception 'wrong_recipient_or_name';end if;
+ update app_accounts set login_username='mailtest.changed' where id=aid;
+ if (select count(*) from epp_email_notifications where account_id=aid)<>1 then raise exception 'username_change_notifies';end if;
+ select id into strict sid from shooters where linked_user_id=aid;
+ insert into epp_matches(club_id,organizer,match_date,offered_disciplines) values('svbb','Mailtest wedstrijd','2030-12-01',array['pistool']) returning id into mid;
+ insert into epp_signups(match_id,shooter_id,shooter_name) values(mid,sid,'Mailtest Volledige Naam') returning id into suid;
+ insert into epp_signup_disciplines(signup_id,discipline,time_block) values(suid,'pistool','ochtend');
+ insert into epp_planner_audit(match_id,actor_id,action,before_data,after_data) values(mid,aid,'book',jsonb_build_object('choices','[]'::jsonb),jsonb_build_object('shooterId',sid,'choices','[{"discipline":"pistool"}]'::jsonb)) returning id into ev;
+ if not exists(select 1 from epp_email_notifications where event_id=ev and kind='signup' and signup_id=suid and payload->>'name'='Mailtest Volledige Naam') then raise exception 'signup_notification_missing';end if;
+ insert into epp_planner_audit(match_id,actor_id,action,before_data,after_data) values(mid,aid,'book',jsonb_build_object('choices','[{"discipline":"pistool"}]'::jsonb),jsonb_build_object('shooterId',sid,'choices','[{"discipline":"pistool"}]'::jsonb));
+ if (select count(*) from epp_email_notifications where signup_id=suid)<>1 then raise exception 'edit_duplicates_notification';end if;
+ select count(*) into n from epp_claim_notifications(20);if n<>2 then raise exception 'unexpected_claim_count:%',n;end if;
+ select count(*) into n from epp_claim_notifications(20);if n<>0 then raise exception 'claimed_twice';end if;
+ select id,lease_token into queued,lease from epp_email_notifications where account_id=aid;
+ perform epp_complete_notification(queued,lease,true,'provider-id');
+ denied:=false;begin perform epp_complete_notification(queued,lease,true,'provider-id');exception when others then if sqlerrm='melding_lease_verlopen' then denied:=true;else raise;end if;end;
+ if not denied then raise exception 'stale_worker_can_finish';end if;
+ if not exists(select 1 from epp_email_notifications where id=queued and status='sent' and sent_at is not null) then raise exception 'success_not_saved';end if;
+ select id,lease_token into queued,lease from epp_email_notifications where signup_id=suid;
+ perform epp_complete_notification(queued,lease,false,null,'maildienst_http_503',true);
+ if not exists(select 1 from epp_email_notifications where id=queued and status='pending' and available_at>now()) then raise exception 'retry_missing';end if;
+ delete from epp_signup_disciplines where signup_id=suid;
+ perform epp_claim_notifications(20);
+ if not exists(select 1 from epp_email_notifications where id=queued and status='cancelled') then raise exception 'cancelled_signup_notifies';end if;
+ if has_table_privilege('anon','epp_email_notifications','SELECT') or has_function_privilege('authenticated','epp_claim_notifications(integer)','EXECUTE') then raise exception 'mail_queue_public';end if;
+end $$;
+select 'PASS notification routing, full names, edits, leases, retries, cancellation and private access' as result;
+rollback;

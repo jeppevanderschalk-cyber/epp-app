@@ -17,3 +17,6 @@
 !assets/stages/*.png
 supabase/.temp/
 backups/
+*.encrypted
+*.key
+*.decrypted.json

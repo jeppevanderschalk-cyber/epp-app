@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-XAV74XECwfUmVLIkFY3ysgCRsCeTT/YYTLserz7sa2E='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-m5zfwuVTqUL9wkB+65cCRIhCRjqvDNm4Q/9czcpaaf4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -2370,6 +2370,41 @@ const removeAccountWithConfirmation = async account => {
   await eppCall('epp-auth',{clubId:CLUB_ID,action:'delete_account',accountId:account.id,confirmAccountId:account.id});
   return true;
 };
+const NotificationSettings = () => {
+  const head=eppSession()?.account?.isPlatformAdmin;
+  const [club,setClub]=React.useState(head?'svbb':CLUB_ID);
+  const [email,setEmail]=React.useState(''),[enabled,setEnabled]=React.useState(false),[ready,setReady]=React.useState(false),[recipients,setRecipients]=React.useState([]);
+  const [busy,setBusy]=React.useState(false),[loading,setLoading]=React.useState(true),[loaded,setLoaded]=React.useState(false),[status,setStatus]=React.useState('');
+  React.useEffect(()=>{
+    let active=true;setLoading(true);setLoaded(false);setStatus('');
+    eppCall('epp-auth',{clubId:eppSession().account.clubId,action:'notification_settings',targetClubId:club})
+      .then(r=>{if(active){setEmail(r.club.notification_email||'');setEnabled(r.club.notifications_enabled);setReady(r.mailReady);setRecipients(r.recipients);setLoaded(true);}})
+      .catch(()=>{if(active)setStatus('Instellingen laden is niet gelukt. Herlaad de pagina.');})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[club]);
+  const save=async event=>{
+    event.preventDefault();if(busy||loading||!loaded)return;setBusy(true);setStatus('');
+    try{
+      const r=await eppCall('epp-auth',{clubId:eppSession().account.clubId,action:'save_notification_settings',targetClubId:club,notificationEmail:email,enabled});
+      setEmail(r.club.notification_email||'');setRecipients(r.recipients);setEnabled(r.club.notifications_enabled);setReady(r.mailReady);
+      setStatus(r.club.notifications_enabled?'E-mailmeldingen ingeschakeld.':'Beheeradres opgeslagen. E-mailmeldingen staan uit.');
+    }catch(e){setStatus(e.message==='maildienst_niet_ingesteld'?'De maildienst is nog niet gekoppeld.':e.message==='beheer_email_verplicht'?'Vul het e-mailadres van de verenigingsbeheerder in.':e.message==='email_ongeldig'?'Vul een geldig e-mailadres in.':'Opslaan is niet gelukt. Probeer opnieuw.');}
+    finally{setBusy(false);}
+  };
+  return h('section',null,
+    h('div',{className:'card-head'},h('div',{className:'eyebrow'},'E-mailmeldingen voor de beheerder')),
+    h('form',{className:'card-body',onSubmit:save,style:{display:'grid',gap:12}},
+      head&&h('label',null,'Vereniging',h('select',{className:'txt-in',value:club,disabled:busy,onChange:e=>setClub(e.target.value)},EPP_CLUBS.filter(c=>!['gast','eppnationaal'].includes(c.id)).map(c=>h('option',{key:c.id,value:c.id},c.label)))),
+      h('label',null,'E-mailadres verenigingsbeheerder',h('input',{className:'txt-in',type:'email',autoComplete:'email',maxLength:254,value:email,disabled:busy||loading||!loaded,onChange:e=>setEmail(e.target.value)})),
+      h('p',{className:'hint'},'Ontvang een melding bij een nieuw schuttersaccount en een nieuwe wedstrijdinschrijving van je vereniging.'),
+      !email&&recipients.length>0&&h('p',{className:'hint'},'Zonder apart beheeradres gebruiken we het e-mailadres van de actieve verenigingsbeheerder.'),
+      !ready&&!loading&&h('p',{className:'hint'},'E-mailmeldingen zijn nog niet geactiveerd. Je kunt het beheeradres alvast opslaan.'),
+      h('label',null,h('input',{type:'checkbox',checked:enabled,disabled:busy||loading||!loaded||(!ready&&!enabled),onChange:e=>setEnabled(e.target.checked)}),' E-mailmeldingen inschakelen'),
+      h('button',{className:'btn btn-gold btn-full',type:'submit',disabled:busy||loading||!loaded},busy?'Opslaan...':'Meldingsinstellingen opslaan'),
+      status&&h('p',{className:'hint',role:'status'},status)));
+};
+
 const AccountManagement = () => {
   const [accounts,setAccounts]=React.useState([]);
   const [shooters,setShooters]=React.useState([]);
@@ -2390,6 +2425,11 @@ const AccountManagement = () => {
     catch(error){setStatus(error.message);}
     finally{setBusy(false);}
   };
+  const toggleTrainer=async a=>{
+    setBusy(true);setStatus("");
+    try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"set_club_trainer",accountId:a.id,enabled:a.role!=="trainer"});await load();setStatus("Trainerrechten opgeslagen. De gebruiker moet opnieuw inloggen.");}
+    catch(e){setStatus(e.message);}finally{setBusy(false);}
+  };
   const disable=async a=>{
     if(!confirm("Toegang blokkeren voor "+a.display_name+"?"))return;
     setBusy(true);
@@ -2407,18 +2447,20 @@ const AccountManagement = () => {
   return h("section",null,
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Accounts - "+CLUB.label)),
     h("div",{className:"card-body",style:{display:"grid",gap:12}},
+      h("p",{className:"hint"},"Trainers voeren trainingsscores in voor alle schutters van deze vereniging. Verenigingsbeheerders beheren daarnaast accounts en rechten. Wedstrijdscores vereisen scoorderrechten voor de betreffende wedstrijd."),
       accounts.map(a=>h("div",{key:a.id,style:{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",borderBottom:"1px solid "+C.border,paddingBottom:8}},
         h(MembershipApproval,{account:a,onApproved:load}),
-        h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+a.role+(a.active?"":" - geblokkeerd"))),
+        h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+(a.is_platform_admin?"Hoofdbeheerder":a.is_admin?"Verenigingsbeheerder":a.role==="trainer"?"Trainer":"Schutter")+(a.active?"":" - geblokkeerd"))),
+        a.active&&a.membership_approved!==false&&!a.is_admin&&!a.is_platform_admin&&!['kijker','beheer','hoofdbeheer'].includes(a.username)&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-ghost",disabled:busy,onClick:()=>toggleTrainer(a)},a.role==="trainer"?"Trainerrechten intrekken":"Trainerrechten geven"),
         a.active&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-danger",disabled:busy,onClick:()=>disable(a)},"Blokkeren"),
         eppSession()?.account?.isPlatformAdmin&&a.id!==eppSession()?.account?.id&&!a.is_platform_admin&&!['kijker','hoofdbeheer'].includes(a.username)&&h('button',{className:'btn btn-danger',disabled:busy,onClick:()=>remove(a)},'Account verwijderen'))),
       h("form",{onSubmit:create,style:{display:"grid",gap:10}},
         field("displayName","Naam"),field("username","Gebruikersnaam"),field("newPassword","Tijdelijk wachtwoord","password"),
         h("label",null,"Rol",h("select",{className:"txt-in",disabled:busy,value:form.role,onChange:e=>setForm(p=>({...p,role:e.target.value}))},
-          eppSession()?.account?.isPlatformAdmin&&h("option",{value:"trainer"},"Trainer"),h("option",{value:"schutter"},"Schutter"))),
+          h("option",{value:"trainer"},"Trainer"),h("option",{value:"schutter"},"Schutter"))),
         form.role==="schutter"?h("label",null,"Schutter",h("select",{className:"txt-in",required:true,disabled:busy,value:form.shooterId,onChange:e=>setForm(p=>({...p,shooterId:e.target.value}))},
           h("option",{value:""},"Kies schutter-ID"),shooters.map(s=>h("option",{key:s.id,value:s.id},s.display_name+" - "+s.public_id)))):
-          h("label",null,h("input",{type:"checkbox",disabled:busy,checked:form.isAdmin,onChange:e=>setForm(p=>({...p,isAdmin:e.target.checked}))})," Accounts beheren"),
+          eppSession()?.account?.isPlatformAdmin&&h("label",null,h("input",{type:"checkbox",disabled:busy,checked:form.isAdmin,onChange:e=>setForm(p=>({...p,isAdmin:e.target.checked}))})," Accounts beheren"),
         h("button",{className:"btn btn-gold",disabled:busy},busy?"Opslaan...":"Account aanmaken")),
       h("p",{role:"status",className:"hint"},status)));
 };
@@ -2438,7 +2480,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
       h("div",{className:"account-avatar","aria-hidden":"true"},initials),
       h("div",{style:{minWidth:0}},
         h("div",{className:"account-name"},name),
-        h("div",{className:"account-sub"},(isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
+        h("div",{className:"account-sub"},(account.isPlatformAdmin?"Hoofdbeheerder":account.isAdmin?"Verenigingsbeheerder":isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
     account.isAdmin&&h("div",{className:"card more-list"},
       h(MoreItem,{title:account.isPlatformAdmin?"Verenigingsrechten":"Scoorderrechten",sub:account.isPlatformAdmin?"Rechten en goedkeuringen per vereniging":"Wie per wedstrijd scores mag invoeren"},h(PlatformAccessManagement)),
       h(MoreItem,{id:"account-management",title:"Accounts",sub:"Accounts en lidmaatschappen van je vereniging"},h(AccountManagement)),
@@ -2446,6 +2488,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
     h("div",{className:"card more-list"},
       account.role==='schutter'&&personal&&h(MoreItem,{title:"Gebruikersnaam",sub:account.loginUsername?"Inloggen als "+account.loginUsername:"Nog niet gekozen"},h(ShooterUsername)),
       personal&&h(MoreItem,{title:"Wachtwoord",sub:"Wijzig je wachtwoord"},h(ChangeTrainerPassword,{logout})),
+      account.isAdmin&&h(MoreItem,{title:"E-mailmeldingen",sub:"Bij nieuwe accounts en inschrijvingen"},h(NotificationSettings)),
       isTrainer&&h(MoreItem,{title:"Training afsluiten",sub:"Bewaar de rondes in de stand of begin opnieuw"},
         h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
         h("p",{className:"hint"},"Gebruik Training afsluiten voor bewaren in de stand. Nieuwe trainingsdag starten wist alleen de tijdelijke rondes en behoudt de stand."),
@@ -2751,8 +2794,8 @@ function App({headClubs,onHeadClubChange}={}) {
   },[shooters,scores,cameraShots,stageShots,currentTraining,bestParcours,bestStageAverages,archives,loaded]);
 
   // State helpers
-  const addShooter = () => {
-    const selected=registeredShooters.find(s=>s.id===nieuw);
+  const addShooter = selectedId => {
+    const selected=registeredShooters.find(s=>s.id===(typeof selectedId==="string"?selectedId:nieuw));
     if(!selected||shooterDirectoryStatus){flash('Kies een schutter met een aangemaakt account.');return;}
     if(shooters.some(s=>s.id===selected.id)){flash('Deze schutter staat al in de trainingslijst.');return;}
     markLocalEdit();setShooters(p=>[...p,{id:selected.id,naam:selected.display_name}]);setNieuw("");
@@ -2868,7 +2911,7 @@ function App({headClubs,onHeadClubChange}={}) {
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
     : tab==="home" ? h(PersonalHome,{shooters,currentTraining,archives,personalTraining,canTrain,setTab})
     : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,registeredShooters,shooterDirectoryStatus,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,canTrain,personalTraining,archives,trainingView,setTrainingView})
-    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
+    : tab==="camera" && isTrainer ? h(TabCamera,{shooters,registeredShooters,shooterDirectoryStatus,addShooter,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(SharedTrainingStand)
     : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:isTrainer?'individual':'signup'})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab,canRestore:!store.current.busy&&!store.current.conflict&&!EppStore.diff(store.current.base,makePayload()).length,onRestored:pullRemote})

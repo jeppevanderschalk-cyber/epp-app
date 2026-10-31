@@ -81,6 +81,23 @@ Deno.serve(async req=>{
       return json({ok:true});
     }
     if(!actor.is_admin || actor.role!=='trainer')throw new Error('geen_beheerrechten');
+    if(['notification_settings','save_notification_settings'].includes(body.action)){
+      const target=actor.is_platform_admin?String(body.targetClubId||actor.club_code):actor.club_code;
+      if(!actor.is_platform_admin&&body.targetClubId&&body.targetClubId!==actor.club_code)throw new Error('geen_beheerrechten');
+      const ready=!!(Deno.env.get('RESEND_API_KEY')&&Deno.env.get('EPP_NOTIFICATION_FROM')&&Deno.env.get('EPP_NOTIFICATION_SECRET'));
+      if(body.action==='save_notification_settings'){
+        const email=body.notificationEmail?memberEmail(body.notificationEmail):null;
+        if(body.enabled===true&&!ready)throw new Error('maildienst_niet_ingesteld');
+        if(body.enabled===true&&!email){
+          const {data:admins,error:adminError}=await db.from('app_accounts').select('email').eq('club_code',target).eq('active',true).eq('role','trainer').eq('is_admin',true).eq('is_platform_admin',false).eq('membership_approved',true).is('deleted_at',null);if(adminError)throw adminError;
+          if(!admins?.some(a=>a.email))throw new Error('beheer_email_verplicht');
+        }
+        const {error}=await db.from('clubs').update({notification_email:email,notifications_enabled:body.enabled===true}).eq('code',target).eq('actief',true);if(error)throw error;
+      }
+      const {data:club,error}=await db.from('clubs').select('code,naam,notification_email,notifications_enabled').eq('code',target).eq('actief',true).single();if(error)throw error;
+      const {data:recipients,error:recipientError}=await db.rpc('epp_notification_recipients',{p_club:target});if(recipientError)throw recipientError;
+      return json({ok:true,club,recipients:recipients||[],mailReady:ready});
+    }
     if(body.action==='list_club_access'){
       if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
       const {data:clubs,error:cErr}=await db.from('clubs').select('code,naam').eq('actief',true).order('naam');if(cErr)throw cErr;
@@ -90,6 +107,11 @@ Deno.serve(async req=>{
     if(body.action==='set_club_admin'){
       if(!actor.is_platform_admin)throw new Error('geen_hoofdbeheerrechten');
       const {error}=await db.rpc('epp_set_club_admin',{p_actor:actor.id,p_target:body.accountId,p_enabled:body.enabled===true});if(error)throw error;
+      return json({ok:true});
+    }
+    if(body.action==='set_club_trainer'){
+      if(typeof body.enabled!=='boolean')throw new Error('ongeldige_bewerking');
+      const {error}=await db.rpc('epp_set_club_trainer',{p_actor:actor.id,p_target:body.accountId,p_enabled:body.enabled});if(error)throw error;
       return json({ok:true});
     }
     if(body.action==='approve_member'){
