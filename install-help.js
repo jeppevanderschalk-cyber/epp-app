@@ -12,5 +12,13 @@
   for(const mode of modes)mode.addEventListener?.('change',update);
   window.addEventListener('pageshow',update);
   window.addEventListener('appinstalled',()=>{dismissed=true;update();});
-  update();document.body.appendChild(panel);
+  const mount=()=>{
+    const gate=document.getElementById('loginGate'),form=document.getElementById('loginForm');
+    if(gate&&!gate.hidden&&form){if(panel.parentNode!==form)form.prepend(panel);}
+    else if(panel.parentNode!==document.body)document.body.insertBefore(panel,document.getElementById('root'));
+    update();
+  };
+  const gate=document.getElementById('loginGate');
+  if(gate)new MutationObserver(mount).observe(gate,{attributes:true,attributeFilter:['hidden']});
+  mount();
 })();
