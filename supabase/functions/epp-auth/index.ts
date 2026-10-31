@@ -52,13 +52,23 @@ Deno.serve(async req=>{
       const names=memberNames(body.firstName,body.lastName);
       if(typeof body.newPassword!=='string'||body.newPassword.length<10||body.newPassword.length>256)throw new Error('nieuw_wachtwoord_ongeldig');
       const email=memberEmail(body.email),username=await emailUsername(email),chosenUsername=body.username===undefined?null:loginUsername(body.username),salt=randomSalt();
-      const {data:id,error}=await db.rpc('epp_register_public_member_username',{p_login_username:chosenUsername,p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_email:email,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
+      if(body.publicationConsent!==undefined&&typeof body.publicationConsent!=='boolean')throw new Error('publicatiekeuze_ongeldig');
+      const {data:id,error}=await db.rpc('epp_register_member_with_consent',{p_consent:body.publicationConsent===true,p_login_username:chosenUsername,p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_email:email,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
       if(error)throw error;
       const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin').eq('id',id).single();if(accountError)throw accountError;
       return json({ok:true,pendingApproval:true,account:{clubId:account.club_code}});
     }
     const actor=await requireAccount(body,false,true);
     if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin,isPlatformAdmin:actor.is_platform_admin,mustChangePassword:actor.must_change_password,loginUsername:actor.login_username}});
+    if(body.action==='get_publication_consent'){
+      const {data,error}=await db.from('app_accounts').select('publication_consent,publication_consent_at,publication_consent_version').eq('id',actor.id).single();if(error)throw error;
+      return json({ok:true,consent:{allowed:data.publication_consent===true,decidedAt:data.publication_consent_at,version:data.publication_consent_version}});
+    }
+    if(body.action==='set_publication_consent'){
+      if(typeof body.allowed!=='boolean')throw new Error('publicatiekeuze_ongeldig');
+      const {data,error}=await db.rpc('epp_set_publication_consent',{p_actor:actor.id,p_consent:body.allowed});if(error)throw error;
+      return json({ok:true,consent:data});
+    }
     if(body.action==='set_username'){
       if(actor.role!=='schutter'||actor.username==='kijker')throw new Error('persoonlijk_account_verplicht');
       const username=loginUsername(body.username);

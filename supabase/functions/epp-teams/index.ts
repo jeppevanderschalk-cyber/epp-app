@@ -1,5 +1,6 @@
 import {corsHeaders,json,serviceClient} from '../_shared/epp.ts';
 import {requireAccount} from '../_shared/session.ts';
+import {hideTeamIdentities} from '../_shared/publication.ts';
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
@@ -10,7 +11,7 @@ Deno.serve(async req=>{
     if(!['pistool','optiek','pcc'].includes(discipline))throw new Error('ongeldige_discipline');
     if(body.action==='context'){
       const {data,error}=await db.rpc('epp_team_context',{p_actor:actor.id,p_match:body.matchId||null,p_discipline:discipline});
-      if(error)throw error;return json(data);
+      if(error)throw error;return json(await hideTeamIdentities(db,data,actor));
     }
     if(body.action==='save'||body.action==='delete'){
       if(!actor.is_admin||actor.role!=='trainer')throw new Error('geen_beheerrechten');

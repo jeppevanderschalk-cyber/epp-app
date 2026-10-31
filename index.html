@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-LCcxn7/nEyPXj2livJlpoNyU+nl90oCw8TyZIX0vVQ8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-2fGRKdPXZ06G2KamoVP7Vk4xWk8aFViI5uQbNMyc+7U='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -110,8 +110,10 @@
 <script src="app-experience.js?v=1"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
+<script src="publication-ui.js?v=consent-capacity-1"></script>
+<script src="planner-capacity.js?v=consent-capacity-1"></script>
 <script src="payment-ui.js?v=prepared-payments-1"></script>
-<script src="match-planner-ui.js?v=prepared-payments-1"></script>
+<script src="match-planner-ui.js?v=consent-capacity-1"></script>
 <script src="head-view-ui.js?v=5"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=team-edit-2"></script>
@@ -635,8 +637,8 @@ const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"")
 const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
 const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
 const EPP_DISCIPLINES = [
-  {id:"pistool",label:"Standaard"},
-  {id:"optiek",label:"Optics"},
+  {id:"pistool",label:"Pistool standaard"},
+  {id:"optiek",label:"Pistool met optics"},
 ];
 const EPP_TIME_BLOCKS = [
   {id:"ochtend",label:"Ochtend (9:00–11:00)"},
@@ -1923,7 +1925,7 @@ const EppDisciplineRow = ({d, checked, value, onToggle, onChange, disabled}) =>
   );
 
 const MemberRegistration = () => {
-  const [form,setForm]=React.useState({clubId:"",firstName:"",lastName:"",email:"",username:"",password:"",repeat:""});
+  const [form,setForm]=React.useState({clubId:"",firstName:"",lastName:"",email:"",username:"",password:"",repeat:"",publicationConsent:false});
   const [busy,setBusy]=React.useState(false);
   const [error,setError]=React.useState("");
   const submit=async event=>{
@@ -1931,7 +1933,7 @@ const MemberRegistration = () => {
     if(form.password!==form.repeat){setError("De wachtwoorden zijn niet gelijk.");return;}
     setBusy(true);setError("");
     try{
-      const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,username:form.username,firstName:form.firstName,lastName:form.lastName,email:form.email,newPassword:form.password});
+      const result=await eppRawCall("epp-auth",{clubId:CLUB_ID,sessionToken:eppSession()?.sessionToken,action:"register_member",registrationClubId:form.clubId,username:form.username,firstName:form.firstName,lastName:form.lastName,email:form.email,newPassword:form.password,publicationConsent:form.publicationConsent});
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       localStorage.setItem('epp-personal-login-preferred','1');
       sessionStorage.setItem('epp-personal-login','1');
@@ -1964,6 +1966,7 @@ const MemberRegistration = () => {
       h("p",{className:"hint"},"Kies 3 tot 30 letters, cijfers, punten, streepjes of underscores. Hiermee log je voortaan in met je wachtwoord."),
       h("label",null,"Eigen wachtwoord",h("input",{className:"txt-in",type:"password",autoComplete:"new-password",minLength:10,maxLength:256,required:true,value:form.password,disabled:busy,onChange:e=>setForm(p=>({...p,password:e.target.value}))})),
       h("label",null,"Herhaal wachtwoord",h("input",{className:"txt-in",type:"password",autoComplete:"new-password",minLength:10,maxLength:256,required:true,value:form.repeat,disabled:busy,onChange:e=>setForm(p=>({...p,repeat:e.target.value}))})),
+      h(PublicationChoice,{allowed:form.publicationConsent,onChange:value=>setForm(p=>({...p,publicationConsent:value})),disabled:busy}),
       error&&h("p",{role:"alert",className:"hint"},error),
       h("button",{type:"submit",className:"btn btn-gold btn-full",disabled:busy},busy?"Account aanmaken...":"Account aanmaken"),
       h("button",{type:"button",className:"btn btn-ghost btn-full",disabled:busy,onClick:existing},"Ik heb al een account")
@@ -2141,14 +2144,14 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
       h("div",null,
         h("div",{className:"set-sub",style:{marginBottom:6}},"Aangeboden disciplines"),
         EPP_DISCIPLINES.map(d=>h("label",{key:d.id,className:"chk-row"},
-          h("input",{type:"checkbox",checked:f.offered_disciplines.includes(d.id),onChange:()=>toggleD(d.id)}),
+          h("input",{type:"checkbox",checked:true,disabled:true}),
           h("div",{className:"chk-lbl"},d.label)
         ))
       ),
       h("input",{className:"txt-in",placeholder:"Notitie (optioneel)",value:f.notes||"",onChange:e=>setF(p=>({...p,notes:e.target.value}))}),
       h("div",{style:{display:"flex",gap:8}},
         h("button",{className:"btn btn-ghost",style:{flex:1},onClick:onCancel},"Annuleren"),
-        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>{if(f.match_dates.some(d=>!d)||new Set(f.match_dates).size!==f.match_dates.length){setDateError('Vul iedere wedstrijddag in en kies geen dubbele datum.');return;}const dates=[...f.match_dates].sort();onSave({...f,match_dates:dates,match_date:dates[0]});}},"Opslaan")
+        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>{if(f.match_dates.some(d=>!d)||new Set(f.match_dates).size!==f.match_dates.length){setDateError('Vul iedere wedstrijddag in en kies geen dubbele datum.');return;}const dates=[...f.match_dates].sort();onSave({...f,offered_disciplines:["pistool","optiek"],match_dates:dates,match_date:dates[0]});}},"Opslaan")
       )
     )
   );
@@ -2487,6 +2490,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
       h(MoreItem,{title:"Back-ups",sub:"Back-up maken of training herstellen"},h(BackupManagement,{canRestore,onRestored}))),
     h("div",{className:"card more-list"},
       account.role==='schutter'&&personal&&h(MoreItem,{title:"Gebruikersnaam",sub:account.loginUsername?"Inloggen als "+account.loginUsername:"Nog niet gekozen"},h(ShooterUsername)),
+      personal&&h(MoreItem,{title:"Privacy en publicatie",sub:"Zelf kiezen of je naam in klassementen verschijnt"},h(PublicationPreference)),
       personal&&h(MoreItem,{title:"Wachtwoord",sub:"Wijzig je wachtwoord"},h(ChangeTrainerPassword,{logout})),
       account.isAdmin&&h(MoreItem,{title:"E-mailmeldingen",sub:"Bij nieuwe accounts en inschrijvingen"},h(NotificationSettings)),
       isTrainer&&h(MoreItem,{title:"Training afsluiten",sub:"Bewaar de rondes in de stand of begin opnieuw"},

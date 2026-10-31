@@ -1,0 +1,34 @@
+begin;
+do $$
+declare aid uuid;bid uuid;sid uuid;sid2 uuid;decision jsonb;rejected boolean;mid uuid;suffix text:=replace(gen_random_uuid()::text,'-','');
+begin
+  aid:=epp_register_member_with_consent('apgs','lid.'||suffix||'aaaaaaaa','Privacy','Decline'||suffix,'decline-'||suffix||'@example.invalid',repeat('b',48),repeat('c',64),null,false);
+  assert exists(select 1 from app_accounts where id=aid and not publication_consent and publication_consent_at is not null and publication_consent_version='EPP_PUBLICATION_2026_10_V1'),'account without consent succeeds and choice is recorded';
+  assert exists(select 1 from epp_publication_consent_audit where account_id=aid and not allowed and source='registration'),'decline audit';
+  select id into strict sid from shooters where linked_user_id=aid;
+  assert not(select allowed from epp_publication_states(array[sid])),'declined account is not published';
+  bid:=epp_register_member_with_consent('apgs','lid.'||suffix||'bbbbbbbb','Privacy','Allow'||suffix,'allow-'||suffix||'@example.invalid',repeat('b',48),repeat('c',64),null,true);
+  select id into strict sid2 from shooters where linked_user_id=bid;
+  assert not(select allowed from epp_publication_states(array[sid2])),'pending account is not published before approval';
+  update app_accounts set membership_approved=true where id in(aid,bid);
+  assert (select allowed from epp_publication_states(array[sid2])),'explicit opt-in can be published after approval';
+  decision:=epp_set_publication_consent(bid,false);
+  assert decision->>'allowed'='false','withdrawal stored';
+  assert not(select allowed from epp_publication_states(array[sid2])),'withdrawal takes effect on the next lookup';
+  perform epp_set_publication_consent(bid,false);
+  assert (select count(*)=2 from epp_publication_consent_audit where account_id=bid),'retry is idempotent';
+  perform epp_set_publication_consent(aid,true);
+  assert (select allowed from epp_publication_states(array[sid])),'existing account can opt in';
+  assert not(select allowed from epp_publication_states(array[sid2])),'another account remains private';
+  update app_accounts set active=false where id=aid;
+  assert not(select allowed from epp_publication_states(array[sid])),'inactive account is not published';
+  rejected:=false;begin perform epp_set_publication_consent(aid,true);exception when others then if sqlerrm='geen_toegang' then rejected:=true;else raise;end if;end;assert rejected,'inactive account cannot grant consent';
+  rejected:=false;begin perform epp_set_publication_consent(bid,null);exception when others then if sqlerrm='publicatiekeuze_verplicht' then rejected:=true;else raise;end if;end;assert rejected,'ambiguous choice rejected';
+  assert not has_function_privilege('anon','epp_set_publication_consent(uuid,boolean)','EXECUTE'),'anonymous cannot alter consent';
+  assert not has_table_privilege('authenticated','epp_publication_consent_audit','SELECT'),'audit is protected';
+  insert into epp_matches(club_id,organizer,match_date,offered_disciplines)values('apgs','Two pistol options test','2038-02-27',array['pistool'])returning id into mid;
+  assert (select offered_disciplines=array['pistool','optiek'] from epp_matches where id=mid),'new match always offers both';
+  update epp_matches set offered_disciplines=array['pistool'] where id=mid;
+  assert (select offered_disciplines=array['pistool','optiek'] from epp_matches where id=mid),'editing cannot remove optics';
+end $$;
+rollback;

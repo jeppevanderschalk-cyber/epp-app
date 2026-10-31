@@ -2,6 +2,7 @@
 // Alle mutaties lopen server-side: regels, bevoegdheid en auditlog worden hier afgedwongen.
 import { corsHeaders, json, serviceClient, checkPassword, isKnownClub } from "../_shared/epp.ts";
 import { requireAccount } from '../_shared/session.ts';
+import {publicationVisibility,hideIdentity} from '../_shared/publication.ts';
 import { ensureMatchRound } from '../_shared/match-round.ts';
 import '../../../score-ranking.js';
 const rankingRules = (globalThis as any).EppScoreRanking;
@@ -106,7 +107,7 @@ async function findOrCreateShooter(db: any, displayName: string, representedClub
   if(membershipError)throw membershipError;
   return shooter;
 }
-async function loadRanking(db: any, ctx: any, matchId?: string) {
+async function loadRanking(db: any, ctx: any, matchId?: string, viewerId?: string) {
   let qualificationYear=Number(ctx.season.naam);
   let eventQuery = db
     .from("events")
@@ -143,6 +144,7 @@ async function loadRanking(db: any, ctx: any, matchId?: string) {
   if (sErr) throw sErr;
   const { data: clubs, error: cErr } = await db.from("clubs").select("id,code,naam").in("id", clubIds);
   if (cErr) throw cErr;
+  const visible=await publicationVisibility(db,shooterIds,viewerId);
   const shooterMap = new Map((shooters || []).map((s: any) => [s.id, s]));
   const clubMap = new Map((clubs || []).map((c: any) => [c.id, c]));
   const {data:qualifications,error:qualificationError}=await db.from('shooter_qualifications').select('shooter_id,title,qualification_year,source,average_score').in('shooter_id',shooterIds).eq('division_id',ctx.division.id).eq('active',true).lte('qualification_year',qualificationYear).order('qualification_year',{ascending:false});
@@ -160,7 +162,7 @@ async function loadRanking(db: any, ctx: any, matchId?: string) {
     const score = Number(row.final_score);
     const shooter = shooterMap.get(row.shooter_id);
     const club = clubMap.get(row.represented_club_id);
-    return {
+    return hideIdentity({
       position: row.position,
       qualification: qualificationMap.get(row.shooter_id)||null,
       provisional: row.provisional,
@@ -177,7 +179,7 @@ async function loadRanking(db: any, ctx: any, matchId?: string) {
       division: ctx.division.naam,
       score,
       confirmedAt: row.confirmed_at,
-    };
+    },visible.has(row.shooter_id));
   });
 }
 
@@ -222,10 +224,10 @@ Deno.serve(async (req) => {
     }
 
     if (action === "context") {
-      const ranking = await loadRanking(db, ctx);
+      const ranking = await loadRanking(db, ctx,undefined,actor.id);
       const {data:events,error:eventError}=await db.from('events').select('id,naam,local_date,registration_match_id,rounds(id,label)').eq('organizer_club_id',ctx.club.id).not('registration_match_id','is',null).order('local_date');if(eventError)throw eventError;
       const {data:matches,error:matchError}=await db.from('epp_matches').select('id,organizer,match_date,offered_disciplines').eq('club_id',clubId).is('archived_at',null).order('match_date');if(matchError)throw matchError;
-      const matchRanking=body.matchId?await loadRanking(db,ctx,body.matchId):[];
+      const matchRanking=body.matchId?await loadRanking(db,ctx,body.matchId,actor.id):[];
       return json({ ok: true, context: ctx, ranking, matchRanking, events, matches, updatedAt: new Date().toISOString() });
     }
 

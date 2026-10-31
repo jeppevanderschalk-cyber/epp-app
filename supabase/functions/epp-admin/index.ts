@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       if (m.deadline != null && !isValidDate(m.deadline)) {
         return json({ ok: false, error: "ongeldige_deadline" }, 400);
       }
-      const offered = m.offered_disciplines ?? ["pistool", "optiek"];
+      const offered = ["pistool", "optiek"];
       if (!validOfferedDisciplines(offered)) {
         return json({ ok: false, error: "ongeldige_disciplines" }, 400);
       }

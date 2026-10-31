@@ -17,6 +17,7 @@ const plannerError=e=>({tijdslot_betaling_loopt:'Dit tijdslot wordt vastgehouden
 
 const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const mine=target||view.mine;
+  const disciplineScope=React.useRef("planner-disciplines-"+newId());
   const order=mine.payment,paymentLock=order&&['creating','open','pending','review'].includes(order.status);
   const paidBooking=view.match.payment_required&&mine.choices.length>0;
   const [choices,setChoices]=React.useState(()=>Object.fromEntries((paymentLock?order.choices:mine.choices).map(c=>[c.discipline,c.slotId])));
@@ -57,12 +58,13 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
     paidBooking&&h('p',{className:'hint'},'Je kunt de tijdsloten van je betaalde disciplines wijzigen. Neem voor een andere disciplinekeuze of terugbetaling contact op met de organisator.'),
     !canBook&&h('p',{className:'hint'},'Een persoonlijk schutterprofiel is nodig om te boeken.'),
     !open&&h('p',{className:'hint'},Date.now()<Date.parse(view.planner.opens_at)?'Inschrijving opent '+plannerSlot(view.planner.opens_at):'Inschrijving gesloten'),
+    h('nav',{'aria-label':'Kies je discipline',style:{display:'flex',flexWrap:'wrap',gap:8}},['pistool','optiek'].map(d=>h('button',{key:d,type:'button',className:'btn btn-ghost',onClick:()=>document.getElementById(disciplineScope.current+'-'+d)?.scrollIntoView({block:'start',behavior:'smooth'})},d==='pistool'?'Pistool standaard':'Pistool met optics'))),
     view.match.offered_disciplines.map(d=>{
       const dates=[...new Set(view.slots.map(s=>plannerDay(s.starts_at)))];
       const chosen=view.slots.find(s=>s.id===choices[d]);
       const day=days[d]||(chosen?plannerDay(chosen.starts_at):dates[0]);
       const choose=id=>{setChoices(p=>({...p,[d]:id}));setStatus('');onEdited?.();};
-      return h('fieldset',{key:d,disabled:busy||paymentLock||!open||!canBook,style:{border:0,padding:0,margin:'8px 0',minWidth:0}},
+      return h('fieldset',{key:d,id:disciplineScope.current+'-'+d,disabled:busy||paymentLock||!open||!canBook,style:{border:0,padding:0,margin:'8px 0',minWidth:0}},
         h('legend',{style:{fontWeight:800,marginBottom:10}},EPP_DISCIPLINES.find(x=>x.id===d)?.label||d),
         h('div',{role:'group','aria-label':'Wedstrijddag '+d,style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}},dates.map(date=>h('button',{key:date,type:'button','aria-pressed':date===day,className:'btn '+(date===day?'btn-gold':'btn-ghost'),style:{padding:'10px 12px',fontSize:14},onClick:()=>setDays(p=>({...p,[d]:date}))},date))),
         h('div',{role:'radiogroup','aria-label':'Tijdslot '+d,style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(105px,1fr))',gap:8}},view.slots.filter(s=>plannerDay(s.starts_at)===day).map(s=>{
@@ -139,6 +141,11 @@ const PlannerSlotBlocks=({view,onSaved})=>{
     status&&h('p',{className:'hint',role:'status',style:{fontWeight:700}},status));
 };
 
+const PlannerDayCapacity=({slots})=>{
+  const days=EppPlannerCapacity.summarize(slots);
+  return h('section',{'aria-label':'Capaciteit per wedstrijddag',style:{display:'grid',gap:6}},days.map(day=>h('p',{key:day.day,className:'hint',style:{margin:0}},eppFmtDate(day.day)+' · '+day.slots+' tijdsloten · maximaal '+day.maxShooters+' schutters · '+day.free+' vrije plaatsen')),h('p',{className:'hint',style:{margin:0}},'Maximum bij één discipline per schutter. Wie standaard én optics schiet gebruikt twee plaatsen. Geblokkeerde, niet-gereserveerde plaatsen tellen niet mee.'));
+};
+
 const MatchPlanner=({matchId,manage=false})=>{
   const [view,setView]=React.useState(null),[status,setStatus]=React.useState(''),[version,setVersion]=React.useState(0),[target,setTarget]=React.useState(null);
   const [planningNotice,setPlanningNotice]=React.useState('');
@@ -169,9 +176,10 @@ const MatchPlanner=({matchId,manage=false})=>{
       manage&&view.managing&&h(PlannerSlotBlocks,{view,onSaved:load}),
       manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:()=>saved(true),onReload:reload,saveNotice:planningNotice,onEdited:()=>setPlanningNotice('')}),
       view.planner&&h(React.Fragment,null,
+        h(PlannerDayCapacity,{slots:view.slots}),
         (!manage||view.profile||target)&&h('div',{ref:bookingRef},h(PlannerBooking,{key:'booking-'+version+(target?.shooterId||''),view,target,onSaved:cancel=>saved(false,cancel),onReload:reload,saveNotice:bookingNotice,onEdited:()=>setBookingNotice('')})),
         manage&&!view.profile&&!target&&bookingNotice&&h('p',{className:'hint',role:'status'},bookingNotice),
-        h('details',null,h('summary',{style:{fontWeight:700}},'Alle tijdsloten ('+view.slots.length+')'),
+        h('details',null,h('summary',{style:{fontWeight:700}},'Alle tijdsloten ('+view.slots.length+') · '+EppPlannerCapacity.summarize(view.slots).map(day=>eppFmtDate(day.day)+': max. '+day.maxShooters+' schutters').join(' · ')),
         h('h3',{style:{fontSize:18,margin:0}},'Tijdsloten'),
         h('div',{style:{display:'grid',gap:6}},view.slots.map(s=>h('div',{key:s.id,style:{display:'flex',gap:8,justifyContent:'space-between',borderBottom:'1px solid '+C.border,padding:'8px 0'}},h('span',{style:{minWidth:0,overflowWrap:'anywhere'}},plannerSlot(s.starts_at)+' – '+plannerClock(s.ends_at)),h('span',null,(s.blocked?'Geblokkeerd · ':'')+s.booked+'/'+s.capacity))))),
         manage&&view.managing&&h(React.Fragment,null,h('h3',{style:{fontSize:18}},'Deelnemers per ronde'),

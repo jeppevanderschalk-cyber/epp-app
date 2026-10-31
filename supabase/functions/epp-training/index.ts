@@ -1,6 +1,7 @@
 import {trainingStandings} from '../_shared/training-standings.ts';
 import {corsHeaders,json,serviceClient} from '../_shared/epp.ts';
 import {requireAccount} from '../_shared/session.ts';
+import {publicationVisibility,hideTrainingNames} from '../_shared/publication.ts';
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
@@ -27,7 +28,9 @@ Deno.serve(async req=>{
         const national=await allRows(()=>db.from('training_entities').select('kind,entity_id,data').eq('club_code','eppnationaal').order('kind').order('entity_id'));
         sources.push({allowed:profiles.map(p=>p.id),entities:national.map(e=>({kind:e.kind,id:e.entity_id,data:e.data}))});
       }
-      return json({ok:true,...trainingStandings(sources,profiles)});
+      const standings=trainingStandings(sources,profiles);
+      const visible=await publicationVisibility(db,standings.shooters.map(s=>s.id),actor.id);
+      return json({ok:true,...hideTrainingNames(standings,visible)});
     }
     const personal=actor.role==='schutter';
     let profile:any=null;

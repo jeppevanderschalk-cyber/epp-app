@@ -119,7 +119,7 @@ try{
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-app-club-v1')),'apgs');
     assert.equal(await page.getByRole('combobox',{name:'Kies je naam'}).count(),0);
     await page.getByRole('button',{name:'Doe mee',exact:true}).click();
-    await page.getByLabel('Standaard',{exact:true}).check();
+    await page.getByLabel('Pistool standaard',{exact:true}).check();
     await page.getByRole('button',{name:'OPSLAAN',exact:true}).click();
     await page.getByText('Inschrijving opgeslagen',{exact:true}).waitFor();
     assert.equal(signup.shooterId,'own-shooter');assert.equal(signup.sessionToken,'b'.repeat(64));

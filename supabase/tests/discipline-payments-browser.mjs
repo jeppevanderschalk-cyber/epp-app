@@ -22,7 +22,11 @@ try{
       await context.route('https://www.mollie.com/checkout/epp-fixture',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:'<h1>Mollie testbetaling €24</h1>'}));
       await context.route('**/functions/v1/**',async route=>{
         const body=route.request().postDataJSON(),fn=route.request().url().split('/').pop();let data={ok:true};
-        if(fn==='epp-auth')data={ok:true,account,accounts:[],clubs:[]};
+        if(fn==='epp-auth'){
+          data={ok:true,account,accounts:[],clubs:[]};
+          if(body.action==='get_publication_consent')data={ok:true,consent:{allowed:true}};
+          if(body.action==='set_publication_consent'){assert.equal(body.allowed,false);data={ok:true,consent:{allowed:false}};}
+        }
         if(fn==='epp-training')data={ok:true,entities:[],rows:[],backups:[]};
         if(fn==='epp-platform')data={ok:true,ranking:[],matchRanking:[],qualifications:[],matches:[],events:[]};
         if(fn==='epp-admin')data={ok:true,matches:[match]};
@@ -60,6 +64,8 @@ try{
     const member=await open({id:'member',username:'lid.test',role:'schutter',clubId:'svbb',displayName:'Schutter',isAdmin:false});
     const page=member.page;
     await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();await page.getByRole('button',{name:'Inschrijven',exact:true}).click();await page.getByRole('button',{name:'Doe mee',exact:true}).click();
+    await page.getByRole('region',{name:'Capaciteit per wedstrijddag'}).waitFor();
+    await page.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Pistool met optics',exact:true}).click();
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:/09:00$/,exact:false}).click();
     await page.getByRole('button',{name:/Betalen en inschrijven.*12,00/}).waitFor();
     await page.getByRole('radiogroup',{name:'Tijdslot optiek',exact:true}).getByRole('radio',{name:/09:15$/,exact:false}).click();
@@ -73,7 +79,13 @@ try{
     providerPaid=true;
     await page.getByRole('button',{name:'Betaalstatus controleren',exact:true}).click();
     await page.getByText(/Betaald en bevestigd.*24,00/).waitFor();assert.equal(confirmed.length,2);
-    await page.screenshot({path:tmpdir()+'/epp-payments-confirmed-'+width+'.png',fullPage:true});await member.context.close();
+    await page.screenshot({path:tmpdir()+'/epp-payments-confirmed-'+width+'.png',fullPage:true});await page.getByRole('button',{name:'Meer',exact:true}).click();
+    await page.locator('summary').filter({hasText:'Privacy en publicatie'}).click();
+    const consent=page.getByRole('checkbox',{name:'Toestemming voor publicatie'});
+    await consent.waitFor();await consent.uncheck();
+    await page.getByRole('button',{name:'Publicatiekeuze opslaan'}).click();
+    await page.getByRole('status').filter({hasText:'Toestemming ingetrokken'}).waitFor();
+    await member.context.close();
   }
   assert.deepEqual(errors,[]);console.log('PASS mobile and desktop: own-account setup gated, two disciplines, EUR12/EUR24, own timeslots, provider checkout, untrusted return and verified confirmation');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
