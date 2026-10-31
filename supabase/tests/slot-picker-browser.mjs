@@ -27,11 +27,11 @@ try{
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.evaluate(()=>{localStorage.setItem(EPP_SESSION_KEY,JSON.stringify({account:{username:'lid.test',displayName:'Test Schutter'}}));window.pickerRoot=ReactDOM.createRoot(document.getElementById('root'));pickerRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(TabInschrijvenLid,{password:'',onAuthFail:()=>{},flash:()=>{}}))));eppShowApp();});
     await page.getByText('Test Schutter',{exact:true}).waitFor();
-    await page.getByRole('button',{name:'DOE MEE',exact:true}).nth(1).waitFor();
+    await page.getByRole('button',{name:'Doe mee',exact:true}).nth(1).waitFor();
     assert.deepEqual(await page.locator('.match-org').allTextContents(),['APGS','SVBB']);
     assert.equal(await page.locator('.match-card').count(),2);
     assert.ok(await page.getByText('Test Schutter',{exact:true}).evaluate(el=>el.getBoundingClientRect().top<document.querySelector('.match-card').getBoundingClientRect().top));
-    await page.locator('.match-card').filter({has:page.getByText('SVBB',{exact:true})}).getByRole('button',{name:'DOE MEE',exact:true}).click();
+    await page.locator('.match-card').filter({has:page.getByText('SVBB',{exact:true})}).getByRole('button',{name:'Doe mee',exact:true}).click();
     const group=page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true});
     await group.waitFor();assert.equal(await group.locator('select').count(),0);
     assert.equal(await group.getByRole('radio',{name:'28 mei 2027 · 09:10 · Vol',exact:true}).isDisabled(),true);

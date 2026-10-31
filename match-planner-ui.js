@@ -145,10 +145,12 @@ const MatchPlanner=({matchId,manage=false})=>{
 
 const PlannerMatchCard=({match})=>{
   const [expanded,setExpanded]=React.useState(false);
-  const notOpen=match.registration_opens_on&&new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Amsterdam'}).format(new Date())<match.registration_opens_on;
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Amsterdam'}).format(new Date());
+  const notOpen=match.registration_opens_on&&today<match.registration_opens_on;
+  const closed=!notOpen&&!!match.deadline&&today>match.deadline;
   return h('section',{className:'match-card'},
-    h('div',{className:'match-hd'},h('div',null,h('div',{className:'match-org'},match.organizer),h('div',{className:'match-sub'},eppFmtMatchDates(match)),match.location&&h('div',{className:'match-sub'},match.location))),
-    h('button',{className:'btn btn-gold btn-full','aria-expanded':expanded,onClick:()=>setExpanded(v=>!v)},expanded?'SLUITEN':notOpen?'WEDSTRIJD BEKIJKEN':'DOE MEE'),
+    h('div',{className:'match-hd'},h('div',null,h('div',{className:'match-org'},match.organizer),h('div',{className:'match-sub'},eppFmtMatchDates(match)),match.location&&h('div',{className:'match-sub'},match.location),match.deadline&&!notOpen&&h('div',{className:'match-sub'},closed?'Inschrijving gesloten':'Inschrijven tot en met '+eppFmtDate(match.deadline)))),
+    h('button',{className:'btn '+(notOpen||closed?'btn-ghost':'btn-gold')+' btn-full','aria-expanded':expanded,onClick:()=>setExpanded(v=>!v)},expanded?'Sluiten':notOpen||closed?'Wedstrijd bekijken':'Doe mee'),
     notOpen&&h('p',{className:'hint',role:'status'},'Inschrijving opent op '+eppFmtDate(match.registration_opens_on)+' om 00:00 uur.'),
     expanded&&h('div',{style:{marginTop:16}},h(MatchPlanner,{matchId:match.id}))
   );
@@ -223,7 +225,7 @@ const PlatformAccessManagement=()=>{
     matches.length>0&&!match&&h('p',{className:'hint'},'Kies eerst de wedstrijd waarvoor je scoorderrechten wilt geven.'),
     access?.closed&&h('p',{className:'hint'},'Deze uitslag is definitief. Nieuwe scoorders toevoegen is niet meer mogelijk.'),
     access&&!access.managing&&h('p',{className:'hint'},'Alleen de organiserende vereniging of hoofdbeheer kan scoorderrechten voor deze wedstrijd wijzigen.'),
-    accounts.filter(a=>a.club_code===club&&a.membership_approved===false).map(a=>h('div',{key:'approval-'+a.id},h('strong',null,a.display_name),h(MembershipApproval,{account:a,onApproved:load}))),
+    head&&accounts.filter(a=>a.club_code===club&&a.membership_approved===false).map(a=>h('div',{key:'approval-'+a.id},h('strong',null,a.display_name),h(MembershipApproval,{account:a,onApproved:load}))),
     accounts.filter(a=>a.club_code===club&&!a.is_platform_admin).map(a=>{const scorer=access?.scorers?.some(s=>s.account_id===a.id),eligible=access?.accounts?.some(s=>s.id===a.id);return h('div',{key:a.id,role:'group','aria-label':a.display_name,style:{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',borderBottom:'1px solid '+C.border,padding:'10px 0'}},h('div',{style:{flex:'1 1 100%',minWidth:0,overflowWrap:'anywhere'}},a.display_name,h('small',{style:{display:'block'}},(a.is_admin?'Verenigingsbeheerder':'Schutter')+(a.active===false?' · Geblokkeerd':'')+(scorer?' · Scoorder voor deze wedstrijd':''))),head&&h('button',{className:'btn '+(a.is_admin?'btn-danger':'btn-gold'),disabled:busy||a.active===false||a.membership_approved===false,onClick:async()=>{
       if(!confirm((a.is_admin?'Beheerrechten intrekken voor ':'Beheerrechten geven aan ')+a.display_name+'?'))return;setBusy(true);setStatus('');
       try{await eppCall('epp-auth',{clubId:CLUB_ID,action:'set_club_admin',accountId:a.id,enabled:!a.is_admin});await load();setStatus('Rechten opgeslagen. De gebruiker moet opnieuw inloggen.');}catch(e){setStatus(e.message);}finally{setBusy(false);}

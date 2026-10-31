@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-mgZSHPpb6pwvJnHEFFV5FjwmyR4m2QcH6pUxZtnm1Ds=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-8MW6yRrLUcupQOqID1Uaz08jEYgYzulpoxhezPdIz5w='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-XAV74XECwfUmVLIkFY3ysgCRsCeTT/YYTLserz7sa2E='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -110,7 +110,7 @@
 <script src="app-experience.js?v=1"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
-<script src="match-planner-ui.js?v=registration-opening-17"></script>
+<script src="match-planner-ui.js?v=analysis-fixes-1"></script>
 <script src="head-view-ui.js?v=5"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=team-edit-2"></script>
@@ -182,7 +182,8 @@ function eppShowLoginGate(){
     try{var details=JSON.parse(registration);clubSel.value=details.clubId;document.getElementById('loginFirstName').value=details.firstName;document.getElementById('loginLastName').value=details.lastName;document.getElementById('loginEmail').value=details.username||details.email||'';document.getElementById('loginStatus').textContent=details.pendingApproval?'Account aangemaakt. Je vereniging moet je lidmaatschap eerst goedkeuren. Daarna kun je inloggen.':'Account aangemaakt. Log in met je eigen wachtwoord.';eppApplyLoginEmail();}catch{}
     sessionStorage.removeItem('epp-registration-login');
   }
-  pw.focus({preventScroll:true});
+  var emailField=document.getElementById('loginEmail');
+  (!document.getElementById('loginEmailLabel').hidden&&!emailField.disabled&&!emailField.value?emailField:pw).focus({preventScroll:true});
 }
 var eppPersonalLogin=false;
 function eppSetPersonalLogin(enabled){
@@ -220,14 +221,16 @@ document.getElementById('loginRole').addEventListener('change',function(){
   eppSetPersonalLogin(this.value==='schutter');
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
+  eppApplyLoginHelp();
 });
 document.getElementById('loginPasswordToggle').addEventListener('click',function(){
   var pw=document.getElementById('loginPassword'),show=pw.type==='password';
   pw.type=show?'text':'password';this.setAttribute('aria-pressed',String(show));
   this.setAttribute('aria-label',show?'Wachtwoord verbergen':'Wachtwoord tonen');this.title=show?'Wachtwoord verbergen':'Wachtwoord tonen';
 });
+function eppApplyLoginHelp(){document.getElementById('loginHelp').textContent=document.getElementById('loginRole').value==='hoofdbeheer'?'Neem contact op met de technisch beheerder van de EPP-app voor hulp bij het hoofdbeheeraccount.':'Neem contact op met je verenigingsbeheerder of hoofdbeheer voor hulp bij je account.';}
 document.getElementById('loginHelpToggle').addEventListener('click',function(){
-  var help=document.getElementById('loginHelp');help.hidden=!help.hidden;this.setAttribute('aria-expanded',String(!help.hidden));
+  var help=document.getElementById('loginHelp');eppApplyLoginHelp();help.hidden=!help.hidden;this.setAttribute('aria-expanded',String(!help.hidden));
 });
 document.getElementById("loginForm").addEventListener("submit",function(event){
   event.preventDefault();
@@ -931,6 +934,11 @@ html,body{margin:0;padding:0;background:${C.bg};overscroll-behavior:none}
 .btn-danger{background:rgba(255,107,93,.12);color:${C.red};border-color:rgba(255,107,93,.3)}
 .btn-success{background:rgba(34,197,94,.14);color:#4ade80;border-color:rgba(34,197,94,.35)}
 .btn-full{width:100%}
+.app a:not(.btn){color:${C.goldLt};text-underline-offset:3px}
+.table-scroll{overflow-x:auto;background:linear-gradient(to left,#0d1737 30%,rgba(13,23,55,0)) right/40px 100% no-repeat local,radial-gradient(farthest-side at 100% 50%,rgba(228,187,74,.35),transparent) right/12px 100% no-repeat scroll}
+.sub-tab-row.tabs-cue{background:linear-gradient(to left,#13192f 30%,rgba(19,25,47,0)) right/36px 100% no-repeat local,radial-gradient(farthest-side at 100% 50%,rgba(228,187,74,.45),transparent) right/12px 100% no-repeat scroll,#13192f}
+.swipe-hint{display:none;margin:0;font-size:12px;color:${C.muted}}
+@media(max-width:560px){.swipe-hint{display:block}}
 .app button:disabled{cursor:not-allowed}
 .btn:disabled,.score-save:disabled,.cal-btn:disabled,.manual-score:disabled{opacity:.45;box-shadow:none;transform:none}
 .btn:disabled:hover,.btn:disabled:active{transform:none;opacity:.45}
@@ -1232,19 +1240,20 @@ const ShooterRounds = ({rounds}) => rounds?.length
     )
   : h("div",{className:"score-prev"},"Nog geen rondes");
 
+const fmtScore = v => Number(v).toLocaleString("nl-NL",{maximumFractionDigits:1});
 const RankList = ({items, max}) => {
   if(!items.length||items.every(r=>r.gem==null)) return h(Empty,{msg:"Nog geen scores in de stand",hint:"Voer een ronde in bij Training. Je score verschijnt hier daarna vanzelf."});
   const posClass = i => i===0?"gold":i===1?"silver":i===2?"bronze":"";
   return h("div",null,
-    items.map((r,i)=>h("div",{key:r.naam,className:"rank-item"},
+    items.map((r,i)=>h("div",{key:r.sid||r.naam,className:"rank-item"},
       h("div",{className:`rank-pos ${posClass(i)}`},r.gem==null?"–":r.position??i+1),
       h("div",{style:{width:11,height:11,borderRadius:3,background:r.kleur,flexShrink:0}}),
       h("div",{className:"rank-bar-wrap"},
         h("div",{className:"rank-name-row"},
           h("span",{className:"rank-name"},r.naam),
-          h("span",{className:"rank-score"},r.gem==null?"–":r.gem.toFixed(1))
+          h("span",{className:"rank-score"},r.gem==null?"–":fmtScore(r.gem))
         ),
-        r.timed&&h("div",{className:"set-sub"},"Vijven: ",r.hits5??'Onbekend'," · 7 m: ",r.rapid_score??'Onbekend'," · ",EppScoreRanking.time(r.rapid_time_ms)," · Totaal: ",EppScoreRanking.parcoursTime(r.total_time_ms),r.provisional?' · Voorlopig':''),
+        r.timed&&(()=>{const facts=[r.hits5!=null&&"Vijven: "+r.hits5,r.rapid_score!=null&&"7 m: "+r.rapid_score,r.rapid_time_ms!=null&&"Snelvuur: "+EppScoreRanking.time(r.rapid_time_ms),r.total_time_ms!=null&&"Totaal: "+EppScoreRanking.parcoursTime(r.total_time_ms),r.provisional&&"Voorlopig"].filter(Boolean);return facts.length?h("div",{className:"set-sub"},facts.join(" · ")):null;})(),
         h(QualificationBadge,{qualification:r.qualification}),
         h("div",{className:"rank-bar"},
           h("div",{className:"rank-fill",style:{
@@ -1285,18 +1294,18 @@ const TabInvoer = ({
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schutters")),
       h("div",{className:"card-body"},
-        !personalTraining&&h("div",{style:{display:"flex",gap:8,marginBottom:10}},
-          h("select",{
-            className:"txt-in",style:{flex:1,minWidth:0},"aria-label":"Schutter met account toevoegen",
+        !personalTraining&&h("div",{style:{display:"flex",gap:8,alignItems:"end",marginBottom:14}},
+          h("label",{style:{flex:1,minWidth:0}},"Schutter met account toevoegen",h("select",{
+            className:"txt-in","aria-label":"Schutter met account toevoegen",
             value:nieuw,onChange:e=>setNieuw(e.target.value),disabled:!!shooterDirectoryStatus
-          },h("option",{value:""},shooterDirectoryStatus||"Kies een schutter met account…"),
-            registeredShooters.filter(s=>!shooters.some(existing=>existing.id===s.id)).map(s=>h("option",{key:s.id,value:s.id},s.display_name))),
-          h("button",{type:"button",className:"btn btn-gold",disabled:!nieuw||!!shooterDirectoryStatus,style:{flexShrink:0,padding:"13px 16px"},onClick:addShooter},"＋")
+          },h("option",{value:""},shooterDirectoryStatus||"Kies schutter…"),
+            registeredShooters.filter(s=>!shooters.some(existing=>existing.id===s.id)).map(s=>h("option",{key:s.id,value:s.id},s.display_name)))),
+          h("button",{type:"button",className:"btn btn-gold",disabled:!nieuw||!!shooterDirectoryStatus,title:"Schutter toevoegen aan training","aria-label":"Schutter toevoegen aan training",style:{flexShrink:0,padding:"13px 16px"},onClick:addShooter},"＋")
         ),
         shooters.length===0
           ? h("p",{style:{fontSize:13,color:C.muted,margin:0}},"Nog geen schutters toegevoegd.")
           : h("div",{style:{display:"flex",gap:8,alignItems:"end"}},
-              h("label",{style:{flex:1,minWidth:0}},"Schutter",h("select",{className:"txt-in","aria-label":"Schutter voor score-invoer",value:activeSid,onChange:e=>setActiveSid(e.target.value)},shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam)))),
+              h("label",{style:{flex:1,minWidth:0}},"Schutter voor score-invoer",h("select",{className:"txt-in","aria-label":"Schutter voor score-invoer",value:activeSid,onChange:e=>setActiveSid(e.target.value)},shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam)))),
               !personalTraining&&h("button",{className:"btn btn-danger",type:"button",title:"Geselecteerde schutter verwijderen","aria-label":"Geselecteerde schutter verwijderen",onClick:()=>removeShooter(activeSid)},"×")
             )
       )
@@ -1321,7 +1330,7 @@ const TabInvoer = ({
                 h("div",{className:"score-avatar",style:{boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
                 h("div",{className:"score-name"},
                   h("div",{className:"score-name-txt"},s.naam),
-                  h("div",{className:"score-prev"},"Gemiddelde: ",average==null?"–":average.toFixed(1)),
+                  h("div",{className:"score-prev"},"Gemiddelde: ",average==null?"–":fmtScore(average)),
                   h("div",{className:`entry-status ${done?"done":""}`},done?"Ingevoerd":"Nog invullen"),
                   h(ShooterRounds,{rounds})
                 ),
@@ -1409,7 +1418,7 @@ const TabTraining = ({shooters, currentTraining, finishTraining, isTrainer,archi
               h("div",{className:"score-avatar",style:{width:36,height:36,fontSize:14,boxShadow:`0 0 0 3px ${kleur(i,shooters.length)}, 0 8px 20px rgba(200,160,48,.3)`}},initial(s.naam)),
               h("span",{style:{flex:1,fontWeight:600,fontSize:14,color:C.ink}},s.naam),
               h("div",{className:`entry-status ${rounds.length?"done":""}`},rounds.length?"Ingevoerd":"Nog invullen"),
-              value!=null&&h("div",{className:"ssc-total"},mode==="parcours"?value:value.toFixed(1))
+              value!=null&&h("div",{className:"ssc-total"},mode==="parcours"?value:fmtScore(value))
             ),
             h(ShooterRounds,{rounds})
           );
@@ -1421,7 +1430,7 @@ const TabTraining = ({shooters, currentTraining, finishTraining, isTrainer,archi
       )
     ),
     archives.length>0&&h("section",null,h("h3",null,"Trainingsarchief"),archives.map(t=>h("details",{key:t.id,style:{padding:"12px 0",borderBottom:"1px solid "+C.border}},
-      h("summary",null,new Date(t.closedAt).toLocaleDateString("nl-NL")+" - "+(t.rounds||[]).length+" rondes"+(t.excludedFromStand?" - niet meegenomen":"")),
+      h("summary",null,new Date(t.closedAt).toLocaleDateString("nl-NL",{day:"numeric",month:"short",year:"numeric"})+" - "+(t.rounds||[]).length+((t.rounds||[]).length===1?" ronde":" rondes")+(t.excludedFromStand?" - niet meegenomen":"")),
       (t.rounds||[]).filter(r=>!selected||r.sid===selected).map(r=>h("p",{key:r.id},(shooters.find(s=>s.id===r.sid)?.naam||r.sid)+" - "+(r.type==="parcours"?"Parcours":r.stage)+": "+r.score)))))
   );
 };
@@ -1451,8 +1460,8 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf,qualific
     load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};
   },[qualificationRecords]);
   const stageObj = STAGES.find(s=>s.key===stage);
-  const parcoursItems = EppScoreRanking.rank(shooters.filter(s=>bestParcours?.[s.id]).map((s,i)=>({...bestParcours[s.id],final_score:bestParcours[s.id].score,naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestParcours[s.id].score,max:250,timed:true})));
-  const stageItems = shooters.map((s,i)=>({naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestStageAverages?.[stage]?.[s.id]?.avg,max:maxOf(stage)})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
+  const parcoursItems = EppScoreRanking.rank(shooters.filter(s=>bestParcours?.[s.id]).map((s,i)=>({...bestParcours[s.id],final_score:bestParcours[s.id].score,sid:s.id,naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestParcours[s.id].score,max:250,timed:true})));
+  const stageItems = shooters.map((s,i)=>({sid:s.id,naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestStageAverages?.[stage]?.[s.id]?.avg,max:maxOf(stage)})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Parcours stand · hoogste score")),
@@ -1562,16 +1571,17 @@ const PublishedStandings = () => {
   const source = PUBLISHED_STANDINGS_2026.sources[category==="Open"?"open":category==="Teams"?"teams":"ind"];
   const items=EppUx.filterRanking(source.rows,{category,query,club});
   const clubs=[...new Set(source.rows.filter(r=>r.category===category).map(r=>r.club).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"nl"));
-  return h("section",null,
+  return h("section",{className:"card"},
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Gepubliceerd klassement 2026")),
     h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:12}},
-      h("div",{className:"sub-tab-row",style:{flexWrap:"wrap"}},["A","B","C","Open","Teams"].map(value=>h("button",{key:value,type:"button",className:"sub-tab","data-on":category===value?"1":"0",onClick:()=>{setCategory(value);setClub("");setLimit(25);}},["A","B","C"].includes(value)?"Klasse "+value:value))),
+      h("div",{className:"sub-tab-row scroll"},["A","B","C","Open","Teams"].map(value=>h("button",{key:value,type:"button",className:"sub-tab","data-on":category===value?"1":"0",onClick:()=>{setCategory(value);setClub("");setLimit(25);}},["A","B","C"].includes(value)?"Klasse "+value:value))),
       h("p",{className:"hint"},source.date?"Stand volgens bron: "+source.date+". ":"Geen standdatum vermeld in de bron. ","Overgenomen op "+new Date(PUBLISHED_STANDINGS_2026.importedOn+"T12:00:00").toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"})+". ",h("a",{href:source.url,target:"_blank",rel:"noopener noreferrer"},"Officiële bron")),
       h("p",{className:"hint"},category!=="Open"?"Volgorde en Beste 4 volgens de officiële bron. Totaal en gemiddelde over alle wedstrijden. Ontbrekende bronwaarden staan als –.":"Totaal en gemiddelde over alle wedstrijden."),
       h("input",{className:"txt-in",type:"search",placeholder:category==="Teams"?"Team zoeken":"Schutter of vereniging zoeken","aria-label":"Zoeken in gepubliceerd klassement",value:query,onChange:e=>{setQuery(e.target.value);setLimit(25);}}),
       h("label",null,"Vereniging",h("select",{className:"txt-in",value:club,onChange:e=>{setClub(e.target.value);setLimit(25);}},h("option",{value:""},"Alle verenigingen"),clubs.map(c=>h("option",{key:c,value:c},c)))),
       h("p",{className:"rank-count",role:"status"},items.length+" resultaten"),
-      h("div",{style:{overflowX:"auto"}},h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:14}},
+      h("p",{className:"swipe-hint"},"Veeg de tabel opzij voor alle kolommen."),
+      h("div",{className:"table-scroll"},h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:14}},
         h("thead",null,h("tr",null,["Pos.",category==="Teams"?"Team":"Schutter",...(category!=="Open"?["Beste 4"]:[]),"Totaal","Wedstr.","Gem."].map(label=>h("th",{key:label,scope:"col",style:{textAlign:"left",padding:"10px 6px",borderBottom:"1px solid "+C.border}},label)))),
         h("tbody",null,items.slice(0,limit).map(item=>h("tr",{key:category+"-"+item.position},
           h("td",{style:{padding:"10px 6px",verticalAlign:"top"}},item.position),
@@ -1683,7 +1693,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
       const scoring=await eppCall('epp-scoring',{clubId:CLUB_ID,action:'catalog'});
       if(request!==rankingRequest.current)return;
       setMatchesCalendar(scoring.matches||[]);
-      setStatus("landelijke stand bijgewerkt");
+      setStatus("Landelijke stand bijgewerkt");
     }catch(e){if(request===rankingRequest.current)setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}
   },[discipline,matchId]);
   React.useEffect(()=>{load();const timer=setInterval(load,10000);return()=>{clearInterval(timer);rankingRequest.current++;};},[load]);
@@ -1770,24 +1780,33 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
     }catch(e){setStatus("Opslaan mislukt: "+(scoringMatch?.scoring?scoringError(e):eppPlatformError(e.message)));}
     finally{submitLock.current=false;setBusy(false);}
   };
-  const navigation=h('div',{className:'sub-tab-row scroll'},[['signup','Inschrijven'],['individual','Scores'],['teams','Teams'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
+  const navigation=h('div',{className:'sub-tab-row scroll tabs-cue'},[['signup','Inschrijven'],['individual','Scores'],['ranking','Klassement'],['teams','Teams'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
   if(view==='signup')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash}));
+  const disciplineSelect=h("label",null,"Discipline",h("select",{className:"txt-in","aria-label":"Discipline",value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setRanking([]);setMatchRanking([]);resetForm();}},h("option",{value:"pistool"},"EPP pistool"),h("option",{value:"optiek"},"Open (Optics)")));
+  if(view==='ranking')return h('div',{className:'page-fade',style:{display:'flex',flexDirection:'column',gap:12}},navigation,disciplineSelect,
+    h("div",{className:"card"},
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Landelijke seizoensranking · beste wedstrijdscore")),
+      h("div",{className:"card-body"},!canInput && h("p",{className:"hint",role:"status"},status),h(RankingTable,{items:ranking}))
+    ),
+    h(PublishedStandings));
   if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters'}));
+  const formReady=!!matchId&&!!(selectedShooter||newShooter);
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},navigation,
-    h("label",null,"Discipline",h("select",{className:"txt-in","aria-label":"Discipline",value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setRanking([]);setMatchRanking([]);resetForm();}},h("option",{value:"pistool"},"EPP pistool"),h("option",{value:"optiek"},"Open (Optics)"))),
+    disciplineSelect,
     h("label",null,"Wedstrijd",h("select",{className:"txt-in","aria-label":"Wedstrijd",value:matchId,disabled:busy,onChange:e=>{resetForm();setMatchId(e.target.value);setRoundId("");setMatchRanking([]);}},h("option",{value:""},"Kies wedstrijd"),matchesCalendar.map(m=>h("option",{key:m.id,value:m.id},m.match_date+" - "+m.organizer)))),
     scoringMatch?.scoring&&h(MatchScoringManagement,{key:matchId,matchId,discipline,onClosed:()=>{resetForm();load();}}),
     canInput && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Score bevestigen")),
-      h("div",{className:"card-body score-form",style:{display:"flex",flexDirection:"column",gap:10}},
+      h("div",{className:"card-body"+(formReady?" score-form":""),style:{display:"flex",flexDirection:"column",gap:10}},
         draftStatus&&h("p",{className:"draft-note",role:"status"},draftStatus),
         draftOffer&&h("div",null,h("button",{className:"btn btn-ghost",disabled:busy||resultLoading||draftOffer.stale,onClick:restoreOfficialDraft},"Concept herstellen"),h("button",{className:"btn btn-ghost",disabled:busy||resultLoading,onClick:()=>{clearOfficialDraft();draftReady.current=officialKey;}},"Concept verwijderen")),
         matchLoading && h("p",{className:"hint",role:"status"},"Wedstrijd laden..."),
         directoryStatus && h("p",{className:"hint",role:"status"},directoryStatus),
         participantStatus&&h('p',{className:'hint',role:'status'},participantStatus),
         participants?.planned&&h('p',{className:'hint'},'Ingeschreven deelnemers · '+(discipline==='optiek'?'Open':'Pistool')),
-        h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);newShooterId.current=newId();}}),
-        !selectedShooter && !newShooter && search && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
+        !matchId&&h("p",{className:"hint"},"Kies eerst hierboven een wedstrijd. Daarna zoek je de schutter en vul je de score in."),
+        matchId&&h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);newShooterId.current=newId();}}),
+        matchId && !selectedShooter && !newShooter && search && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
           matches.map(s=>h("button",{key:s.key,type:"button",className:"btn btn-ghost",style:{textAlign:"left",whiteSpace:"normal",minHeight:48},onClick:()=>{setSelectedShooter(s);setShooterName(s.name);}},
             h("span",{style:{overflowWrap:"anywhere"}},s.name,h("small",{style:{display:"block",color:C.muted}},s.id?s.club+" · "+s.publicId+(s.lease?" · In bewerking":""):"Klassement 2026 · "+s.club))
           )),
@@ -1797,7 +1816,8 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
         (selectedShooter || newShooter) && h("p",{className:"hint"},newShooter?"Nieuwe schutter: "+shooterName:selectedShooter.id?"Geselecteerd: "+selectedShooter.name+" · "+selectedShooter.club+" · "+selectedShooter.publicId:"Geselecteerd uit klassement 2026: "+selectedShooter.name),
         scoringMatch?.scoring&&selectedShooter?.id&&h('div',null,h('p',{className:'hint',role:'status'},reservation.status||'Schutter reserveren...'),h('button',{className:'btn btn-ghost',onClick:resetForm,disabled:busy},'Invoer annuleren'),!reservation.token&&h('button',{className:'btn btn-ghost',onClick:()=>{if(window.confirm('De opgeslagen score wordt opnieuw geladen. Niet-opgeslagen invoer wordt vervangen. Doorgaan?'))reservation.retry();},disabled:busy},'Opnieuw reserveren')),
         selectedShooter?.id&&!scoringMatch?.scoring&&eppSession()?.account?.isAdmin&&h(QualificationEditor,{key:selectedShooter.id+discipline,shooterId:selectedShooter.id,discipline,onSaved:load}),
-        h('fieldset',{disabled:busy||resultLoading||(!!scoringMatch?.scoring&&!reservation.token),style:{border:0,padding:0,margin:0,minWidth:0}},
+        matchId&&!formReady&&h("p",{className:"hint"},"Zoek en kies een schutter om de score in te vullen."),
+        formReady&&h('fieldset',{disabled:busy||resultLoading||(!!scoringMatch?.scoring&&!reservation.token),style:{border:0,padding:0,margin:0,minWidth:0}},
         revision>0&&h("label",null,"Reden van correctie",h("input",{className:"txt-in",value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
         !allowedDiscipline&&h("p",{className:"hint",role:"alert"},"Open is niet aangeboden bij deze wedstrijd."),
         h("h3",{style:{margin:"8px 0",fontSize:18}},resultLoading?"Score ophalen...":"Snelvuurscore · 7 meter · 2 × 5 schoten"),
@@ -1831,11 +1851,11 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},gross),h("div",{className:"stat-lbl"},"bruto")),
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},countedFinal),h("div",{className:"stat-lbl"},"eindscore"))
           ),
-          (!validRapid||shots!==50) && h("p",{className:"hint",style:{color:C.red}},"Vereist: 10 snelvuurschoten + 40 overige schoten."),
-          !validTimes&&h("p",{className:"hint",style:{color:C.red}},!Number.isSafeInteger(totalTimeMs)?"Vul de eindtijd in als minuten:seconden, bijvoorbeeld 4:53. Seconden mogen niet hoger zijn dan 59.":"Controleer snelvuurtijd en straftijd; de eindtijd kan niet korter zijn dan de snelvuurtijd.")
+          shots>0 && (!validRapid||shots!==50) && h("p",{className:"hint",style:{color:C.red}},"Vereist: 10 snelvuurschoten + 40 overige schoten."),
+          !validTimes&&(String(totalTime||'').trim()||String(rapidTime||'').trim())&&h("p",{className:"hint",style:{color:C.red}},!Number.isSafeInteger(totalTimeMs)?"Vul de eindtijd in als minuten:seconden, bijvoorbeeld 4:53. Seconden mogen niet hoger zijn dan 59.":"Controleer snelvuurtijd en straftijd; de eindtijd kan niet korter zijn dan de snelvuurtijd.")
         ),
         ),
-        h("div",{className:"save-dock"},h("div",{className:"dock-summary"},shots+" / 50 schoten · "+countedFinal+" punten",h("small",null,busy?"Online opslaan…":draftOffer?"Herstel of verwijder eerst je concept":!canConfirm?"Controleer schutter, telling en tijden":"Klaar om te bevestigen")),h("button",{className:"btn btn-gold",disabled:busy||!!draftOffer||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan")),
+        formReady&&h("div",{className:"save-dock"},h("div",{className:"dock-summary"},shots+" / 50 schoten · "+countedFinal+" punten",h("small",null,busy?"Online opslaan…":draftOffer?"Herstel of verwijder eerst je concept":!canConfirm?"Controleer schutter, telling en tijden":"Klaar om te bevestigen")),h("button",{className:"btn btn-gold",disabled:busy||!!draftOffer||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan")),
         h("p",{className:"hint",role:"status"},status)
       )
     ),
@@ -1843,11 +1863,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Wedstrijdstand · ",discipline==="optiek"?"Open":"Pistool")),
       h("div",{className:"card-body"},matchId?h(RankingTable,{items:matchRanking}):h("p",{className:"hint"},"Kies wedstrijd"))
     ),
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Landelijke seizoensranking · beste wedstrijdscore")),
-      h("div",{className:"card-body"},!canInput && h("p",{className:"hint",role:"status"},status),h(RankingTable,{items:ranking}))
-    ),
-    h(PublishedStandings)
+    !canInput && h("p",{className:"hint",role:"status"},status)
   );
 };
 
@@ -2084,7 +2100,7 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
             ? h("a",{href:`mailto:${m.organizer_email}`,style:{color:C.goldLt,fontWeight:800}},m.organizer_email)
             : "(geen e-mailadres bekend, vraag de trainer)"
         ),
-        !closed && h("button",{className:"btn "+(d.active?"btn-danger":"btn-gold")+" btn-full",onClick:()=>setActive(m,!d.active)},d.active?"AFMELDEN":"DOE MEE"),
+        !closed && h("button",{className:"btn "+(d.active?"btn-danger":"btn-gold")+" btn-full",onClick:()=>setActive(m,!d.active)},d.active?"Afmelden":"Doe mee"),
         d.active && h("div",{style:{display:"flex",flexDirection:"column"}},
           EPP_DISCIPLINES.filter(x=>m.offered_disciplines.includes(x.id)).map(disc=>
             h(EppDisciplineRow,{key:disc.id,d:disc,checked:!!d.disciplines[disc.id],
@@ -2334,7 +2350,7 @@ const BackupManagement = ({canRestore,onRestored}) => {
     setBusy(true);
     try{
       const p=await eppCall("epp-training",{clubId:CLUB_ID,action:"restore_preview",backupId:id});
-      if(!confirm("Training van "+CLUB.label+" terugzetten naar "+new Date(p.createdAt).toLocaleString("nl-NL")+"?\n"+p.shooters+" schutters, "+p.rounds+" losse rondes en "+p.archives+" archieftrainingen.\nWedstrijdresultaten en andere verenigingen blijven ongewijzigd. Er wordt eerst een herstelkopie gemaakt."))return;
+      if(!confirm("Training van "+CLUB.label+" terugzetten naar "+new Date(p.createdAt).toLocaleString("nl-NL",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})+"?\n"+p.shooters+" schutters, "+p.rounds+" losse rondes en "+p.archives+" archieftrainingen.\nWedstrijdresultaten en andere verenigingen blijven ongewijzigd. Er wordt eerst een herstelkopie gemaakt."))return;
       await eppCall("epp-training",{clubId:CLUB_ID,action:"restore_training",backupId:id,confirm:id,expectedStamp:p.expectedStamp});
       await onRestored();setStatus("Training hersteld.");
     }catch(e){setStatus("Niet hersteld: "+e.message);}
@@ -2343,8 +2359,10 @@ const BackupManagement = ({canRestore,onRestored}) => {
   return h("section",null,h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Back-ups")),
     h("div",{className:"card-body",style:{display:"grid",gap:10}},
       h("button",{className:"btn btn-ghost",disabled:busy,onClick:create},"Back-up maken"),
-      h("select",{className:"txt-in","aria-label":"Herstelpunt",disabled:busy,value:id,onChange:e=>setId(e.target.value)},backups.map(b=>h("option",{key:b.id,value:b.id},new Date(b.created_at).toLocaleString("nl-NL")))),
-      h("button",{className:"btn btn-danger",disabled:busy||!id||!canRestore,onClick:restore},"Training herstellen"),
+      h("div",{style:{display:"grid",gap:10,marginTop:8,paddingTop:14,borderTop:"1px solid "+C.border}},
+      h("label",null,"Herstelpunt",h("select",{className:"txt-in","aria-label":"Herstelpunt",disabled:busy,value:id,onChange:e=>setId(e.target.value)},backups.map(b=>h("option",{key:b.id,value:b.id},new Date(b.created_at).toLocaleString("nl-NL",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}))))),
+      h("p",{className:"hint"},"Herstellen zet de training van je vereniging terug naar het gekozen moment. Er wordt eerst een herstelkopie gemaakt."),
+      h("button",{className:"btn btn-danger",disabled:busy||!id||!canRestore,onClick:restore},"Training herstellen")),
       h("p",{role:"status",className:"hint"},status)));
 };
 const removeAccountWithConfirmation = async account => {
@@ -2404,7 +2422,7 @@ const AccountManagement = () => {
         h("button",{className:"btn btn-gold",disabled:busy},busy?"Opslaan...":"Account aanmaken")),
       h("p",{role:"status",className:"hint"},status)));
 };
-const MoreItem = ({title,sub,danger,children}) => h("details",{className:"more-item"+(danger?" danger":"")},
+const MoreItem = ({id,title,sub,danger,children}) => h("details",{id,className:"more-item"+(danger?" danger":"")},
   h("summary",null,
     h("span",{className:"more-title"},title,sub&&h("span",{className:"more-sub"},sub)),
     h("svg",{className:"more-chev",width:18,height:18,viewBox:"0 0 24 24",fill:"none","aria-hidden":"true"},h("path",{d:"M9 6l6 6-6 6",stroke:"currentColor",strokeWidth:2.4,strokeLinecap:"round",strokeLinejoin:"round"}))),
@@ -2421,9 +2439,10 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
       h("div",{style:{minWidth:0}},
         h("div",{className:"account-name"},name),
         h("div",{className:"account-sub"},(isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
-    account.isAdmin&&h(PlatformAccessManagement),
-    account.isAdmin&&h(AccountManagement),
-    account.isAdmin&&h(BackupManagement,{canRestore,onRestored}),
+    account.isAdmin&&h("div",{className:"card more-list"},
+      h(MoreItem,{title:account.isPlatformAdmin?"Verenigingsrechten":"Scoorderrechten",sub:account.isPlatformAdmin?"Rechten en goedkeuringen per vereniging":"Wie per wedstrijd scores mag invoeren"},h(PlatformAccessManagement)),
+      h(MoreItem,{id:"account-management",title:"Accounts",sub:"Accounts en lidmaatschappen van je vereniging"},h(AccountManagement)),
+      h(MoreItem,{title:"Back-ups",sub:"Back-up maken of training herstellen"},h(BackupManagement,{canRestore,onRestored}))),
     h("div",{className:"card more-list"},
       account.role==='schutter'&&personal&&h(MoreItem,{title:"Gebruikersnaam",sub:account.loginUsername?"Inloggen als "+account.loginUsername:"Nog niet gekozen"},h(ShooterUsername)),
       personal&&h(MoreItem,{title:"Wachtwoord",sub:"Wijzig je wachtwoord"},h(ChangeTrainerPassword,{logout})),
@@ -2573,7 +2592,7 @@ const PersonalHome=({shooters,currentTraining,archives,personalTraining,canTrain
     data.recent.length>0&&h('section',{className:'card'},h('div',{className:'card-body'},h('h3',null,'Laatste parcoursrondes'),
       h('div',{className:'trend-bars',role:'img','aria-label':data.recent.map(r=>date(r.ts)+': '+r.score+' van 250 punten').join('; ')},data.recent.map(r=>h('div',{key:r.id,className:'trend-column'},h('span',null,r.score),h('div',{className:'trend-bar',style:{height:Math.max(1,r.score/250*90)+'px'}}),h('span',null,date(r.ts))))))),
     selected&&h('section',{className:'card'},h('div',{className:'card-body'},h('h3',null,'Ontwikkeling per stage'),
-      STAGES.map(stage=>{const rounds=data.rounds.filter(r=>r.type==='stage'&&r.stage===stage.key).slice(-5);return h('div',{key:stage.key,className:'home-stage'},h('span',null,stage.kort),h('span',null,rounds.length?format(rounds.reduce((n,r)=>n+r.score,0)/rounds.length)+' punten · '+rounds.length+' rondes':'Nog geen rondes'));}),h('p',{className:'hint'},'Gemiddelde van maximaal 5 recente rondes per stage.'))),
+      STAGES.map(stage=>{const rounds=data.rounds.filter(r=>r.type==='stage'&&r.stage===stage.key).slice(-5);return h('div',{key:stage.key,className:'home-stage'},h('span',null,stage.kort),h('span',null,rounds.length?format(rounds.reduce((n,r)=>n+r.score,0)/rounds.length)+' punten · '+rounds.length+(rounds.length===1?' ronde':' rondes'):'Nog geen rondes'));}),h('p',{className:'hint'},'Gemiddelde van maximaal 5 recente rondes per stage.'))),
     data.rounds.length>0&&h('section',{className:'card'},h('div',{className:'card-body'},h('h3',null,'Recente invoer'),data.rounds.slice(-5).reverse().map(r=>h('div',{key:r.id,className:'home-round'},h('span',null,date(r.ts),' · ',r.type==='parcours'?'Parcours':STAGES.find(st=>st.key===r.stage)?.kort||r.stage),h('strong',null,r.score+' punten')))))
   );
 };
@@ -2870,7 +2889,7 @@ function App({headClubs,onHeadClubChange}={}) {
       h("div",{className:"gold-stripe"})
     ),
     h("main",{className:"main"},h("p",{role:"status",className:syncLevel==="warn"?"sync-note":"sync-line "+syncLevel},syncStatus),
-      h(PendingMembershipNotice,{onReview:()=>{setTab('instel');setTimeout(()=>document.getElementById('membership-management')?.scrollIntoView({block:'start',behavior:'smooth'}),0);}}),
+      h(PendingMembershipNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById(eppSession()?.account?.isPlatformAdmin?'membership-management':'account-management');const box=el?.closest('details');if(box)box.open=true;el?.scrollIntoView({block:'start',behavior:'smooth'});},0);}}),
       canTrain&&syncLevel==="warn"&&!store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:syncNow},"Opslag opnieuw proberen"),
       store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:recoverConflict},"Online versie laden met herstelkopie"),activeContent),
     h("nav",{className:"bottomnav",style:{gridTemplateColumns:`repeat(${navItems.length},1fr)`}},

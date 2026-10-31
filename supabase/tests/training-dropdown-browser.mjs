@@ -30,7 +30,7 @@ try{
   const dropdown=page.getByLabel('Schutter met account toevoegen',{exact:true});
   await dropdown.locator('option[value="'+sid+'"]').waitFor({state:'attached'});
   assert.equal(await page.getByPlaceholder('Naam toevoegen…').count(),0);
-  await dropdown.selectOption(sid);await page.getByRole('button',{name:'＋',exact:true}).click();
+  await dropdown.selectOption(sid);await page.getByRole('button',{name:'Schutter toevoegen aan training',exact:true}).click();
   await page.getByLabel('Schutter voor score-invoer',{exact:true}).locator('option[value="'+sid+'"]').waitFor({state:'attached'});
   assert.equal(await dropdown.locator('option[value="'+sid+'"]').count(),0);
   await page.locator('.num-in').fill('200');await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();

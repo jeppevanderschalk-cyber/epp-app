@@ -72,7 +72,7 @@ try{
     ({c,p}=await open({id:'member-test',username:'lid.test',displayName:'Test Schutter',role:'schutter',clubId:'svbb',isAdmin:false}));
     await p.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     await p.getByRole('button',{name:'Inschrijven',exact:true}).click();
-    await p.locator('.match-card').filter({has:p.getByText('Planner Test',{exact:true})}).getByRole('button',{name:'DOE MEE',exact:true}).click();
+    await p.locator('.match-card').filter({has:p.getByText('Planner Test',{exact:true})}).getByRole('button',{name:'Doe mee',exact:true}).click();
     const pistol=p.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}),optics=p.getByRole('radiogroup',{name:'Tijdslot optiek',exact:true});
     await pistol.getByRole('radio',{name:'14 nov 2030 · 09:00',exact:true}).click();
     await optics.getByRole('radio',{name:'14 nov 2030 · 09:30',exact:true}).click();

@@ -84,7 +84,7 @@ try{
     const page=await context.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
     const dropdown=page.getByLabel('Schutter met account toevoegen',{exact:true});
     await dropdown.locator('option[value="pending-head-shooter"]').waitFor({state:'attached'});
-    await dropdown.selectOption('pending-head-shooter');await page.getByRole('button',{name:'＋',exact:true}).click();
+    await dropdown.selectOption('pending-head-shooter');await page.getByRole('button',{name:'Schutter toevoegen aan training',exact:true}).click();
     await page.getByLabel('Schutter voor score-invoer').waitFor();
     const input=page.locator('.num-in').first();await input.fill('123');
     await page.waitForTimeout(1000);assert.equal(saveStarted,true);

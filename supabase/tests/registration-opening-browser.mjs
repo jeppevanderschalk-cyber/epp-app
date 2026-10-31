@@ -23,7 +23,7 @@ try{for(const width of [390,1440]){
  for(const name of ['Wedstrijdplanner','Groepslijst','Bewerken','Archiveren'])await page.getByRole('button',{name,exact:true}).waitFor();
  await page.waitForTimeout(400);
  assert.equal(await page.locator('.match-org').filter({hasText:'SV Beemte Broekland'}).count(),1);
- assert.equal(await page.getByRole('button',{name:'DOE MEE',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Doe mee',exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:'/tmp/epp-match-management-'+width+'.png',fullPage:true});
  await page.getByRole('button',{name:'Groepslijst',exact:true}).click();await page.getByText('Nog geen aanmeldingen.',{exact:true}).waitFor();
@@ -39,9 +39,9 @@ try{for(const width of [390,1440]){
  await page.getByRole('button',{name:'Terug naar wedstrijden',exact:true}).click();
  await page.getByRole('button',{name:'Archiveren',exact:true}).click();await page.waitForTimeout(100);assert.ok(requests.some(b=>b.action==='archive_match'&&b.id===match.id));
  await page.evaluate(match=>{window.testRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(PlannerMatchCard,{match}))));},match);
- await page.getByRole('button',{name:'WEDSTRIJD BEKIJKEN',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Wedstrijd bekijken',exact:true}).waitFor();
  await page.getByText('Inschrijving opent op 2 jan 2027 om 00:00 uur.',{exact:true}).waitFor();
- assert.equal(await page.getByRole('button',{name:'DOE MEE',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Doe mee',exact:true}).count(),0);
  assert.ok(await page.getByText('Beemte Broekland',{exact:true}).isVisible());
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:'/private/tmp/epp-opening-'+width+'.png',fullPage:true});

@@ -23,7 +23,7 @@ try{for(const width of [390,1440]){
  for(const name of ['Wedstrijdplanner','Groepslijst','Bewerken','Archiveren'])await page.getByRole('button',{name,exact:true}).waitFor();
  await page.waitForTimeout(400);
  assert.equal(await page.locator('.match-org').filter({hasText:'SV Beemte Broekland'}).count(),1);
- assert.equal(await page.getByRole('button',{name:'DOE MEE',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Doe mee',exact:true}).count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:'/tmp/epp-match-management-'+width+'.png',fullPage:true});
  await page.getByRole('button',{name:'Groepslijst',exact:true}).click();await page.getByText('Nog geen aanmeldingen.',{exact:true}).waitFor();
