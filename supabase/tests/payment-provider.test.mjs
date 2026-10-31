@@ -16,7 +16,7 @@ test('OAuth credentials are authenticated, encrypted and bound to the club',asyn
   assert.deepEqual(await unseal(encrypted,key,'club:apgs'),secret);
   await assert.rejects(unseal(encrypted,key,'club:svbb'));
   await assert.rejects(unseal(encrypted,'b'.repeat(64),'club:apgs'));
-  const altered=JSON.parse(encrypted);altered.data='A'+altered.data.slice(1);await assert.rejects(unseal(JSON.stringify(altered),key,'club:apgs'));
+  const altered=JSON.parse(encrypted),bytes=Buffer.from(altered.data,'base64');bytes[0]^=1;altered.data=bytes.toString('base64');await assert.rejects(unseal(JSON.stringify(altered),key,'club:apgs'));
 });
 test('request fixes price, recipient, metadata and return URLs on the server',()=>{
   const body=paymentRequest({...order,amountFromBrowser:1,bankAccountFromBrowser:'wrong'},config);
