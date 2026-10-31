@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-++ZzolcfgdBYWJoiHN+yWz5i+CoA0g/hYlHUDCNGzGs='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-aNiuCb1Aqa1hhKLwj9PmyqC2UOAv7dvZvj/Yx3bCGmA='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -113,7 +113,7 @@
 <script src="publication-ui.js?v=consent-capacity-1"></script>
 <script src="planner-capacity.js?v=consent-capacity-1"></script>
 <script src="payment-ui.js?v=prepared-payments-1"></script>
-<script src="match-planner-ui.js?v=consent-capacity-1"></script>
+<script src="match-planner-ui.js?v=membership-requests-1"></script>
 <script src="head-view-ui.js?v=5"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=team-edit-2"></script>
@@ -2486,6 +2486,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
         h("div",{className:"account-sub"},(account.isPlatformAdmin?"Hoofdbeheerder":account.isAdmin?"Verenigingsbeheerder":isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
     account.isAdmin&&h("div",{className:"card more-list"},
       h(MoreItem,{title:account.isPlatformAdmin?"Verenigingsrechten":"Scoorderrechten",sub:account.isPlatformAdmin?"Rechten en goedkeuringen per vereniging":"Wie per wedstrijd scores mag invoeren"},h(PlatformAccessManagement)),
+      h(MoreItem,{id:"membership-requests",title:"Nieuwe aanvragen",sub:"Bekijk en keur openstaande accountaanvragen goed"},h(MembershipRequests)),
       h(MoreItem,{id:"account-management",title:"Accounts",sub:"Accounts en lidmaatschappen van je vereniging"},h(AccountManagement)),
       h(MoreItem,{title:"Back-ups",sub:"Back-up maken of training herstellen"},h(BackupManagement,{canRestore,onRestored}))),
     h("div",{className:"card more-list"},
@@ -2937,7 +2938,7 @@ function App({headClubs,onHeadClubChange}={}) {
     ),
     h("main",{className:"main"},h("p",{role:"status",className:syncLevel==="warn"?"sync-note":"sync-line "+syncLevel},syncStatus),
       h(PaymentReturn),
-      h(PendingMembershipNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById(eppSession()?.account?.isPlatformAdmin?'membership-management':'account-management');const box=el?.closest('details');if(box)box.open=true;el?.scrollIntoView({block:'start',behavior:'smooth'});},0);}}),
+      h(PendingMembershipNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById('membership-requests');const box=el?.closest('details');if(box)box.open=true;el?.scrollIntoView({block:'start',behavior:'smooth'});},0);}}),
       canTrain&&syncLevel==="warn"&&!store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:syncNow},"Opslag opnieuw proberen"),
       store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:recoverConflict},"Online versie laden met herstelkopie"),activeContent),
     h("nav",{className:"bottomnav",style:{gridTemplateColumns:`repeat(${navItems.length},1fr)`}},

@@ -44,3 +44,6 @@ jobs:
       - run: node supabase/tests/install-help-browser.mjs
         env:
           PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
+      - run: node supabase/tests/membership-requests-browser.mjs
+        env:
+          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs

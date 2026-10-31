@@ -221,6 +221,27 @@ const PendingMembershipNotice=({onReview})=>{
   if(!count)return null;
   return h('section',{role:'status','aria-label':'Accounts wachten op goedkeuring',style:{borderLeft:'4px solid '+C.gold,padding:'12px 16px',marginBottom:16}},h('strong',null,count===1?'Een nieuw account wacht op jouw goedkeuring.':count+' nieuwe accounts wachten op jouw goedkeuring.'),h('button',{className:'btn btn-gold',style:{display:'block',marginTop:12},onClick:onReview},'Aanvragen bekijken'));
 };
+const MembershipRequests=()=>{
+  const account=eppSession()?.account,head=account?.isPlatformAdmin===true;
+  const [accounts,setAccounts]=React.useState([]),[clubs,setClubs]=React.useState([]),[loading,setLoading]=React.useState(true),[error,setError]=React.useState('');
+  const request=React.useRef(0);
+  const load=async()=>{
+    const version=++request.current;setLoading(true);setError('');
+    try{const r=await eppCall('epp-auth',{clubId:account.clubId,action:head?'list_club_access':'list_accounts'});if(version===request.current){setAccounts((r.accounts||[]).filter(a=>a.membership_approved===false&&a.active!==false));setClubs(r.clubs||[]);}}
+    catch{if(version===request.current)setError('Aanvragen konden niet worden opgehaald. Probeer opnieuw.');}
+    finally{if(version===request.current)setLoading(false);}
+  };
+  React.useEffect(()=>{load();window.addEventListener('focus',load);window.addEventListener('epp-membership-approved',load);return()=>{request.current++;window.removeEventListener('focus',load);window.removeEventListener('epp-membership-approved',load);};},[]);
+  return h('section',{'aria-label':'Openstaande accountaanvragen',style:{display:'grid',gap:12}},
+    h('p',{className:'hint'},head?'Alle openstaande aanvragen van alle verenigingen.':'Openstaande aanvragen van jouw vereniging.'),
+    h('button',{className:'btn btn-ghost',disabled:loading,onClick:load},'Aanvragen verversen'),
+    loading&&h('p',{role:'status',className:'hint'},'Aanvragen laden...'),
+    error&&h('p',{role:'alert',className:'hint'},error),
+    !loading&&!error&&!accounts.length&&h('p',{role:'status',className:'hint'},'Er zijn geen openstaande aanvragen.'),
+    !error&&accounts.map(a=>h('div',{key:a.id,role:'group','aria-label':'Aanvraag '+a.display_name,style:{borderBottom:'1px solid '+C.border,padding:'10px 0'}},
+      h('strong',null,a.display_name),h('p',{className:'hint'},clubs.find(c=>c.code===a.club_code)?.naam||a.club_code||CLUB.label),
+      h(MembershipApproval,{account:a,onApproved:load}))));
+};
 const MembershipApproval=({account,onApproved})=>{
   const [busy,setBusy]=React.useState(false),[status,setStatus]=React.useState('');
   if(account.membership_approved!==false)return null;
