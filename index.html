@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-m5zfwuVTqUL9wkB+65cCRIhCRjqvDNm4Q/9czcpaaf4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-LCcxn7/nEyPXj2livJlpoNyU+nl90oCw8TyZIX0vVQ8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -110,7 +110,8 @@
 <script src="app-experience.js?v=1"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
-<script src="match-planner-ui.js?v=slot-blocks-1"></script>
+<script src="payment-ui.js?v=prepared-payments-1"></script>
+<script src="match-planner-ui.js?v=prepared-payments-1"></script>
 <script src="head-view-ui.js?v=5"></script>
 <script src="match-scoring-ui.js?v=1"></script>
 <script src="club-teams-ui.js?v=team-edit-2"></script>
@@ -634,9 +635,8 @@ const initial = naam => naam.trim().split(/\s+/).map(w=>w[0]?.toUpperCase()||"")
 const cleanUrl = url => String(url||"").trim().replace(/\/+$/,"");
 const syncReady = cfg => !!(cfg?.enabled && cleanUrl(cfg.url) && String(cfg.anonKey||"").trim() && String(cfg.space||"").trim());
 const EPP_DISCIPLINES = [
-  {id:"pistool",label:"Pistool (keep & korrel)"},
-  {id:"optiek",label:"Open (Optics)"},
-  {id:"pcc",label:"PCC"},
+  {id:"pistool",label:"Standaard"},
+  {id:"optiek",label:"Optics"},
 ];
 const EPP_TIME_BLOCKS = [
   {id:"ochtend",label:"Ochtend (9:00–11:00)"},
@@ -2120,7 +2120,7 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
 };
 
 const EppMatchForm = ({initial, onSave, onCancel}) => {
-  const [f,setF] = React.useState(()=>({...({organizer:"",location:"",deadline:"",registration_opens_on:"",organizer_email:"",offered_disciplines:["pistool","optiek","pcc"],notes:""}),...initial,match_dates:initial?.match_dates?.length?initial.match_dates:[initial?.match_date||""]}));
+  const [f,setF] = React.useState(()=>({...({organizer:"",location:"",deadline:"",registration_opens_on:"",organizer_email:"",offered_disciplines:["pistool","optiek"],notes:""}),...initial,match_dates:initial?.match_dates?.length?initial.match_dates:[initial?.match_date||""]}));
   const [dateError,setDateError]=React.useState('');
   const toggleD = id => setF(p=>({...p,offered_disciplines:p.offered_disciplines.includes(id)?p.offered_disciplines.filter(x=>x!==id):[...p.offered_disciplines,id]}));
   return h("div",{className:"card"},
@@ -2932,6 +2932,7 @@ function App({headClubs,onHeadClubChange}={}) {
       h("div",{className:"gold-stripe"})
     ),
     h("main",{className:"main"},h("p",{role:"status",className:syncLevel==="warn"?"sync-note":"sync-line "+syncLevel},syncStatus),
+      h(PaymentReturn),
       h(PendingMembershipNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById(eppSession()?.account?.isPlatformAdmin?'membership-management':'account-management');const box=el?.closest('details');if(box)box.open=true;el?.scrollIntoView({block:'start',behavior:'smooth'});},0);}}),
       canTrain&&syncLevel==="warn"&&!store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:syncNow},"Opslag opnieuw proberen"),
       store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:recoverConflict},"Online versie laden met herstelkopie"),activeContent),

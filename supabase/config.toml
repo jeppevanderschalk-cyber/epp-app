@@ -1,1 +1,6 @@
 project_id = "epp-app"
+
+# Provider callbacks do not carry a Supabase JWT. JSON actions still require a
+# verified app session; webhooks re-fetch the payment using the club's account.
+[functions.epp-payments]
+verify_jwt = false

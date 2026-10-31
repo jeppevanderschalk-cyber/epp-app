@@ -35,3 +35,6 @@ jobs:
       - run: node supabase/tests/app-experience-browser.mjs
         env:
           PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
+      - run: node supabase/tests/discipline-payments-browser.mjs
+        env:
+          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs

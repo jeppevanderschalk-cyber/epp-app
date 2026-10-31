@@ -1,5 +1,6 @@
 import {corsHeaders,json,serviceClient} from '../_shared/epp.ts';
 import {requireAccount} from '../_shared/session.ts';
+import {publicOrder} from '../epp-payments/provider.ts';
 
 async function allRows(query:()=>any){
   const rows:any[]=[];
@@ -11,11 +12,11 @@ Deno.serve(async req=>{
   try{
     const body=await req.json();const actor=await requireAccount(body);const db=serviceClient();
     if(body.action==='catalog'){
-      const matches=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,match_dates,registration_opens_on,offered_disciplines)').eq('published',true).order('match_id'));
+      const matches=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,match_dates,registration_opens_on,offered_disciplines,payment_required)').eq('published',true).order('match_id'));
       const {data:profile,error:profileError}=await db.from('shooters').select('id').eq('linked_user_id',actor.id).maybeSingle();if(profileError)throw profileError;
       if(profile){
         const mine=await allRows(()=>db.from('epp_signups').select('match_id').eq('shooter_id',profile.id).order('id'));
-        if(mine.length){const unpublished=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,match_dates,registration_opens_on,offered_disciplines)').eq('published',false).in('match_id',mine.map(m=>m.match_id)).order('match_id'));matches.push(...unpublished);}
+        if(mine.length){const unpublished=await allRows(()=>db.from('epp_match_planners').select('match_id,published,owner_club,match:epp_matches(id,organizer,location,match_date,match_dates,registration_opens_on,offered_disciplines,payment_required)').eq('published',false).in('match_id',mine.map(m=>m.match_id)).order('match_id'));matches.push(...unpublished);}
       }
       const archived=await allRows(()=>db.from('epp_matches').select('id').not('archived_at','is',null).order('id'));
       return json({ok:true,matches:matches.map(p=>p.match).filter(m=>m&&!archived.some(a=>a.id===m.id)).sort((a,b)=>String(a.match_date).localeCompare(String(b.match_date)))});
@@ -49,6 +50,8 @@ Deno.serve(async req=>{
     if(body.action==='view'){
       const slots=planner?await allRows(()=>db.from('epp_match_slots').select('*').eq('match_id',match.id).order('starts_at')):[];
       const signups=await allRows(()=>db.from('epp_signups').select('id,shooter_id,shooter_name,planner_revision,epp_signup_disciplines(discipline,slot_id,specific_time,time_block)').eq('match_id',match.id).order('id'));
+      const orders=await allRows(()=>db.from('epp_payment_orders').select('id,shooter_id,shooter:shooters(display_name),provider_mode,provider_id,registration_canceled,choices,status,expected_revision,amount_cents,currency,checkout_url,expires_at,confirmed_at,refunded_cents,created_at').eq('match_id',match.id).order('created_at',{ascending:false}));
+      const pending=new Map();for(const order of orders)if(['creating','open','pending','review'].includes(order.status))for(const c of order.choices)pending.set(c.slotId,(pending.get(c.slotId)||0)+1);
       const counts=new Map();for(const s of signups)for(const d of s.epp_signup_disciplines)if(d.slot_id)counts.set(d.slot_id,(counts.get(d.slot_id)||0)+1);
       let roster:any[]=[],audit:any[]=[];
       if(managing){
@@ -57,7 +60,7 @@ Deno.serve(async req=>{
         const {data,error}=await db.from('epp_planner_audit').select('id,action,actor_id,reason,created_at').eq('match_id',match.id).order('created_at',{ascending:false}).limit(20);if(error)throw error;audit=data;
       }
       const mine=signups.find(s=>s.shooter_id===profile?.id);
-      return json({ok:true,match:{id:match.id,organizer:match.organizer,location:match.location,match_date:match.match_date,match_dates:match.match_dates,registration_opens_on:match.registration_opens_on,deadline:match.deadline,offered_disciplines:match.offered_disciplines},planner,managing,profile,slots:slots.map(s=>({...s,booked:counts.get(s.id)||0})),mine:{revision:mine?.planner_revision||0,choices:(mine?.epp_signup_disciplines||[]).map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))},roster,audit});
+      return json({ok:true,match:{id:match.id,organizer:match.organizer,location:match.location,match_date:match.match_date,match_dates:match.match_dates,registration_opens_on:match.registration_opens_on,deadline:match.deadline,offered_disciplines:match.offered_disciplines,payment_required:match.payment_required},planner,managing,profile,slots:slots.map(s=>({...s,booked:(counts.get(s.id)||0)+(pending.get(s.id)||0),pending:pending.get(s.id)||0})),paymentOrders:managing?orders.map(o=>({...publicOrder(o),shooterId:o.shooter_id,name:o.shooter?.display_name||signups.find(s=>s.shooter_id===o.shooter_id)?.shooter_name||'Schutter '+o.shooter_id.slice(0,8)})):[],mine:{payment:publicOrder(orders.find(o=>o.shooter_id===profile?.id)),revision:mine?.planner_revision||0,choices:(mine?.epp_signup_disciplines||[]).map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))},roster,audit});
     }
     return json({ok:false,error:'onbekende_actie'},400);
   }catch(e){return json({ok:false,error:e.message||'server_fout'},['sessie_verlopen','geen_toegang','geen_beheerrechten','alleen_eigen_inschrijving'].includes(e.message)?401:400);}

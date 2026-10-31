@@ -4,6 +4,10 @@ Statische browser-app voor EPP-scoreregistratie.
 
 Publicatie: `epp-app.nl`
 
+Betaalde wedstrijdinschrijvingen zijn voorbereid met €12 per discipline en een
+eigen Mollie-account per organisator. Online betaling blijft uitgeschakeld tot
+aansluiting; zie [aansluiten en testen](supabase/README-payments.md).
+
 ## Private back-ups
 
 De database maakt dagelijks een snapshot en bewaart deze 90 dagen. Dit beschermt

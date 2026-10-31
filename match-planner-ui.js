@@ -13,11 +13,13 @@ const plannerLastRound=config=>{
   return clock(actual)+' – '+clock(actual+duration);
 };
 const plannerConfigErrors={laatste_ronde_sluit_niet_aan:'De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',ongeldige_capaciteit:'Kies een bestaande ronde en een capaciteit van 1 tot 100.',ongeldige_planning:'Controleer de starttijden, rondeduur, capaciteit en inschrijfperiode.'};
-const plannerError=e=>({tijdslot_geblokkeerd:'Dit tijdslot is geblokkeerd. Kies een andere tijd.',tijdslot_conflict:'Dit tijdslot is elders gewijzigd. De nieuwste planning is opgehaald; probeer opnieuw.',tijdslot_vol:'Dit tijdslot is net volgeboekt. Kies een andere tijd.',overlappende_boeking:'Deze deelnames overlappen of hebben onvoldoende pauze ertussen.',planning_conflict:'De planning is elders gewijzigd. Haal de nieuwste versie op.',boeking_conflict:'Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.',bestaande_inschrijvingen_eerst_plannen:'Er zijn bestaande inschrijvingen zonder tijdslot. Deze moeten eerst gecontroleerd worden verwerkt; de app verplaatst ze niet automatisch.',geboekte_tijdsloten_behouden:'Deze wijziging zou bestaande boekingen veranderen of de capaciteit overschrijden.',geen_beheerrechten:'Je hebt geen beheerrechten voor deze vereniging.',inschrijving_gesloten:'De inschrijving is gesloten.',persoonlijk_schutterprofiel_verplicht:'Gebruik een persoonlijk account met schutter-ID.'}[e.message]||'Dit is niet gelukt. Probeer opnieuw. Blijft het probleem bestaan, neem dan contact op met de beheerder.');
+const plannerError=e=>({tijdslot_betaling_loopt:'Dit tijdslot wordt vastgehouden voor een lopende betaling. Wacht op de betaalstatus voordat je de planning wijzigt.',tijdslot_geblokkeerd:'Dit tijdslot is geblokkeerd. Kies een andere tijd.',tijdslot_conflict:'Dit tijdslot is elders gewijzigd. De nieuwste planning is opgehaald; probeer opnieuw.',tijdslot_vol:'Dit tijdslot is net volgeboekt. Kies een andere tijd.',overlappende_boeking:'Deze deelnames overlappen of hebben onvoldoende pauze ertussen.',planning_conflict:'De planning is elders gewijzigd. Haal de nieuwste versie op.',boeking_conflict:'Deze inschrijving is elders gewijzigd. Haal de nieuwste versie op.',bestaande_inschrijvingen_eerst_plannen:'Er zijn bestaande inschrijvingen zonder tijdslot. Deze moeten eerst gecontroleerd worden verwerkt; de app verplaatst ze niet automatisch.',geboekte_tijdsloten_behouden:'Deze wijziging zou bestaande boekingen veranderen of de capaciteit overschrijden.',geen_beheerrechten:'Je hebt geen beheerrechten voor deze vereniging.',inschrijving_gesloten:'De inschrijving is gesloten.',persoonlijk_schutterprofiel_verplicht:'Gebruik een persoonlijk account met schutter-ID.'}[e.message]||'Dit is niet gelukt. Probeer opnieuw. Blijft het probleem bestaan, neem dan contact op met de beheerder.');
 
 const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const mine=target||view.mine;
-  const [choices,setChoices]=React.useState(()=>Object.fromEntries(mine.choices.map(c=>[c.discipline,c.slotId])));
+  const order=mine.payment,paymentLock=order&&['creating','open','pending','review'].includes(order.status);
+  const paidBooking=view.match.payment_required&&mine.choices.length>0;
+  const [choices,setChoices]=React.useState(()=>Object.fromEntries((paymentLock?order.choices:mine.choices).map(c=>[c.discipline,c.slotId])));
   const [days,setDays]=React.useState({});
   const [revision,setRevision]=React.useState(mine.revision),[reason,setReason]=React.useState(''),[busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[conflict,setConflict]=React.useState(false);
   const baseline=React.useRef(Object.fromEntries(mine.choices.map(c=>[c.discipline,c.slotId]))),feedbackRef=React.useRef(null);
@@ -36,14 +38,23 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const selected=Object.values(choices).some(Boolean);
   const changed=view.match.offered_disciplines.some(d=>(choices[d]||'')!==(mine.choices.find(c=>c.discipline===d)?.slotId||''));
   const save=async cancel=>{
-    if(busy||conflict||!open||!canBook||(!cancel&&!selected))return;setBusy(true);setStatus('');onEdited?.();
+    if(busy||paymentLock||conflict||!open||!canBook||(!cancel&&!selected))return;setBusy(true);setStatus('');onEdited?.();
     try{
+      if(!cancel&&view.match.payment_required&&!mine.choices.length){
+        if(target)throw Error('betaling_verplicht');
+        const r=await eppCall('epp-payments',{clubId:CLUB_ID,action:'checkout',matchId:view.match.id,choices:Object.entries(choices).filter(([,id])=>id).map(([discipline,slotId])=>({discipline,slotId})),expectedRevision:revision});
+        if(r.order?.status==='open'&&r.order.checkoutUrl){paymentNavigate(r.order.checkoutUrl);return;}
+        await onSaved(false);return;
+      }
       await eppCall('epp-planner',{clubId:CLUB_ID,action:'book',matchId:view.match.id,shooterId:target?.shooterId,choices:cancel?[]:Object.entries(choices).filter(([,id])=>id).map(([discipline,slotId])=>({discipline,slotId})),expectedRevision:revision,reason});
       const message=await onSaved(cancel);setStatus(message||(cancel?'Online afgemeld':'Boeking online bevestigd'));
-    }catch(e){setStatus(plannerError(e));setConflict(e.message==='boeking_conflict');}finally{setBusy(false);}
+    }catch(e){setStatus(view.match.payment_required?paymentError(e):plannerError(e));setConflict(e.message==='boeking_conflict');}finally{setBusy(false);}
   };
   return h('section',{style:{display:'grid',gap:12}},
     h('h3',{style:{fontSize:18,margin:0}},target?'Inschrijving wijzigen: '+target.name:'Jouw inschrijving'),
+    view.match.payment_required&&h('p',{className:'hint'},'€12 per discipline. Kies Standaard, Optics of beide (€24). Je inschrijving is definitief na betaling aan de organiserende vereniging.'),
+    order&&h(PaymentStatus,{order,matchId:view.match.id,onUpdated:onReload}),
+    paidBooking&&h('p',{className:'hint'},'Je kunt de tijdsloten van je betaalde disciplines wijzigen. Neem voor een andere disciplinekeuze of terugbetaling contact op met de organisator.'),
     !canBook&&h('p',{className:'hint'},'Een persoonlijk schutterprofiel is nodig om te boeken.'),
     !open&&h('p',{className:'hint'},Date.now()<Date.parse(view.planner.opens_at)?'Inschrijving opent '+plannerSlot(view.planner.opens_at):'Inschrijving gesloten'),
     view.match.offered_disciplines.map(d=>{
@@ -51,7 +62,7 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
       const chosen=view.slots.find(s=>s.id===choices[d]);
       const day=days[d]||(chosen?plannerDay(chosen.starts_at):dates[0]);
       const choose=id=>{setChoices(p=>({...p,[d]:id}));setStatus('');onEdited?.();};
-      return h('fieldset',{key:d,disabled:busy||!open||!canBook,style:{border:0,padding:0,margin:'8px 0',minWidth:0}},
+      return h('fieldset',{key:d,disabled:busy||paymentLock||!open||!canBook,style:{border:0,padding:0,margin:'8px 0',minWidth:0}},
         h('legend',{style:{fontWeight:800,marginBottom:10}},EPP_DISCIPLINES.find(x=>x.id===d)?.label||d),
         h('div',{role:'group','aria-label':'Wedstrijddag '+d,style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}},dates.map(date=>h('button',{key:date,type:'button','aria-pressed':date===day,className:'btn '+(date===day?'btn-gold':'btn-ghost'),style:{padding:'10px 12px',fontSize:14},onClick:()=>setDays(p=>({...p,[d]:date}))},date))),
         h('div',{role:'radiogroup','aria-label':'Tijdslot '+d,style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(105px,1fr))',gap:8}},view.slots.filter(s=>plannerDay(s.starts_at)===day).map(s=>{
@@ -68,8 +79,8 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
     changed&&mine.choices.length>0&&h('p',{className:'hint',role:'status',style:{margin:0}},'Bevestig je nieuwe tijdslot. Daarna komt je oude tijdslot automatisch vrij.'),
     (status||saveNotice)&&h('p',{ref:feedbackRef,className:'hint',role:status?'alert':'status',style:{margin:0,fontWeight:800}},status||saveNotice),
     conflict&&h('button',{className:'btn btn-ghost',disabled:busy,onClick:()=>{if(confirm('Niet opgeslagen wijzigingen vervallen. Nieuwste inschrijving ophalen?'))onReload();}},'Nieuwste inschrijving ophalen'),
-    mine.choices.length>0&&!changed?h('p',{className:'hint',role:'status',style:{margin:0,fontWeight:800}},'Gereserveerd'):h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||conflict||!open||!canBook||!selected||(target&&reason.trim().length<3),onClick:()=>save(false)},busy?'Opslaan...':mine.choices.length>0?'Gewijzigd slot bevestigen':'Tijdsloten bevestigen'),
-    mine.choices.length>0&&h('button',{className:'btn btn-danger',disabled:busy||conflict||!open||(target&&reason.trim().length<3),onClick:()=>{if(confirm('Deze wedstrijdinschrijving afmelden?'))save(true);}},'Afmelden'),
+    mine.choices.length>0&&!changed?h('p',{className:'hint',role:'status',style:{margin:0,fontWeight:800}},'Gereserveerd'):h('button',{className:'btn btn-gold',style:{opacity:!selected?0.45:1},disabled:busy||paymentLock||conflict||!open||!canBook||!selected||(target&&reason.trim().length<3)||(view.match.payment_required&&!mine.choices.length&&!!target)||(paidBooking&&view.match.offered_disciplines.some(d=>!!choices[d]!==mine.choices.some(c=>c.discipline===d))),onClick:()=>save(false)},busy?'Opslaan...':mine.choices.length>0?'Gewijzigd slot bevestigen':view.match.payment_required?'Betalen en inschrijven · '+paymentMoney(Object.values(choices).filter(Boolean).length*1200):'Tijdsloten bevestigen'),
+    mine.choices.length>0&&h('button',{className:'btn btn-danger',disabled:busy||paymentLock||conflict||!open||(target&&reason.trim().length<3),onClick:()=>{if(confirm(view.match.payment_required?'Deze inschrijving afmelden? Terugbetaling gaat niet automatisch; neem hiervoor contact op met de organisator.':'Deze wedstrijdinschrijving afmelden?'))save(true);}},'Afmelden'),
     !target&&(status||saveNotice).startsWith('Boeking online bevestigd')&&h('p',{className:'hint',style:{margin:0}},'Je gekozen tijdsloten zijn gereserveerd.'),
     busy&&h('p',{className:'hint',role:'status'},'Reservering online opslaan...')
   );
@@ -154,6 +165,7 @@ const MatchPlanner=({matchId,manage=false})=>{
   return h('section',{style:{display:'grid',gap:14}},
     status&&h('p',{className:'hint',role:'status'},status),
     !view?h('p',{className:'hint'},'Planner laden...'):h(React.Fragment,null,
+      manage&&view.managing&&h(PaymentSettings,{view,onSaved:load}),
       manage&&view.managing&&h(PlannerSlotBlocks,{view,onSaved:load}),
       manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:()=>saved(true),onReload:reload,saveNotice:planningNotice,onEdited:()=>setPlanningNotice('')}),
       view.planner&&h(React.Fragment,null,
