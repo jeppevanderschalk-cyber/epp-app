@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-h+wihOzHxCL2A0DtX/KTF8l2QypYBJtG1laIa/DjhSA='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-qoH2qk8t/BubJhV6r4OQxOHSbt9TnI4ixu1hf3zTAgQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -1324,7 +1324,8 @@ const TabInvoer = ({
           :h(React.Fragment,null,
             h('p',{className:'hint'},eppSession()?.account?.isPlatformAdmin?'Kies een schutter uit het landelijke overzicht. Een nieuwe selectie wordt direct aan deze training toegevoegd.':'Kies een schutter van je vereniging. Een nieuwe selectie wordt direct aan deze training toegevoegd.'),
             h('div',{className:'training-shooter-search',onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget))setSearchOpen(false);}},
-              h('label',{htmlFor:searchListId+'-input'},'Zoek schutter'),
+              h('button',{type:'button',className:'btn btn-ghost','aria-expanded':searchOpen,'aria-controls':searchListId,'aria-haspopup':'listbox',onClick:e=>{e.currentTarget.focus();setShooterSearch('');setSearchIndex(0);setSearchOpen(true);},onKeyDown:e=>{if(e.key==='Escape')setSearchOpen(false);}},'Kies uit lijst ▾'),
+              h('label',{htmlFor:searchListId+'-input'},'Of zoek op naam'),
               h('input',{id:searchListId+'-input',type:'search',role:'combobox',className:'txt-in',value:shooterSearch,placeholder:'Kies een schutter of typ een naam…','aria-label':'Zoek schutter voor training','aria-expanded':searchOpen,'aria-controls':searchListId,'aria-autocomplete':'list','aria-activedescendant':searchOpen&&searchOptions[searchIndex]?searchListId+'-'+searchOptions[searchIndex].id:undefined,
                 onFocus:()=>{setSearchOpen(true);setSearchIndex(0);},onClick:()=>setSearchOpen(true),
                 onChange:e=>{setShooterSearch(e.target.value);setSearchOpen(true);setSearchIndex(0);},
