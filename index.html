@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-aNiuCb1Aqa1hhKLwj9PmyqC2UOAv7dvZvj/Yx3bCGmA='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-8R+ZEZSvNsLXx6w49p/lf8XLg3cm80Gz58lNsPxpXy0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -106,7 +106,7 @@
   </form>
 </div>
 <div id="root" hidden></div>
-<link rel="stylesheet" href="experience.css?v=2" />
+<link rel="stylesheet" href="experience.css?v=aac30caa8f5b" />
 <script src="app-experience.js?v=1"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
@@ -1271,13 +1271,20 @@ const RankList = ({items, max}) => {
 
 // ── TabInvoer ─────────────────────────────────────────────────────
 const TabInvoer = ({
-  shooters, nieuw, setNieuw, addShooter, removeShooter, registeredShooters=[], shooterDirectoryStatus="",
+  shooters, nieuw, setNieuw, addShooter, removeShooter, registeredShooters=[], shooterDirectoryStatus="", reloadShooters,
   currentTraining, setTrainingMode, setTrainingStage, addRound,
   setTab, maxOf, personalTraining=false, fixedMode="parcours", onOverview
 }) => {
   const mode = fixedMode;
   const stage = currentTraining.stage;
   React.useEffect(()=>{if(currentTraining.mode!==fixedMode)setTrainingMode(fixedMode);},[fixedMode]);
+  const [shooterSearch,setShooterSearch]=React.useState("");
+  const shooterHelp=React.useRef(null);
+  const selectableShooters=React.useMemo(()=>{
+    const merged=new Map(shooters.map(s=>[s.id,{id:s.id,naam:s.naam,existing:true}]));
+    for(const s of registeredShooters)if(!merged.has(s.id))merged.set(s.id,{id:s.id,naam:s.display_name,existing:false});
+    return [...merged.values()].sort((a,b)=>a.naam.localeCompare(b.naam,'nl'));
+  },[shooters,registeredShooters]);
   const stageObj = STAGES.find(s=>s.key===stage);
   const trainingRounds = currentTraining.rounds || [];
   const [activeSid,setActiveSid] = React.useState(shooters[0]?.id || "");
@@ -1285,6 +1292,13 @@ const TabInvoer = ({
     if(!shooters.length)setActiveSid("");
     else if(!shooters.some(s=>s.id===activeSid))setActiveSid(shooters[0].id);
   },[shooters,activeSid]);
+  const searchText=EppUx.normalize(shooterSearch);
+  const matchingShooters=selectableShooters.filter(s=>s.id===activeSid||EppUx.normalize(s.naam).includes(searchText));
+  const selectForInput=id=>{
+    if(!id)return;
+    if(!shooters.some(s=>s.id===id)&&addShooter(id)===false)return;
+    setActiveSid(id);setShooterSearch("");if(shooterHelp.current)shooterHelp.current.open=false;
+  };
   const roundGroups = sid => trainingRounds.filter(r=>r.sid===sid && r.type===mode && (mode==="parcours" || r.stage===stage));
   const saveFor = (sid,data) => {
     addRound(data);
@@ -1295,22 +1309,29 @@ const TabInvoer = ({
   const missingCount = shooters.filter(s=>roundGroups(s.id).length===0).length;
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schutters")),
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},personalTraining?"Mijn scores":"Schutter kiezen")),
       h("div",{className:"card-body"},
-        !personalTraining&&h("div",{style:{display:"flex",gap:8,alignItems:"end",marginBottom:14}},
-          h("label",{style:{flex:1,minWidth:0}},"Schutter met account toevoegen",h("select",{
-            className:"txt-in","aria-label":"Schutter met account toevoegen",
-            value:nieuw,onChange:e=>setNieuw(e.target.value),disabled:!!shooterDirectoryStatus
-          },h("option",{value:""},shooterDirectoryStatus||"Kies schutter…"),
-            registeredShooters.filter(s=>!shooters.some(existing=>existing.id===s.id)).map(s=>h("option",{key:s.id,value:s.id},s.display_name)))),
-          h("button",{type:"button",className:"btn btn-gold",disabled:!nieuw||!!shooterDirectoryStatus,title:"Schutter toevoegen aan training","aria-label":"Schutter toevoegen aan training",style:{flexShrink:0,padding:"13px 16px"},onClick:addShooter},"＋")
-        ),
-        shooters.length===0
-          ? h("p",{style:{fontSize:13,color:C.muted,margin:0}},"Nog geen schutters toegevoegd.")
-          : h("div",{style:{display:"flex",gap:8,alignItems:"end"}},
-              h("label",{style:{flex:1,minWidth:0}},"Schutter voor score-invoer",h("select",{className:"txt-in","aria-label":"Schutter voor score-invoer",value:activeSid,onChange:e=>setActiveSid(e.target.value)},shooters.map(s=>h("option",{key:s.id,value:s.id},s.naam)))),
-              !personalTraining&&h("button",{className:"btn btn-danger",type:"button",title:"Geselecteerde schutter verwijderen","aria-label":"Geselecteerde schutter verwijderen",onClick:()=>removeShooter(activeSid)},"×")
-            )
+        personalTraining
+          ?h(React.Fragment,null,
+            h('strong',{className:'personal-training-name'},shooters[0]?.naam||eppSession()?.account?.displayName||'Mijn schutterprofiel'),
+            h('p',{className:'hint'},shooters.length?'Je bent al toegevoegd met je eigen account. Vul hieronder je score in en tik op ‘Ronde opslaan’.':'Je schutterprofiel is nog niet geladen. Probeer de gegevens opnieuw te laden; je hoeft jezelf niet opnieuw toe te voegen.'),
+            !shooters.length&&h('button',{type:'button',className:'btn btn-ghost',onClick:reloadShooters},'Mijn gegevens opnieuw laden'))
+          :h(React.Fragment,null,
+            h('p',{className:'hint'},eppSession()?.account?.isPlatformAdmin?'Kies een schutter uit het landelijke overzicht. Een nieuwe selectie wordt direct aan deze training toegevoegd.':'Kies een schutter van je vereniging. Een nieuwe selectie wordt direct aan deze training toegevoegd.'),
+            h('label',{className:'training-shooter-search'},'Zoek schutter',h('input',{type:'search',className:'txt-in',value:shooterSearch,placeholder:'Typ een naam…','aria-label':'Zoek schutter voor training',onChange:e=>setShooterSearch(e.target.value)})),
+            !shooterDirectoryStatus&&h('p',{className:'hint'},selectableShooters.length+' '+(selectableShooters.length===1?'schutter beschikbaar':'schutters beschikbaar')+' voor deze training.'),
+            h('div',{className:'training-shooter-picker'},
+              h('label',null,'Schutter voor score-invoer',h('select',{className:'txt-in','aria-label':'Schutter voor score-invoer',value:activeSid,disabled:!selectableShooters.length,onChange:e=>selectForInput(e.target.value)},
+                h('option',{value:''},shooterDirectoryStatus&&!selectableShooters.length?(shooterDirectoryStatus.includes('mislukt')?'Schutters niet beschikbaar':'Schutters laden…'):'Kies een schutter…'),
+                matchingShooters.map(s=>h('option',{key:s.id,value:s.id,disabled:!s.existing&&!!shooterDirectoryStatus},s.naam)))),
+              activeSid&&h('button',{type:'button',className:'btn btn-danger',title:'Schutter en bijbehorende trainingsinvoer verwijderen','aria-label':'Geselecteerde schutter verwijderen',onClick:()=>removeShooter(activeSid)},'Verwijderen')
+            ),
+            shooterSearch&&!selectableShooters.some(s=>EppUx.normalize(s.naam).includes(searchText))&&h('p',{className:'hint',role:'status'},'Geen schutter met deze naam gevonden.'),
+            shooterDirectoryStatus&&h('p',{className:'hint',role:'status'},shooterDirectoryStatus),
+            !shooterDirectoryStatus&&!registeredShooters.length&&h('p',{className:'hint'},'Er zijn nog geen goedgekeurde persoonlijke schuttersaccounts beschikbaar. De verenigingsbeheerder kan een nieuw account goedkeuren.'),
+            h('details',{className:'training-shooter-help',ref:shooterHelp},h('summary',null,'Staat je naam er niet bij?'),h('p',{className:'hint'},'Gebruik je eigen persoonlijke account om alleen jouw scores bij te houden. Voor de gezamenlijke training zijn een persoonlijk account bij de juiste vereniging en goedkeuring van die vereniging nodig. Kies de naam om direct de score-invoer te openen.'),h('button',{type:'button',className:'btn btn-ghost',onClick:reloadShooters},'Schutters opnieuw laden')),
+            activeSid&&h('p',{className:'hint',role:'status'},'Geselecteerd: '+(shooters.find(s=>s.id===activeSid)?.naam||selectableShooters.find(s=>s.id===activeSid)?.naam||'schutter')+'. Vul hieronder de score in.')
+          )
       )
     ),
     h("div",{className:"card"},
@@ -1323,7 +1344,7 @@ const TabInvoer = ({
           )
         ),
         shooters.length===0
-          ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Kies hierboven een schutter en tik op + om te beginnen.")
+          ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},personalTraining?"Je score-invoer verschijnt zodra je eigen schutterprofiel is geladen.":"Kies hierboven een schutter. Daarna kun je direct een score invoeren.")
           : shooters.filter(s=>s.id===activeSid).map(s=>{
               const i=shooters.findIndex(item=>item.id===s.id);
               const rounds = roundGroups(s.id);
@@ -1349,7 +1370,7 @@ const TabInvoer = ({
           )
         ),
         shooters.length===0
-          ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},"Kies hierboven een schutter en tik op + om te beginnen.")
+          ? h("p",{style:{fontSize:13,color:C.muted,margin:"10px 0 0"}},personalTraining?"Je score-invoer verschijnt zodra je eigen schutterprofiel is geladen.":"Kies hierboven een schutter. Daarna kun je direct een score invoeren.")
           : shooters.filter(s=>s.id===activeSid).map(s=>{
               const i=shooters.findIndex(item=>item.id===s.id);
               const rounds = roundGroups(s.id);
@@ -1441,6 +1462,7 @@ const TabTraining = ({shooters, currentTraining, finishTraining, isTrainer,archi
 const TrainingHub = props => {
   const view=props.trainingView,setView=props.setTrainingView;
   return h('div',{style:{display:'flex',flexDirection:'column',gap:12,minWidth:0}},
+    h('section',{className:'training-intro'},h('h2',null,'Trainingsscores'),h('p',{className:'hint'},'Dit zijn oefenscores. Officiële wedstrijdscores voer je apart in bij Wedstrijden → Scores.'),h('button',{type:'button',className:'btn btn-ghost',onClick:props.onMatchScores},'Wedstrijdscore invoeren')),
     props.canTrain&&h('div',{className:'sub-tab-row'},[['parcours','Parcours'],['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
     props.canTrain&&view!=='overview'
       ?h(TabInvoer,{...props,key:view,fixedMode:view==='stages'?'stage':'parcours',onOverview:()=>setView('overview')})
@@ -1634,6 +1656,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
   const [directoryBusy,setDirectoryBusy] = React.useState(false);
   const [directoryStatus,setDirectoryStatus] = React.useState("");
   const [matchesCalendar,setMatchesCalendar] = React.useState([]);
+  const [scoringCatalogLoaded,setScoringCatalogLoaded]=React.useState(false),[scoringCatalogError,setScoringCatalogError]=React.useState(false);
   const [matchId,setMatchId] = React.useState("");
   const scoringMatch=matchesCalendar.find(m=>m.id===matchId);
   const canInput=scoringMatch?.scoring?scoringMatch.can_score:isTrainer;
@@ -1695,9 +1718,9 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
       setMatchRanking(r.matchRanking||[]);
       const scoring=await eppCall('epp-scoring',{clubId:CLUB_ID,action:'catalog'});
       if(request!==rankingRequest.current)return;
-      setMatchesCalendar(scoring.matches||[]);
+      setMatchesCalendar(scoring.matches||[]);setScoringCatalogLoaded(true);setScoringCatalogError(false);
       setStatus("Landelijke stand bijgewerkt");
-    }catch(e){if(request===rankingRequest.current)setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}
+    }catch(e){if(request===rankingRequest.current){setScoringCatalogError(true);setStatus("landelijk platform nog niet actief: "+eppPlatformError(e.message));}}
   },[discipline,matchId]);
   React.useEffect(()=>{load();const timer=setInterval(load,10000);return()=>{clearInterval(timer);rankingRequest.current++;};},[load]);
   React.useEffect(()=>{
@@ -1753,11 +1776,19 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
     const next=boundedShotValue(value,40-otherShots);
     return {...p,[key]:String(Number(next||0)+Number(rapid[key]||0))};
   });
-  const candidates = participants?.planned?shooterCandidates(participants.shooters,{sources:{ind:{rows:[]},open:{rows:[]}}}):shooterCandidates(directory,PUBLISHED_STANDINGS_2026);
+  const candidates = scoringMatch?.scoring?shooterCandidates(participants?.shooters||[],{sources:{ind:{rows:[]},open:{rows:[]}}}):participants?.planned?shooterCandidates(participants.shooters,{sources:{ind:{rows:[]},open:{rows:[]}}}):shooterCandidates(directory,PUBLISHED_STANDINGS_2026);
   const search = shooterName.trim().toLocaleLowerCase("nl-NL");
-  const matches = search ? candidates.filter(s=>(s.name+" "+s.club+" "+(s.publicId||"")).toLocaleLowerCase("nl-NL").includes(search)).slice(0,20) : [];
+  const matches = candidates.filter(s=>!search||(s.name+" "+s.club+" "+(s.publicId||"")).toLocaleLowerCase("nl-NL").includes(search)).slice(0,20);
   const exactMatch = candidates.some(s=>s.name.toLocaleLowerCase("nl-NL")===search);
   const canConfirm = canInput && (!scoringMatch?.scoring||reservation.token) && roundId && !participantLoading && !participantStatus && allowedDiscipline && validRapid && validTimes && (!(penalty>0||penaltyTimeMs>0)||penaltyReason.trim().length>=3) && !matchLoading && !resultLoading && validCounts && !directoryBusy && shooterName.trim() && (selectedShooter || newShooter) && shots===50 && countedFinal>=0 && countedFinal<=250 && (!revision||reason.trim().length>=3);
+  const scoreMissing=[];
+  if(participantLoading||matchLoading||resultLoading)scoreMissing.push('Wacht tot de wedstrijd en score geladen zijn.');
+  if(scoringMatch?.scoring&&!reservation.token)scoreMissing.push('Wacht tot deze schutter voor jou is gereserveerd.');
+  if(shots!==50)scoreMissing.push('Vul alle 50 schoten in ('+shots+' ingevuld).');
+  if(!validRapid)scoreMissing.push('Vul de 10 snelvuurschoten in.');
+  if(!validTimes)scoreMissing.push('Vul een geldige snelvuurtijd en eindtijd in.');
+  if((penalty>0||penaltyTimeMs>0)&&penaltyReason.trim().length<3)scoreMissing.push('Vul de reden van de straf in.');
+  if(revision&&!reason.trim().length)scoreMissing.push('Vul de reden van de correctie in.');
   const resetForm = () => {setShooterName("");setSelectedShooter(null);setNewShooter(false);setCounts(emptyCounts);setRapid(emptyRapid);setRapidTime("");setTotalTime("");setPenaltyTime("0");setPenaltyReason("");setRevision(0);setReason("");requestKey.current=newId();newShooterId.current=newId();};
   const confirm = async () => {
     if(submitLock.current)return;
@@ -1795,8 +1826,13 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
   if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters'}));
   const formReady=!!matchId&&!!(selectedShooter||newShooter);
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},navigation,
+    h('section',{className:'training-intro'},h('h2',null,'Wedstrijdscores'),h('p',{className:'hint'},'1. Kies de wedstrijd en discipline. 2. Kies een ingeschreven schutter. 3. Vul de kaarttelling en tijden in en bevestig de score. Trainingsscores worden hier niet automatisch overgenomen.')),
+    !scoringCatalogLoaded&&!scoringCatalogError&&h('p',{className:'hint',role:'status'},'Wedstrijden voor score-invoer laden…'),
+    scoringCatalogError&&h('div',null,h('p',{className:'hint',role:'status'},'Wedstrijden ophalen mislukt. Probeer opnieuw.'),h('button',{type:'button',className:'btn btn-ghost',onClick:load},'Wedstrijden opnieuw laden')),
+    scoringCatalogLoaded&&!scoringCatalogError&&!matchesCalendar.length&&h('p',{className:'hint',role:'status'},'Er zijn geen wedstrijden voor score-invoer geladen. Alleen de wedstrijdbeheerder en aangewezen scoorders kunnen officiële scores vastleggen. Ga naar Inschrijven voor je deelname of vraag de organisator om scoorderrechten.'),
     disciplineSelect,
     h("label",null,"Wedstrijd",h("select",{className:"txt-in","aria-label":"Wedstrijd",value:matchId,disabled:busy,onChange:e=>{resetForm();setMatchId(e.target.value);setRoundId("");setMatchRanking([]);}},h("option",{value:""},"Kies wedstrijd"),matchesCalendar.map(m=>h("option",{key:m.id,value:m.id},m.match_date+" - "+m.organizer)))),
+    matchId&&!canInput&&h('p',{className:'hint',role:'status'},scoringMatch?.closed?'Deze wedstrijd is afgesloten. De wedstrijdbeheerder kan de invoer zo nodig heropenen.':'Je hebt voor deze wedstrijd geen scoorderrechten. Vraag de wedstrijdbeheerder om toegang.'),
     scoringMatch?.scoring&&h(MatchScoringManagement,{key:matchId,matchId,discipline,onClosed:()=>{resetForm();load();}}),
     canInput && h("div",{className:"card"},
       h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Score bevestigen")),
@@ -1806,20 +1842,21 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
         matchLoading && h("p",{className:"hint",role:"status"},"Wedstrijd laden..."),
         directoryStatus && h("p",{className:"hint",role:"status"},directoryStatus),
         participantStatus&&h('p',{className:'hint',role:'status'},participantStatus),
+        participantLoading&&h('p',{className:'hint',role:'status'},'Ingeschreven schutters laden…'),
         participants?.planned&&h('p',{className:'hint'},'Ingeschreven deelnemers · '+(discipline==='optiek'?'Open':'Pistool')),
         !matchId&&h("p",{className:"hint"},"Kies eerst hierboven een wedstrijd. Daarna zoek je de schutter en vul je de score in."),
-        matchId&&h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);newShooterId.current=newId();}}),
-        matchId && !selectedShooter && !newShooter && search && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
+        matchId&&h("input",{className:"txt-in",type:"search","aria-label":"Schutter zoeken",placeholder:"Zoek naam, vereniging of schutter-ID",value:shooterName,disabled:busy||participantLoading,onChange:e=>{setShooterName(e.target.value);setSelectedShooter(null);setNewShooter(false);newShooterId.current=newId();}}),
+        matchId && !selectedShooter && !newShooter && (search||participants?.planned) && h("div",{style:{display:"grid",gap:6,maxHeight:280,overflowY:"auto"}},
           matches.map(s=>h("button",{key:s.key,type:"button",className:"btn btn-ghost",style:{textAlign:"left",whiteSpace:"normal",minHeight:48},onClick:()=>{setSelectedShooter(s);setShooterName(s.name);}},
             h("span",{style:{overflowWrap:"anywhere"}},s.name,h("small",{style:{display:"block",color:C.muted}},s.id?s.club+" · "+s.publicId+(s.lease?" · In bewerking":""):"Klassement 2026 · "+s.club))
           )),
-          !matches.length && h("p",{className:"hint"},"Geen schutter gevonden."),
-          !participants?.planned && !exactMatch && !directoryBusy && h("button",{type:"button",className:"btn btn-ghost",style:{whiteSpace:"normal",overflowWrap:"anywhere"},onClick:()=>setNewShooter(true)},"+ Nieuwe schutter: ",shooterName.trim())
+          !matches.length&&!participantLoading&&!participantStatus&&h("p",{className:"hint"},search?"Geen ingeschreven schutter met deze naam gevonden. Controleer de naam en de gekozen discipline.":"Er zijn voor deze wedstrijd en discipline nog geen ingeschreven schutters. Laat de deelnemer zich eerst inschrijven."),
+          !scoringMatch?.scoring && !participants?.planned && !exactMatch && !directoryBusy && !!search && h("button",{type:"button",className:"btn btn-ghost",style:{whiteSpace:"normal",overflowWrap:"anywhere"},onClick:()=>setNewShooter(true)},"+ Nieuwe schutter: ",shooterName.trim())
         ),
         (selectedShooter || newShooter) && h("p",{className:"hint"},newShooter?"Nieuwe schutter: "+shooterName:selectedShooter.id?"Geselecteerd: "+selectedShooter.name+" · "+selectedShooter.club+" · "+selectedShooter.publicId:"Geselecteerd uit klassement 2026: "+selectedShooter.name),
         scoringMatch?.scoring&&selectedShooter?.id&&h('div',null,h('p',{className:'hint',role:'status'},reservation.status||'Schutter reserveren...'),h('button',{className:'btn btn-ghost',onClick:resetForm,disabled:busy},'Invoer annuleren'),!reservation.token&&h('button',{className:'btn btn-ghost',onClick:()=>{if(window.confirm('De opgeslagen score wordt opnieuw geladen. Niet-opgeslagen invoer wordt vervangen. Doorgaan?'))reservation.retry();},disabled:busy},'Opnieuw reserveren')),
         selectedShooter?.id&&!scoringMatch?.scoring&&eppSession()?.account?.isAdmin&&h(QualificationEditor,{key:selectedShooter.id+discipline,shooterId:selectedShooter.id,discipline,onSaved:load}),
-        matchId&&!formReady&&h("p",{className:"hint"},"Zoek en kies een schutter om de score in te vullen."),
+        matchId&&!formReady&&h("p",{className:"hint"},"Kies hieronder een ingeschreven schutter of zoek op naam. Daarna verschijnt de score-invoer."),
         formReady&&h('fieldset',{disabled:busy||resultLoading||(!!scoringMatch?.scoring&&!reservation.token),style:{border:0,padding:0,margin:0,minWidth:0}},
         revision>0&&h("label",null,"Reden van correctie",h("input",{className:"txt-in",value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
         !allowedDiscipline&&h("p",{className:"hint",role:"alert"},"Open is niet aangeboden bij deze wedstrijd."),
@@ -1858,7 +1895,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
           !validTimes&&(String(totalTime||'').trim()||String(rapidTime||'').trim())&&h("p",{className:"hint",style:{color:C.red}},!Number.isSafeInteger(totalTimeMs)?"Vul de eindtijd in als minuten:seconden, bijvoorbeeld 4:53. Seconden mogen niet hoger zijn dan 59.":"Controleer snelvuurtijd en straftijd; de eindtijd kan niet korter zijn dan de snelvuurtijd.")
         ),
         ),
-        formReady&&h("div",{className:"save-dock"},h("div",{className:"dock-summary"},shots+" / 50 schoten · "+countedFinal+" punten",h("small",null,busy?"Online opslaan…":draftOffer?"Herstel of verwijder eerst je concept":!canConfirm?"Controleer schutter, telling en tijden":"Klaar om te bevestigen")),h("button",{className:"btn btn-gold",disabled:busy||!!draftOffer||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan")),
+        formReady&&h("div",{className:"save-dock"},h("div",{className:"dock-summary"},shots+" / 50 schoten · "+countedFinal+" punten",h("small",null,busy?"Online opslaan…":draftOffer?"Herstel of verwijder eerst je concept":!canConfirm?(scoreMissing[0]||"Controleer de geselecteerde schutter en discipline."):"Klaar om te bevestigen")),h("button",{className:"btn btn-gold",disabled:busy||!!draftOffer||!canConfirm,onClick:confirm},busy?"Opslaan...":"Bevestigen en opslaan")),
         h("p",{className:"hint",role:"status"},status)
       )
     ),
@@ -2606,7 +2643,7 @@ with check (true);`)
 // ═══════════════════════════════════════════════════════════════════
 // APP — bevat alleen state en logica, geen geneste component-definities
 // ═══════════════════════════════════════════════════════════════════
-const PersonalHome=({shooters,currentTraining,archives,personalTraining,canTrain,setTab})=>{
+const PersonalHome=({shooters,currentTraining,archives,personalTraining,canTrain,setTab,onMatchScores})=>{
   const account=eppSession()?.account||{};
   const [sid,setSid]=React.useState(shooters[0]?.id||'');
   const [calendar,setCalendar]=React.useState([]),[calendarStatus,setCalendarStatus]=React.useState('Wedstrijdkalender laden…'),[reload,setReload]=React.useState(0);
@@ -2627,7 +2664,7 @@ const PersonalHome=({shooters,currentTraining,archives,personalTraining,canTrain
   return h('div',{className:'home-grid page-fade'},
     h('section',{className:'home-hero'},h('div',{className:'eyebrow'},'Jouw EPP overzicht'),h('h2',null,'Welkom, ',account.displayName||'schutter'),
       h('p',null,canTrain?'Pak je training op en volg je ontwikkeling.':'Bekijk wedstrijden en de gezamenlijke trainingsstand.'),
-      h('button',{className:'btn btn-gold btn-full',onClick:()=>setTab(canTrain?'training':'landelijk')},canTrain?'Score invoeren':'Naar wedstrijden')),
+      h('button',{className:'btn btn-gold btn-full',onClick:()=>setTab(canTrain?'training':'landelijk')},canTrain?'Trainingsscore invoeren':'Naar wedstrijden'),h('button',{type:'button',className:'btn btn-ghost btn-full',onClick:onMatchScores},'Wedstrijdscore invoeren')),
     !personalTraining&&shooters.length>0&&h('label',null,'Voortgang van schutter',h('select',{className:'txt-in',value:sid,onChange:e=>setSid(e.target.value)},shooters.map(s=>h('option',{key:s.id,value:s.id},s.naam)))),
     selected&&h('section',{'aria-label':'Trainingsvoortgang van '+selected.naam},h('h3',null,personalTraining?'Mijn trainingsvoortgang':selected.naam+' · training'),
       h('div',{className:'home-stats'},[['Laatste parcours',data.latest?.score],['Gem. laatste 5',data.average],['Aantal rondes',data.parcours.length]].map(([label,value])=>h('div',{key:label,className:'stat-card'},h('div',{className:'stat-val'},format(value)),h('div',{className:'stat-lbl'},label)))),
@@ -2651,6 +2688,8 @@ function App({headClubs,onHeadClubChange}={}) {
   const personalTraining=eppSession()?.account?.role==='schutter'&&eppSession()?.account?.username!=='kijker';
   const canTrain=isTrainer||personalTraining;
   const [trainingView,setTrainingView]=React.useState('parcours');
+  const [competitionEntry,setCompetitionEntry]=React.useState(null);
+  const openMatchScores=()=>{setCompetitionEntry('individual');setTab('landelijk');};
   const accountClubId=eppSession()?.account?.clubId;
   const accountClubName=EPP_CLUBS.find(c=>c.id===accountClubId)?.label||accountClubId||"Vereniging";
   const [shooters,   setShooters]   = React.useState([]);
@@ -2673,14 +2712,19 @@ function App({headClubs,onHeadClubChange}={}) {
   const [platformPassword,setPlatformPassword]= React.useState("");
   const [nieuw,      setNieuw]      = React.useState("");
   const [registeredShooters,setRegisteredShooters]=React.useState([]);
-  const [shooterDirectoryStatus,setShooterDirectoryStatus]=React.useState("Accounts laden…");
+  const [shooterDirectoryStatus,setShooterDirectoryStatus]=React.useState("Schutters laden…");
+  const [shooterDirectoryRevision,setShooterDirectoryRevision]=React.useState(0);
+  const reloadShooters=()=>{if(isTrainer)setShooterDirectoryRevision(n=>n+1);else pullRemote();};
   React.useEffect(()=>{
     let active=true;
-    if(isTrainer)eppCall("epp-training",{clubId:CLUB_ID,action:"list_registered_shooters"})
-      .then(r=>{if(active){setRegisteredShooters(r.shooters||[]);setShooterDirectoryStatus("");}})
-      .catch(()=>{if(active)setShooterDirectoryStatus("Accounts laden mislukt. Herlaad de pagina.");});
+    if(isTrainer){
+      setShooterDirectoryStatus("Schutters laden…");
+      eppCall("epp-training",{clubId:CLUB_ID,action:"list_registered_shooters"})
+        .then(r=>{if(active){setRegisteredShooters(r.shooters||[]);setShooterDirectoryStatus("");}})
+        .catch(()=>{if(active)setShooterDirectoryStatus("Schutters ophalen mislukt. Je bestaande trainingslijst blijft beschikbaar. Probeer opnieuw via ‘Staat je naam er niet bij?’.");});
+    }
     return ()=>{active=false;};
-  },[]);
+  },[shooterDirectoryRevision]);
   const [toast,      setToast]      = React.useState("");
   const firstSave = React.useRef(true);
   const applyingRemote = React.useRef(false);
@@ -2802,9 +2846,9 @@ function App({headClubs,onHeadClubChange}={}) {
   // State helpers
   const addShooter = selectedId => {
     const selected=registeredShooters.find(s=>s.id===(typeof selectedId==="string"?selectedId:nieuw));
-    if(!selected||shooterDirectoryStatus){flash('Kies een schutter met een aangemaakt account.');return;}
-    if(shooters.some(s=>s.id===selected.id)){flash('Deze schutter staat al in de trainingslijst.');return;}
-    markLocalEdit();setShooters(p=>[...p,{id:selected.id,naam:selected.display_name}]);setNieuw("");
+    if(!selected||shooterDirectoryStatus){flash('Deze schutter is nog niet beschikbaar. Laad de schutters opnieuw.');return false;}
+    if(shooters.some(s=>s.id===selected.id))return true;
+    markLocalEdit();setShooters(p=>[...p,{id:selected.id,naam:selected.display_name}]);setNieuw("");return true;
   };
   const removeShooter = id => {if(!confirm("Schutter en scores verwijderen?"))return;markLocalEdit();setShooters(p=>p.filter(s=>s.id!==id));setCameraShots(p=>p.filter(s=>s.sid!==id));setScores(p=>{const n={...p};delete n[id];return n;});setTombstones(p=>({...p,shooters:{...p.shooters,[id]:Date.now()}}));};
   const markShotsDeleted = ids => {markLocalEdit();setTombstones(p=>({...p,shots:{...p.shots, ...Object.fromEntries(ids.map(id=>[id,Date.now()]))}}));};
@@ -2915,11 +2959,11 @@ function App({headClubs,onHeadClubChange}={}) {
 
   const activeContent = !loaded
     ? h("div",{style:{textAlign:"center",padding:48,color:C.muted}},"Laden…")
-    : tab==="home" ? h(PersonalHome,{shooters,currentTraining,archives,personalTraining,canTrain,setTab})
-    : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,registeredShooters,shooterDirectoryStatus,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,canTrain,personalTraining,archives,trainingView,setTrainingView})
+    : tab==="home" ? h(PersonalHome,{shooters,currentTraining,archives,personalTraining,canTrain,setTab,onMatchScores:openMatchScores})
+    : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,registeredShooters,shooterDirectoryStatus,reloadShooters,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,canTrain,personalTraining,archives,trainingView,setTrainingView,onMatchScores:openMatchScores})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,registeredShooters,shooterDirectoryStatus,addShooter,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(SharedTrainingStand)
-    : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:isTrainer?'individual':'signup'})
+    : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:competitionEntry||(isTrainer?'individual':'signup')})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab,canRestore:!store.current.busy&&!store.current.conflict&&!EppStore.diff(store.current.base,makePayload()).length,onRestored:pullRemote})
     : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
 

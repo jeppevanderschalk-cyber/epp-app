@@ -90,7 +90,7 @@ try{
   await page.screenshot({path:resolve(tmpdir(),'epp-four-app-home-390.png'),fullPage:true,animations:'disabled'});
   await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:resolve(tmpdir(),'epp-four-app-home-1440.png'),fullPage:true,animations:'disabled'});
   await page.setViewportSize({width:390,height:844});
-  await page.getByRole('button',{name:'Score invoeren',exact:true}).click();
+  await page.getByRole('button',{name:'Trainingsscore invoeren',exact:true}).click();
   await page.getByLabel('Rondescore').fill('210');failTraining=true;
   await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
   await page.getByText(/Lokaal bewaard, nog niet online/).waitFor();
