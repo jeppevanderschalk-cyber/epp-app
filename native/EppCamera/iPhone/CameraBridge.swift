@@ -109,7 +109,7 @@ final class CameraBridge: NSObject, ObservableObject, WKScriptMessageHandler, WK
             guard !Task.isCancelled, let self, self.pending?.command.id.uuidString == id else { return }
             self.capturing = false; self.canRetry = true; self.status = "Verwerking duurt lang. De foto is bewaard; controleer EPP voordat je opnieuw doorgeeft."; self.publish()
         }
-        webView.callAsyncJavaScript("if (!window.EppCameraNative) throw new Error('Open Camera per serie in EPP.'); return await window.EppCameraNative.receivePhoto(photo);", arguments: ["photo": ["id": id, "contextId": pending.command.contextID, "mime": "image/jpeg", "base64": pending.data.base64EncodedString()]], in: nil, contentWorld: .page) { [weak self] result in
+        webView.callAsyncJavaScript("if (!window.EppCameraNative) throw new Error('Open Camera per serie in EPP.'); return await window.EppCameraNative.receivePhoto(photo);", arguments: ["photo": ["id": id, "contextId": pending.command.contextID, "mime": "image/jpeg", "base64": pending.data.base64EncodedString()]], in: nil, in: .page) { [weak self] result in
             guard let self, self.pending?.command.id.uuidString == id else { return }
             self.deadline?.cancel(); self.capturing = false
             switch result {

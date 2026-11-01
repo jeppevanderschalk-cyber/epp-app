@@ -29,6 +29,7 @@
   }
   function state(value){if(contextId&&value.contextId===contextId){lastState=value;post({type:'state',...value,captureAllowed:value.captureAllowed&&visible(),message:visible()?value.message:'Log eerst in bij EPP.'});}}
   function capture(){if(contextId&&visible())post({type:'capture',contextId});}
+  if(available())root.document?.documentElement?.classList.add('epp-native-camera');
   const workspace=root.document?.getElementById('root');
   if(workspace&&root.MutationObserver)new root.MutationObserver(()=>{if(lastState)state(lastState);}).observe(workspace,{attributes:true,attributeFilter:['hidden']});
   root.EppCameraNative={available,attach,receivePhoto,state,capture};

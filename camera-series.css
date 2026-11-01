@@ -48,3 +48,5 @@
 .series-native{display:grid;gap:12px;padding:16px;margin:16px 0;border:1px solid #e4bb4a;border-radius:12px}
 .series-native input[type=checkbox]{width:18px;height:18px;vertical-align:middle;accent-color:#e4bb4a}
 .series-native label{font-size:.85rem;line-height:1.5}
+
+.epp-native-camera .epp-install-help{display:none!important}
