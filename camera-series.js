@@ -33,12 +33,13 @@
     }
     return cross.every(n=>n>0)&&area>.08;
   }
-  async function readPhoto(file){
+  async function readPhoto(file,options={}){
     if(file.size>30000000)throw new Error('Deze foto is te groot. Kies een foto kleiner dan 30 MB.');
     const url=URL.createObjectURL(file);
     try{
       const image=new Image();image.src=url;await image.decode();
-      const scale=Math.min(1,1800/Math.max(image.naturalWidth,image.naturalHeight));
+      const maxDimension=Math.max(1800,Math.min(4000,Number(options.maxDimension)||1800));
+      const scale=Math.min(1,maxDimension/Math.max(image.naturalWidth,image.naturalHeight));
       const canvas=document.createElement('canvas');canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);
       canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
       if(Math.min(canvas.width,canvas.height)<400)throw new Error('De foto is te klein. Gebruik een scherpere foto van dichtbij.');

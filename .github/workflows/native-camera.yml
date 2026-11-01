@@ -1,0 +1,21 @@
+name: Native camera companion
+on:
+  push:
+    paths:
+      - 'native/**'
+      - '.github/workflows/native-camera.yml'
+  pull_request:
+    paths:
+      - 'native/**'
+      - '.github/workflows/native-camera.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check capture request validation
+        run: swift test --package-path native/CaptureCore
+      - name: Build iPhone app and embedded Watch app without signing
+        run: xcodebuild -project native/EppCamera/EppCamera.xcodeproj -scheme EppCamera -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build

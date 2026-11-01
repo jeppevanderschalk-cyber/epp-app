@@ -8,6 +8,13 @@
       const [busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[saved,setSaved]=React.useState(false);
       const [expected,setExpected]=React.useState(5),[selected,setSelected]=React.useState(null);
       const [showBefore,setShowBefore]=React.useState(false);
+      const native=root.EppCameraNative,nativeAvailable=!!native?.available();
+      const [autoSave,setAutoSave]=React.useState(false);
+      const nativeContext=React.useMemo(()=>newId(),[sid,stage,trainingId]);
+      const contextRef=React.useRef(nativeContext);contextRef.current=nativeContext;
+      const receiveNative=React.useRef(null);
+      React.useEffect(()=>nativeAvailable?native.attach(nativeContext,(file,photo)=>receiveNative.current(file,photo)):undefined,[nativeContext,nativeAvailable]);
+
       const [caliber,setCaliber]=React.useState(''),[cardWidth,setCardWidth]=React.useState(''),[cardHeight,setCardHeight]=React.useState('');
       const confidenceLabel={high:'Zeker',medium:'Twijfel',low:'Onzeker'};
       const priority={low:0,medium:1,high:2};
@@ -21,7 +28,13 @@
       const active=cameraShots.filter(s=>s.sid===sid&&s.stage===stage&&s.trainingId===trainingId);
       const limit=Math.round(maxOf(stage)/5),remaining=Math.max(0,limit-active.length);
       React.useEffect(()=>{if(remaining>0)setExpected(n=>Math.min(n,remaining));},[remaining]);
-      const pending=shots.reduce((n,s)=>n+s.score,0);
+      const pending=shots.reduce((n,s)=>n+s.score,0),activeScore=active.reduce((n,s)=>n+s.score,0);
+      const captureAllowed=!!sid&&shooters.some(s=>s.id===sid)&&!busy&&remaining>0&&(!result||saved)&&(!after||saved)&&(!before||root.EppCameraSeries.validCorners(before.corners));
+      const nativeMessage=!sid?'Kies een schutter.':busy?'Foto verwerken…':!remaining?'Stage volledig. Kies een andere stage.':result&&!saved?'Controleer de serie op de iPhone.':before&&!root.EppCameraSeries.validCorners(before.corners)?'Markeer de vier hoeken op de iPhone.':after&&!saved?'Vergelijk of corrigeer de foto’s op de iPhone.':!before?'Maak de startfoto.':'Klaar voor een seriefoto.';
+      React.useEffect(()=>{
+        if(nativeAvailable)native.state({contextId:nativeContext,captureAllowed,message:nativeMessage,stage,score:activeScore,pendingScore:result&&!saved?pending:0,uncertain:uncertain.length});
+      },[nativeContext,nativeAvailable,captureAllowed,nativeMessage,stage,activeScore,pending,saved,uncertain.length]);
+
       const reset=()=>{setBefore(null);setAfter(null);setResult(null);setShots([]);setSaved(false);setStatus('');setSelected(null);};
       const change=(fn,value)=>{
         if(busy)return;
@@ -45,22 +58,57 @@
         const box=event.currentTarget.getBoundingClientRect(),p={x:(event.clientX-box.left)/box.width,y:(event.clientY-box.top)/box.height};
         (which==='before'?setBefore:setAfter)(old=>old&&old.corners.length<4?{...old,corners:[...old.corners,p]}:old);
       }
+      async function comparePhotos(first,last,fromNative=false){
+        const context=nativeContext;
+        const next=await root.EppCameraSeries.compare(first,last,{caliber,cardWidth,cardHeight});
+        if(!mounted.current||contextRef.current!==context||root.document?.getElementById('root')?.hidden)return {ok:false,message:'De serie is gewijzigd. Foto niet overgenomen.'};
+        const evaluated=next.candidates.map(p=>{
+          const score=scoreAtTargetPoint(p),reasons=[...p.reasons];
+          const radiusX=Number(caliber)/(2*Number(cardWidth)),radiusY=Number(caliber)/(2*Number(cardHeight));
+          const border=Number.isFinite(radiusX)&&Number.isFinite(radiusY)&&[[-1,0],[1,0],[0,-1],[0,1],[-.7,-.7],[.7,-.7],[-.7,.7],[.7,.7]].some(([dx,dy])=>scoreAtTargetPoint({x:p.x+dx*radiusX,y:p.y+dy*radiusY})!==score);
+          if(border)reasons.push('Inslag bij een scoringsrand: controleer de score.');
+          return {...p,id:newId(),score,confidence:border&&p.confidence==='high'?'medium':p.confidence,reasons,reviewed:false,source:'serie'};
+        });
+        setResult(next);setShowBefore(false);setShots(evaluated);setSaved(false);setSelected(null);
+        if(fromNative&&autoSave&&evaluated.length===Number(expected)&&evaluated.length>0&&evaluated.length<=remaining&&evaluated.every(s=>s.confidence==='high')){
+          commitShots(evaluated,'recognition');
+          return {ok:true,phase:'saved',message:'Zekere serie toegevoegd.',score:[...active,...evaluated].reduce((n,s)=>n+s.score,0)};
+        }
+        setStatus(evaluated.length+' mogelijke inslagen. Controleer vooral de onzekere schoten.');
+        return {ok:true,phase:'review',message:'Serie berekend. Controleer op de iPhone.',pendingScore:evaluated.reduce((n,s)=>n+s.score,0)};
+      }
       async function analyze(){
         if(locked.current)return;locked.current=true;setBusy(true);setStatus('Kaartfoto\'s vergelijken...');
-        try{
-          const next=await root.EppCameraSeries.compare(before,after,{caliber,cardWidth,cardHeight});
-          if(!mounted.current)return;
-          setResult(next);setShowBefore(false);setShots(next.candidates.map(p=>{
-            const score=scoreAtTargetPoint(p),reasons=[...p.reasons];
-            const radiusX=Number(caliber)/(2*Number(cardWidth)),radiusY=Number(caliber)/(2*Number(cardHeight));
-            const border=Number.isFinite(radiusX)&&Number.isFinite(radiusY)&&[[-1,0],[1,0],[0,-1],[0,1],[-.7,-.7],[.7,-.7],[-.7,.7],[.7,.7]].some(([dx,dy])=>scoreAtTargetPoint({x:p.x+dx*radiusX,y:p.y+dy*radiusY})!==score);
-            if(border)reasons.push('Inslag bij een scoringsrand: controleer de score.');
-            return {...p,id:newId(),score,confidence:border&&p.confidence==='high'?'medium':p.confidence,reasons,reviewed:false,source:'serie'};
-          }));
-          setStatus(next.candidates.length+' mogelijke inslagen. Controleer vooral de onzekere schoten.');setSaved(false);setSelected(null);
-        }catch(e){if(mounted.current)setStatus(e.message);}
+        try{await comparePhotos(before,after);}
+        catch(e){if(mounted.current)setStatus(e.message);}
         finally{locked.current=false;if(mounted.current)setBusy(false);}
       }
+      receiveNative.current=async(file,photo)=>{
+        if(locked.current||!captureAllowed||photo.contextId!==nativeContext)throw new Error(nativeMessage);
+        locked.current=true;setBusy(true);setStatus('Watch-foto ontvangen…');
+        let imported=false;
+        try{
+          const image=await root.EppCameraSeries.readPhoto(file,{maxDimension:3000});
+          if(!mounted.current||contextRef.current!==photo.contextId)throw new Error('De serie is gewijzigd. Maak een nieuwe foto.');
+          const first=saved?after:before;
+          if(!first){
+            setBefore(image);setAfter(null);setResult(null);setShots([]);setSaved(false);imported=true;
+            setStatus('Startfoto ontvangen. Markeer de vier kaarthoeken en vul kaliber en kaartmaten in.');
+            return {ok:true,phase:'baseline',message:'Markeer de vier kaarthoeken op de iPhone.'};
+          }
+          if(!root.EppCameraSeries.validCorners(first.corners))throw new Error('Markeer eerst de vier hoeken van de startfoto.');
+          const sameShape=Math.abs(image.canvas.width/image.canvas.height-first.canvas.width/first.canvas.height)<.02;
+          const last={...image,corners:sameShape?first.corners.map(p=>({...p})):[]};
+          setBefore(first);setAfter(last);setResult(null);setShots([]);setSaved(false);imported=true;
+          if(!sameShape)throw new Error('De fotoverhouding is veranderd. Markeer de hoeken op de nieuwe foto.');
+          return await comparePhotos(first,last,true);
+        }catch(e){
+          if(mounted.current)setStatus(e.message);
+          // Once imported, keep the photo for manual corner correction/retry.
+          if(imported)return {ok:true,phase:'alignment',message:'Foto ontvangen. Controleer de uitlijning op de iPhone.'};
+          throw e;
+        }finally{locked.current=false;if(mounted.current)setBusy(false);}
+      };
       function addPoint(event){
         if(busy||saved||showBefore||shots.length>=Number(expected))return;
         const box=event.currentTarget.getBoundingClientRect(),p={x:(event.clientX-box.left)/box.width,y:(event.clientY-box.top)/box.height};
@@ -72,13 +120,15 @@
         const id=newId();setShots(old=>[...old,{...shot,id,reviewed:false,confidence:'low',source:'correctie',reasons:['Extra schot in hetzelfde gat: aantal en score handmatig controleren.']}]);setSelected(id);
       }
       const patch=(id,data)=>setShots(old=>old.map(s=>s.id===id?{...s,...data}:s));
-      function save(){
-        if(locked.current||saved||!result||shots.length!==Number(expected)||shots.some(s=>!s.reviewed)||Number(expected)>remaining)return;
-        locked.current=true;
-        const nextShots=shots.map(s=>({id:s.id,sid,stage,trainingId,score:s.score,source:s.source,reviewed:true,confidence:s.confidence,reasons:s.reasons,groupId:s.groupId,estimatedCount:s.estimatedCount,arcCount:s.arcCount,arcSupport:s.arcSupport,areaEquivalent:s.areaEquivalent,areaMm2:s.areaMm2,caliber:Number(caliber)||null,cardWidth:Number(cardWidth)||null,cardHeight:Number(cardHeight)||null,tx:s.x,ty:s.y,x:s.x,y:s.y,ts:Date.now(),seriesId:shots[0].id}));
+      function commitShots(items,reviewMethod){
+        const nextShots=items.map(s=>({id:s.id,sid,stage,trainingId,score:s.score,source:s.source,reviewed:true,reviewMethod,confidence:s.confidence,reasons:s.reasons,groupId:s.groupId,estimatedCount:s.estimatedCount,arcCount:s.arcCount,arcSupport:s.arcSupport,areaEquivalent:s.areaEquivalent,areaMm2:s.areaMm2,caliber:Number(caliber)||null,cardWidth:Number(cardWidth)||null,cardHeight:Number(cardHeight)||null,tx:s.x,ty:s.y,x:s.x,y:s.y,ts:Date.now(),seriesId:items[0].id}));
         setCameraShots(prev=>[...prev,...nextShots]);
         addRound({sid,type:'stage',stage,score:[...active,...nextShots].reduce((n,s)=>n+s.score,0),source:'camera',replaceKey:`camera-${trainingId}-${sid}-${stage}`});
-        setSaved(true);setStatus('Serie toegevoegd. De online opslagstatus staat bovenaan.');flash('Serie toegevoegd');locked.current=false;
+        setSaved(true);setStatus(reviewMethod==='recognition'?'Zekere serie automatisch toegevoegd. De online opslagstatus staat bovenaan.':'Serie toegevoegd. De online opslagstatus staat bovenaan.');flash('Serie toegevoegd');
+      }
+      function save(){
+        if(locked.current||saved||!result||shots.length!==Number(expected)||shots.some(s=>!s.reviewed)||Number(expected)>remaining)return;
+        locked.current=true;try{commitShots(shots,'manual');}finally{locked.current=false;}
       }
       function nextSeries(){
         setBefore(after);setAfter(null);setResult(null);setShots([]);setSaved(false);setSelected(null);setStatus('');setExpected(Math.min(5,remaining));
@@ -115,6 +165,13 @@
         h('section',null,
           h('h2',null,'Camera per serie ',h('span',{className:'series-beta'},'Beta')),
           shooterPicker,
+          nativeAvailable&&h('section',{className:'series-native'},
+            h('strong',null,'Apple Watch gekoppeld via de hulpapp'),
+            h('p',{className:'hint'},'Houd deze hulpapp open en laat de iPhone op hetzelfde statief staan. De eerste foto is de startfoto; volgende foto’s worden automatisch vergeleken.'),
+            h('button',{type:'button',className:'btn btn-gold',disabled:!captureAllowed,onClick:()=>native.capture()},before?'Maak seriefoto':'Maak startfoto'),
+            h('label',null,h('input',{type:'checkbox',checked:autoSave,disabled:busy||!!result&&!saved,onChange:e=>setAutoSave(e.target.checked)}),' Alleen volledig zekere series automatisch toevoegen'),
+            h('p',{className:'hint'},'Automatisch toevoegen gebruikt de herkenningsindicatie, geen menselijke controle. Bij twijfel of een afwijkend aantal blijft de serie ter beoordeling staan.')
+          ),
           h(StageCarousel,{stageKey:stage,onSelect:s=>change(setStage,s)}),
           h('div',{className:'series-calibration'},
             h('label',null,'Kaliber (mm)',h('input',{className:'sel-in',type:'number',min:2,max:20,step:.01,placeholder:'Bijv. 9',value:caliber,disabled:busy||saved||!!result,onChange:e=>setCaliber(e.target.value)})),

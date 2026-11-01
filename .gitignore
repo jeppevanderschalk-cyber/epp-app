@@ -20,3 +20,8 @@ backups/
 *.encrypted
 *.key
 *.decrypted.json
+# Local Xcode signing, user state and build products
+native/**/.build/
+native/**/DerivedData/
+native/**/xcuserdata/
+*.xcuserstate

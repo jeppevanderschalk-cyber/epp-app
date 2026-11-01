@@ -45,3 +45,6 @@
 .series-shot-focus{background:none;border:0;padding:0;min-height:30px;text-align:left;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
 .series-shot-evidence{grid-column:1/-1;display:grid;gap:8px;color:rgba(214,226,255,.8);line-height:1.5;overflow-wrap:anywhere}
 .series-shot-evidence .btn{font-size:.8rem;justify-self:start}
+.series-native{display:grid;gap:12px;padding:16px;margin:16px 0;border:1px solid #e4bb4a;border-radius:12px}
+.series-native input[type=checkbox]{width:18px;height:18px;vertical-align:middle;accent-color:#e4bb4a}
+.series-native label{font-size:.85rem;line-height:1.5}
