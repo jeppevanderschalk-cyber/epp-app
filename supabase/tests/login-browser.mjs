@@ -13,7 +13,7 @@ const server=createServer(async(req,res)=>{
   if(req.url==='/epp-logo.png'){res.setHeader('Content-Type','image/png');res.end(logo);return;}
   if(req.url==='/training-store.js'){res.setHeader('Content-Type','text/javascript');res.end(store);return;}
   if(req.url!=='/'&&req.url!=='/index.html'){
-    try{const path=resolve(root,'.'+req.url);if(!path.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.png':'image/png'})[extname(path)]||'application/octet-stream');res.end(await readFile(path));}
+    try{const path=resolve(root,'.'+new URL(req.url,'http://localhost').pathname);if(!path.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.png':'image/png'})[extname(path)]||'application/octet-stream');res.end(await readFile(path));}
     catch{res.writeHead(404);res.end();}return;
   }
   res.setHeader('Content-Type','text/html');res.end(html);
