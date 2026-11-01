@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-8R+ZEZSvNsLXx6w49p/lf8XLg3cm80Gz58lNsPxpXy0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-h+wihOzHxCL2A0DtX/KTF8l2QypYBJtG1laIa/DjhSA='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -106,7 +106,7 @@
   </form>
 </div>
 <div id="root" hidden></div>
-<link rel="stylesheet" href="experience.css?v=aac30caa8f5b" />
+<link rel="stylesheet" href="experience.css?v=4a80db0e4cb5" />
 <script src="app-experience.js?v=1"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
@@ -1280,6 +1280,9 @@ const TabInvoer = ({
   React.useEffect(()=>{if(currentTraining.mode!==fixedMode)setTrainingMode(fixedMode);},[fixedMode]);
   const [shooterSearch,setShooterSearch]=React.useState("");
   const shooterHelp=React.useRef(null);
+  const [searchOpen,setSearchOpen]=React.useState(false);
+  const [searchIndex,setSearchIndex]=React.useState(0);
+  const searchListId=React.useId();
   const selectableShooters=React.useMemo(()=>{
     const merged=new Map(shooters.map(s=>[s.id,{id:s.id,naam:s.naam,existing:true}]));
     for(const s of registeredShooters)if(!merged.has(s.id))merged.set(s.id,{id:s.id,naam:s.display_name,existing:false});
@@ -1294,10 +1297,12 @@ const TabInvoer = ({
   },[shooters,activeSid]);
   const searchText=EppUx.normalize(shooterSearch);
   const matchingShooters=selectableShooters.filter(s=>s.id===activeSid||EppUx.normalize(s.naam).includes(searchText));
+  const searchMatches=selectableShooters.filter(s=>EppUx.normalize(s.naam).includes(searchText));
+  const searchOptions=searchMatches.filter(s=>s.existing||!shooterDirectoryStatus);
   const selectForInput=id=>{
     if(!id)return;
     if(!shooters.some(s=>s.id===id)&&addShooter(id)===false)return;
-    setActiveSid(id);setShooterSearch("");if(shooterHelp.current)shooterHelp.current.open=false;
+    setActiveSid(id);setShooterSearch("");setSearchOpen(false);setSearchIndex(0);if(shooterHelp.current)shooterHelp.current.open=false;
   };
   const roundGroups = sid => trainingRounds.filter(r=>r.sid===sid && r.type===mode && (mode==="parcours" || r.stage===stage));
   const saveFor = (sid,data) => {
@@ -1318,7 +1323,19 @@ const TabInvoer = ({
             !shooters.length&&h('button',{type:'button',className:'btn btn-ghost',onClick:reloadShooters},'Mijn gegevens opnieuw laden'))
           :h(React.Fragment,null,
             h('p',{className:'hint'},eppSession()?.account?.isPlatformAdmin?'Kies een schutter uit het landelijke overzicht. Een nieuwe selectie wordt direct aan deze training toegevoegd.':'Kies een schutter van je vereniging. Een nieuwe selectie wordt direct aan deze training toegevoegd.'),
-            h('label',{className:'training-shooter-search'},'Zoek schutter',h('input',{type:'search',className:'txt-in',value:shooterSearch,placeholder:'Typ een naam…','aria-label':'Zoek schutter voor training',onChange:e=>setShooterSearch(e.target.value)})),
+            h('div',{className:'training-shooter-search',onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget))setSearchOpen(false);}},
+              h('label',{htmlFor:searchListId+'-input'},'Zoek schutter'),
+              h('input',{id:searchListId+'-input',type:'search',role:'combobox',className:'txt-in',value:shooterSearch,placeholder:'Kies een schutter of typ een naam…','aria-label':'Zoek schutter voor training','aria-expanded':searchOpen,'aria-controls':searchListId,'aria-autocomplete':'list','aria-activedescendant':searchOpen&&searchOptions[searchIndex]?searchListId+'-'+searchOptions[searchIndex].id:undefined,
+                onFocus:()=>{setSearchOpen(true);setSearchIndex(0);},onClick:()=>setSearchOpen(true),
+                onChange:e=>{setShooterSearch(e.target.value);setSearchOpen(true);setSearchIndex(0);},
+                onKeyDown:e=>{
+                  if(e.key==='Escape'){setSearchOpen(false);return;}
+                  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();setSearchOpen(true);setSearchIndex(i=>searchOptions.length?(searchOpen?(i+(e.key==='ArrowDown'?1:-1)+searchOptions.length)%searchOptions.length:0):0);}
+                  if(e.key==='Enter'&&searchOpen){e.preventDefault();if(searchOptions[searchIndex])selectForInput(searchOptions[searchIndex].id);}
+                }}),
+              searchOpen&&h('div',{className:'training-shooter-options',id:searchListId,role:'listbox','aria-label':'Beschikbare schutters'},
+                searchMatches.map(s=>h('button',{key:s.id,id:searchListId+'-'+s.id,type:'button',role:'option','aria-selected':s.id===activeSid,disabled:!s.existing&&!!shooterDirectoryStatus,className:searchOptions[searchIndex]?.id===s.id?'is-highlighted':'',onMouseDown:e=>e.preventDefault(),onClick:()=>selectForInput(s.id)},s.naam)),
+                !searchMatches.length&&h('p',{className:'hint',role:'status'},shooterDirectoryStatus||'Geen schutter met deze naam gevonden.'))),
             !shooterDirectoryStatus&&h('p',{className:'hint'},selectableShooters.length+' '+(selectableShooters.length===1?'schutter beschikbaar':'schutters beschikbaar')+' voor deze training.'),
             h('div',{className:'training-shooter-picker'},
               h('label',null,'Schutter voor score-invoer',h('select',{className:'txt-in','aria-label':'Schutter voor score-invoer',value:activeSid,disabled:!selectableShooters.length,onChange:e=>selectForInput(e.target.value)},

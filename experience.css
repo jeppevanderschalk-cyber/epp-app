@@ -48,3 +48,10 @@
 .training-shooter-help{margin-top:14px;font-size:.85rem}
 .training-shooter-help summary{cursor:pointer;min-height:36px;display:list-item;line-height:1.5}
 .personal-training-name{display:block;font-size:1.1rem}
+
+.training-shooter-options{max-height:260px;overflow-y:auto;overscroll-behavior:contain;border:1px solid #627295;border-radius:12px;background:#101a35;padding:4px;scroll-margin-bottom:170px}
+.training-shooter-options button{display:block;width:100%;min-height:48px;padding:12px;text-align:left;color:#f4f6ff;background:transparent;border:0;border-radius:8px;font:inherit;cursor:pointer}
+.training-shooter-options button:hover,.training-shooter-options button.is-highlighted{background:#29395d}
+.training-shooter-options button[aria-selected="true"]{color:#f1cf68;font-weight:700}
+.training-shooter-options button:disabled{opacity:.5;cursor:wait}
+.training-shooter-options .hint{padding:8px}

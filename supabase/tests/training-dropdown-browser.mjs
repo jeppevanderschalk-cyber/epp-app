@@ -41,13 +41,24 @@ try{
   }
   await dropdown.locator('option[value="'+sid+'"]').waitFor({state:'attached'});
   assert.equal(await page.getByPlaceholder('Naam toevoegen…').count(),0);
-  await dropdown.selectOption(sid);await page.getByText('Geselecteerd: Anne de Vries.',{exact:false}).waitFor();
+  const search=page.getByLabel('Zoek schutter voor training',{exact:true});
+  await search.click();
+  const list=page.getByRole('listbox',{name:'Beschikbare schutters'});
+  await list.waitFor();assert.equal(await list.getByRole('option').count(),head?3:2);
+  assert.equal(await list.getByRole('option',{name:'Andere Vereniging',exact:true}).count(),head?1:0);
+  await search.fill('nietsgevonden');assert.equal(await list.getByRole('option').count(),0);
+  await search.fill('anne');assert.equal(await list.getByRole('option').count(),1);
+  await list.getByRole('option',{name:'Anne de Vries',exact:true}).click();
+  await list.waitFor({state:'hidden'});
+  await page.getByText('Geselecteerd: Anne de Vries.',{exact:false}).waitFor();
   await page.getByLabel('Schutter voor score-invoer',{exact:true}).locator('option[value="'+sid+'"]').waitFor({state:'attached'});
   assert.equal(await dropdown.locator('option[value="'+sid+'"]').count(),1);
   assert.equal(await dropdown.locator('option[value="'+foreign+'"]').count(),head?1:0);
   assert.equal(await page.getByRole('button',{name:'Schutter toevoegen aan training',exact:true}).count(),0);
   await page.getByLabel('Zoek schutter voor training',{exact:true}).fill('belinda');
-  await dropdown.selectOption(second);await dropdown.selectOption(sid);
+  await search.press('Enter');assert.equal(await dropdown.inputValue(),second);
+  await search.click();await search.press('Escape');await list.waitFor({state:'hidden'});
+  await dropdown.selectOption(sid);
   assert.equal(await page.getByLabel('Zoek schutter voor training',{exact:true}).inputValue(),'');
   await page.locator('.num-in').fill('200');await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
   for(let n=0;n<60&&![...records.values()].some(e=>e.kind==='round');n++)await new Promise(r=>setTimeout(r,100));
