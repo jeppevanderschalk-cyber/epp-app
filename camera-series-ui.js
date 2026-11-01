@@ -8,6 +8,13 @@
       const [busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[saved,setSaved]=React.useState(false);
       const [expected,setExpected]=React.useState(5),[selected,setSelected]=React.useState(null);
       const [showBefore,setShowBefore]=React.useState(false);
+      const [caliber,setCaliber]=React.useState(''),[cardWidth,setCardWidth]=React.useState(''),[cardHeight,setCardHeight]=React.useState('');
+      const confidenceLabel={high:'Zeker',medium:'Twijfel',low:'Onzeker'};
+      const priority={low:0,medium:1,high:2};
+      const orderedShots=shots.map((s,i)=>({...s,number:i+1})).sort((a,b)=>(priority[a.confidence]??0)-(priority[b.confidence]??0)||a.number-b.number);
+      const uncertain=orderedShots.filter(s=>!s.reviewed&&s.confidence!=='high');
+      function reviewNext(){const next=uncertain[(uncertain.findIndex(s=>s.id===selected)+1)%uncertain.length];if(next){setSelected(next.id);setShowBefore(false);requestAnimationFrame(()=>document.getElementById('series-shot-'+next.id)?.scrollIntoView({block:'center',behavior:'smooth'}));}}
+
       const locked=React.useRef(false),mounted=React.useRef(true);
       React.useEffect(()=>()=>{mounted.current=false;},[]);
       React.useEffect(()=>{if(!sid&&shooters[0])setSid(shooters[0].id);},[shooters,sid]);
@@ -41,24 +48,34 @@
       async function analyze(){
         if(locked.current)return;locked.current=true;setBusy(true);setStatus('Kaartfoto\'s vergelijken...');
         try{
-          const next=await root.EppCameraSeries.compare(before,after);
+          const next=await root.EppCameraSeries.compare(before,after,{caliber,cardWidth,cardHeight});
           if(!mounted.current)return;
-          setResult(next);setShowBefore(false);setShots(next.candidates.map(p=>({...p,id:newId(),score:scoreAtTargetPoint(p),reviewed:false,source:'serie'})));
-          setStatus(next.candidates.length+' mogelijke inslagen.');setSaved(false);
+          setResult(next);setShowBefore(false);setShots(next.candidates.map(p=>{
+            const score=scoreAtTargetPoint(p),reasons=[...p.reasons];
+            const radiusX=Number(caliber)/(2*Number(cardWidth)),radiusY=Number(caliber)/(2*Number(cardHeight));
+            const border=Number.isFinite(radiusX)&&Number.isFinite(radiusY)&&[[-1,0],[1,0],[0,-1],[0,1],[-.7,-.7],[.7,-.7],[-.7,.7],[.7,.7]].some(([dx,dy])=>scoreAtTargetPoint({x:p.x+dx*radiusX,y:p.y+dy*radiusY})!==score);
+            if(border)reasons.push('Inslag bij een scoringsrand: controleer de score.');
+            return {...p,id:newId(),score,confidence:border&&p.confidence==='high'?'medium':p.confidence,reasons,reviewed:false,source:'serie'};
+          }));
+          setStatus(next.candidates.length+' mogelijke inslagen. Controleer vooral de onzekere schoten.');setSaved(false);setSelected(null);
         }catch(e){if(mounted.current)setStatus(e.message);}
         finally{locked.current=false;if(mounted.current)setBusy(false);}
       }
       function addPoint(event){
         if(busy||saved||showBefore||shots.length>=Number(expected))return;
         const box=event.currentTarget.getBoundingClientRect(),p={x:(event.clientX-box.left)/box.width,y:(event.clientY-box.top)/box.height};
-        const shot={...p,id:newId(),score:scoreAtTargetPoint(p),reviewed:false,source:'correctie'};
+        const shot={...p,id:newId(),score:scoreAtTargetPoint(p),reviewed:false,source:'correctie',confidence:'low',reasons:['Handmatig toegevoegd; controleer positie en score.']};
         setShots(old=>[...old,shot]);setSelected(shot.id);
+      }
+      function duplicate(shot){
+        if(saved||busy||shots.length>=Number(expected))return;
+        const id=newId();setShots(old=>[...old,{...shot,id,reviewed:false,confidence:'low',source:'correctie',reasons:['Extra schot in hetzelfde gat: aantal en score handmatig controleren.']}]);setSelected(id);
       }
       const patch=(id,data)=>setShots(old=>old.map(s=>s.id===id?{...s,...data}:s));
       function save(){
         if(locked.current||saved||!result||shots.length!==Number(expected)||shots.some(s=>!s.reviewed)||Number(expected)>remaining)return;
         locked.current=true;
-        const nextShots=shots.map(s=>({id:s.id,sid,stage,trainingId,score:s.score,source:s.source,tx:s.x,ty:s.y,x:s.x,y:s.y,ts:Date.now(),seriesId:shots[0].id}));
+        const nextShots=shots.map(s=>({id:s.id,sid,stage,trainingId,score:s.score,source:s.source,reviewed:true,confidence:s.confidence,reasons:s.reasons,groupId:s.groupId,estimatedCount:s.estimatedCount,arcCount:s.arcCount,arcSupport:s.arcSupport,areaEquivalent:s.areaEquivalent,areaMm2:s.areaMm2,caliber:Number(caliber)||null,cardWidth:Number(cardWidth)||null,cardHeight:Number(cardHeight)||null,tx:s.x,ty:s.y,x:s.x,y:s.y,ts:Date.now(),seriesId:shots[0].id}));
         setCameraShots(prev=>[...prev,...nextShots]);
         addRound({sid,type:'stage',stage,score:[...active,...nextShots].reduce((n,s)=>n+s.score,0),source:'camera',replaceKey:`camera-${trainingId}-${sid}-${stage}`});
         setSaved(true);setStatus('Serie toegevoegd. De online opslagstatus staat bovenaan.');flash('Serie toegevoegd');locked.current=false;
@@ -99,6 +116,12 @@
           h('h2',null,'Camera per serie ',h('span',{className:'series-beta'},'Beta')),
           shooterPicker,
           h(StageCarousel,{stageKey:stage,onSelect:s=>change(setStage,s)}),
+          h('div',{className:'series-calibration'},
+            h('label',null,'Kaliber (mm)',h('input',{className:'sel-in',type:'number',min:2,max:20,step:.01,placeholder:'Bijv. 9',value:caliber,disabled:busy||saved||!!result,onChange:e=>setCaliber(e.target.value)})),
+            h('label',null,'Kaartbreedte (mm)',h('input',{className:'sel-in',type:'number',min:50,max:2000,step:1,value:cardWidth,placeholder:'Bijv. 450',disabled:busy||saved||!!result,onChange:e=>setCardWidth(e.target.value)})),
+            h('label',null,'Kaarthoogte (mm)',h('input',{className:'sel-in',type:'number',min:50,max:2000,step:1,value:cardHeight,placeholder:'Bijv. 650',disabled:busy||saved||!!result,onChange:e=>setCardHeight(e.target.value)}))
+          ),
+          h('p',{className:'hint'},'Vul de werkelijke afmetingen tussen de vier gemarkeerde hoeken in. Zonder deze maten blijven detecties onzeker. Gatoppervlakte en randbogen geven een schatting; volledig overlappende schoten zijn niet uit een foto te tellen.'),
           h('div',{className:'series-count'},
             h('label',null,'Schoten in deze serie',h('select',{className:'sel-in',value:expected,disabled:busy||saved||!remaining,onChange:e=>setExpected(Number(e.target.value))},Array.from({length:remaining},(_,i)=>h('option',{key:i+1,value:i+1},i+1)))),
             h('strong',null,active.reduce((n,s)=>n+s.score,0)+' / '+maxOf(stage)+' punten'),
@@ -111,22 +134,31 @@
         status&&h('p',{role:'status',className:'hint'},status),
         result&&h('section',{className:'series-review'},
           h('h3',null,'Serie controleren'),
+          h('p',{className:'series-confidence-legend'},h('span',{className:'confidence-high'},'Groen: zeker'),h('span',{className:'confidence-medium'},'Oranje: twijfel'),h('span',{className:'confidence-low'},'Rood: onzeker')),
+          h('p',{className:'hint'},'Kleur geeft een herkenningsindicatie, geen gemeten kans. Controleer ook de score bij een zonerand. Onzekere schoten staan bovenaan.'),
+          !saved&&h('button',{className:'btn btn-ghost',disabled:!uncertain.length,onClick:reviewNext},'Loop onzekere schoten na ('+uncertain.length+')'),
+          shots.length!==Number(expected)&&h('p',{className:'hint',role:'status'},'Er zijn '+shots.length+' van '+expected+' schoten herkend. Controleer op overlap, ontbrekende inslagen of een misser.'),
           h('div',{className:'series-toggle'},
             h('button',{className:'btn '+(!showBefore?'btn-gold':'btn-ghost'),onClick:()=>setShowBefore(false),'aria-pressed':!showBefore},'Na'),
             h('button',{className:'btn '+(showBefore?'btn-gold':'btn-ghost'),onClick:()=>setShowBefore(true),'aria-pressed':showBefore},'Voor')
           ),
           h('div',{className:'series-photo series-result',onClick:addPoint},
             h('img',{src:showBefore?result.beforeUrl:result.url,alt:showBefore?'Kaart voor de serie':'Kaart na de serie',draggable:false}),
-            !showBefore&&shots.filter(s=>Number.isFinite(s.x)).map((s,i)=>h('button',{key:s.id,type:'button',className:'series-marker'+(s.reviewed?' reviewed':''),style:{left:s.x*100+'%',top:s.y*100+'%'},'aria-label':'Inslag '+(i+1),onClick:e=>{e.stopPropagation();setSelected(s.id);}},i+1))
+            !showBefore&&shots.map((s,i)=>Number.isFinite(s.x)?h('button',{key:s.id,type:'button',className:'series-marker confidence-'+(s.confidence||'low')+(s.reviewed?' reviewed':'')+(selected===s.id?' selected':''),style:{left:s.x*100+'%',top:s.y*100+'%'},'aria-label':'Inslag '+(i+1)+': '+(confidenceLabel[s.confidence]||'Onzeker'),onClick:e=>{e.stopPropagation();setSelected(s.id);}},i+1):null)
           ),
           h('div',{className:'series-review-total'},h('strong',null,pending+' punten'),h('span',null,shots.length+' / '+expected+' geregistreerd')),
-          h('div',{className:'series-shot-list'},shots.map((s,i)=>h('div',{key:s.id,className:'series-shot-row'+(selected===s.id?' selected':'')},
-            h('span',null,'Schot '+(i+1)),
-            h('select',{className:'sel-in','aria-label':'Score schot '+(i+1),value:s.score,disabled:saved,onChange:e=>patch(s.id,{score:Number(e.target.value),reviewed:false})},[0,2,3,4,5].map(v=>h('option',{key:v,value:v},v+' punten'))),
+          h('div',{className:'series-shot-list'},orderedShots.map(s=>h('div',{key:s.id,id:'series-shot-'+s.id,className:'series-shot-row'+(selected===s.id?' selected':'')},
+            h('div',{className:'series-shot-heading'},h('button',{type:'button',className:'series-shot-focus',onClick:()=>{setSelected(s.id);setShowBefore(false);}},'Schot '+s.number),h('span',{className:'confidence-'+(s.confidence||'low')},confidenceLabel[s.confidence]||'Onzeker')),
+            h('select',{className:'sel-in','aria-label':'Score schot '+s.number,value:s.score,disabled:saved,onChange:e=>patch(s.id,{score:Number(e.target.value),reviewed:false})},[0,2,3,4,5].map(v=>h('option',{key:v,value:v},v+' punten'))),
             h('label',null,h('input',{type:'checkbox',checked:s.reviewed,disabled:saved,onChange:e=>patch(s.id,{reviewed:e.target.checked})}),' Gecontroleerd'),
-            h('button',{type:'button',className:'btn btn-ghost','aria-label':'Verwijder schot '+(i+1),disabled:saved,onClick:()=>setShots(old=>old.filter(x=>x.id!==s.id))},'×')
+            h('button',{type:'button',className:'btn btn-ghost','aria-label':'Verwijder schot '+s.number,disabled:saved,onClick:()=>setShots(old=>old.filter(x=>x.id!==s.id))},'×'),
+            h('div',{className:'series-shot-evidence'},
+              h('span',null,(s.reasons||[]).join(' ')),
+              s.areaMm2!=null&&h('span',null,'Nieuw gatoppervlak: '+s.areaMm2.toFixed(1)+' mm² · '+s.areaEquivalent.toFixed(1)+'× één kalibergat · '+s.arcCount+' schotvorm'+(s.arcCount===1?'':'en')+' uit randbogen.'),
+              !saved&&Number.isFinite(s.x)&&h('button',{type:'button',className:'btn btn-ghost',disabled:busy||shots.length>=Number(expected),onClick:()=>duplicate(s)},'+ Schot in dit gat')
+            )
           ))),
-          !saved&&h('button',{className:'btn btn-ghost btn-full',disabled:shots.length>=Number(expected),onClick:()=>setShots(old=>[...old,{id:newId(),score:0,reviewed:true,source:'misser'}])},'Misser toevoegen (0)'),
+          !saved&&h('button',{className:'btn btn-ghost btn-full',disabled:shots.length>=Number(expected),onClick:()=>setShots(old=>[...old,{id:newId(),score:0,reviewed:true,source:'misser',confidence:'low',reasons:['Misser handmatig bevestigd.']}])},'Misser toevoegen (0)'),
           !saved&&h('button',{className:'btn btn-gold btn-full',disabled:busy||!shots.length||shots.length!==Number(expected)||shots.some(s=>!s.reviewed)||Number(expected)>remaining,onClick:save},'Serie opslaan'),
           saved&&remaining>0&&h('button',{className:'btn btn-gold btn-full',onClick:nextSeries},'Volgende serie'),
           h('button',{className:'btn btn-ghost btn-full',disabled:busy,onClick:()=>{if(saved||confirm('De nog niet opgeslagen serie verwijderen?'))reset();}},'Nieuwe fotometing')
