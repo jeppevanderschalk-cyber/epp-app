@@ -7,9 +7,20 @@ Deno.serve(async req=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
   if(req.method!=='POST')return json({ok:false,error:'method_not_allowed'},405);
   let body:any;try{body=await req.json();}catch{return json({ok:false,error:'invalid_json'},400);}
-  if(!isKnownClub(body.clubId))return json({ok:false,error:'onbekende_club'},403);
   const db=serviceClient();
   try{
+    if(body.action==='login'&&body.autoClub===true){
+      if(typeof body.password!=='string'||body.password.length>256)return json({ok:false,error:'ongeldig_wachtwoord'},401);
+      const identifier=String(body.username||'').trim().toLowerCase();
+      if(!body.email&&(!/^[a-z0-9._-]{3,30}$/.test(identifier)||['beheer','kijker','hoofdbeheer','trainer'].includes(identifier)||/^(lid\.|removed\.)/.test(identifier)))return json({ok:false,error:'ongeldig_wachtwoord'},401);
+      const query=db.from('app_accounts').select('club_code').eq(body.email?'username':'login_username',body.email?await emailUsername(body.email):identifier).eq('active',true).eq('legacy',false).is('deleted_at',null).limit(2);
+      const {data:matches,error:lookupError}=await query;
+      if(lookupError)throw lookupError;
+      if(!matches?.length)return json({ok:false,error:'ongeldig_wachtwoord'},401);
+      if(matches.length>1)return json({ok:false,error:'vereniging_kiezen_nodig'},401);
+      body.clubId=matches[0].club_code;
+    }
+    if(!isKnownClub(body.clubId))return json({ok:false,error:'onbekende_club'},403);
     if(body.action==='login'){
       if(typeof body.password!=='string'||body.password.length>256)return json({ok:false,error:'ongeldig_wachtwoord'},401);
       let username=String(body.username||'').trim().toLowerCase();

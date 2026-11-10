@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-WI2HoNUbDKAS33whopzX08vMQW5FUqWqXgBJUn9tI6w=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-qoH2qk8t/BubJhV6r4OQxOHSbt9TnI4ixu1hf3zTAgQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-hRWYKawg4zEJb4vmndmGpG8Dgye3BIsE68H6a7ORhmo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-qoH2qk8t/BubJhV6r4OQxOHSbt9TnI4ixu1hf3zTAgQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -190,6 +190,7 @@ function eppShowLoginGate(){
   (!document.getElementById('loginEmailLabel').hidden&&!emailField.disabled&&!emailField.value?emailField:pw).focus({preventScroll:true});
 }
 var eppPersonalLogin=false;
+var eppLoginClubRequired=false;
 function eppSetPersonalLogin(enabled){
   eppPersonalLogin=enabled&&document.getElementById('loginRole').value!=='hoofdbeheer';
   if(document.getElementById('loginRole').value==='schutter')localStorage.setItem('epp-personal-login-preferred',eppPersonalLogin?'1':'0');
@@ -204,12 +205,12 @@ function eppSetPersonalLogin(enabled){
   var toggle=document.getElementById('loginPersonalToggle');
   toggle.hidden=document.getElementById('loginRole').value==='hoofdbeheer';
   toggle.textContent='Ik heb nog geen account';
-  document.getElementById('loginClubLabel').hidden=document.getElementById('loginRole').value==='hoofdbeheer'||(document.getElementById('loginRole').value==='schutter'&&!eppPersonalLogin);
+  document.getElementById('loginClubLabel').hidden=!eppLoginClubRequired||!eppPersonalLogin;
   document.getElementById('loginPassword').value='';
   document.getElementById('loginError').textContent='';
 }
 function eppApplyLoginEmail(){document.getElementById('loginEmail').required=eppPersonalLogin;}
-document.getElementById('loginEmail').addEventListener('input',eppApplyLoginEmail);
+document.getElementById('loginEmail').addEventListener('input',function(){eppApplyLoginEmail();eppLoginClubRequired=false;document.getElementById('loginClubLabel').hidden=true;});
 document.getElementById('loginPersonalToggle').addEventListener('click',function(){
   if(document.getElementById('loginRole').value!=='schutter')return;
   eppAuthAttempt++;
@@ -249,16 +250,17 @@ document.getElementById("loginForm").addEventListener("submit",function(event){
     var username=role==='hoofdbeheer'?'hoofdbeheer':'kijker';
     var identifier=document.getElementById('loginEmail').value.trim();
     var credentials=eppPersonalLogin?(identifier.includes('@')?{email:identifier}:{username:identifier}):{username:username};
-    eppRawCall("epp-auth",{clubId:club.id,action:"login",...credentials,password:entered}).then(function(result){
+    eppRawCall("epp-auth",{clubId:club.id,autoClub:eppPersonalLogin&&!eppLoginClubRequired,action:"login",...credentials,password:entered}).then(function(result){
       sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify(result));
       localStorage.setItem(EPP_AUTH_STORAGE_KEY,"1");
       localStorage.setItem(EPP_AUTH_ROLE_KEY,result.account.role);
       localStorage.setItem(EPP_AUTH_CLUB_KEY,result.account.clubId);
       location.reload();
     }).catch(function(error){
+      if(error.message==='vereniging_kiezen_nodig'){eppLoginClubRequired=true;document.getElementById('loginClubLabel').hidden=false;document.getElementById('loginError').textContent='Deze inlognaam komt bij meerdere verenigingen voor. Kies je vereniging of gebruik je e-mailadres.';return;}
       if(error.message==='vereniging_goedkeuring_nodig'){document.getElementById('loginError').textContent='Je account wacht op goedkeuring door je vereniging. Neem contact op met je verenigingsbeheerder.';return;}
       if(error.message==='email_verplicht_bij_naamgenoten'){document.getElementById('loginError').textContent='Er zijn meerdere accounts met deze naam. Log in met het e-mailadres van je account.';return;}
-      document.getElementById("loginError").textContent=error.message==="ongeldig_wachtwoord"?(role==='schutter'&&!eppPersonalLogin?'Dit is de toegang voor nieuwe schutters. Heb je al een account? Kies hieronder Inloggen met eigen account en vul je vereniging, naam en eigen wachtwoord in.':'Inloggen niet gelukt. Controleer je vereniging, naam en wachtwoord. Na meerdere pogingen kan de toegang tijdelijk geblokkeerd zijn.') :"Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw.";
+      document.getElementById("loginError").textContent=error.message==="ongeldig_wachtwoord"?(role==='schutter'&&!eppPersonalLogin?'Dit is de toegang voor nieuwe schutters. Heb je al een account? Kies hieronder Inloggen met eigen account en vul je vereniging, naam en eigen wachtwoord in.':'Inloggen niet gelukt. Controleer je gebruikersnaam of e-mailadres en je wachtwoord. Na meerdere pogingen kan de toegang tijdelijk geblokkeerd zijn.') :"Inloggen is tijdelijk niet beschikbaar. Probeer het later opnieuw.";
     }).finally(function(){submitButton.disabled=false;});
     return;
   }

@@ -72,6 +72,8 @@ try{
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
     const personalRequest=await page.evaluate(()=>window.loginRequest);
     assert.equal(personalRequest.payload.username,'anne.schutter');
+    assert.equal(personalRequest.payload.autoClub,true);
+    assert.equal(await page.locator('#loginClubLabel').isVisible(),false);
     assert.equal(personalRequest.payload.role,undefined);
     assert.equal(personalRequest.payload.firstName,undefined);assert.equal(personalRequest.payload.lastName,undefined);
     await page.evaluate(()=>{document.querySelector('.login-submit').disabled=false;});
@@ -85,6 +87,7 @@ try{
     const headRequest=await page.evaluate(()=>window.loginRequest);
     assert.equal(headRequest.payload.username,'hoofdbeheer');
     assert.equal(headRequest.payload.clubId,'eppnationaal');
+    assert.equal(headRequest.payload.autoClub,false);
     assert.equal(headRequest.payload.firstName,undefined);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     assert.equal(await page.evaluate(()=>{const gate=document.getElementById('loginGate');return gate.scrollHeight<=gate.clientHeight||getComputedStyle(gate).overflowY==='auto';}),true);
