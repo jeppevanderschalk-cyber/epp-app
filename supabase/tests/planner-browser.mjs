@@ -78,6 +78,7 @@ try{
     const pistol=p.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}),optics=p.getByRole('radiogroup',{name:'Tijdslot optiek',exact:true});
     await pistol.getByRole('radio',{name:'14 nov 2030 · 09:00',exact:true}).click();
     await optics.getByRole('radio',{name:'14 nov 2030 · 09:30',exact:true}).click();
+    for(const card of await p.locator('.booking-selection').all()){assert.match(await card.innerText(),/Test Schutter/);assert.match(await card.innerText(),/Keuze nog bevestigen/);}
     rejectBooking=true;
     await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await p.getByText('Dit tijdslot is net volgeboekt. Kies een andere tijd.',{exact:true}).waitFor();
@@ -85,6 +86,9 @@ try{
     rejectBooking=false;await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await p.getByText('Online opgeslagen',{exact:true}).waitFor();assert.equal(booked.length,2);
     await p.waitForTimeout(700);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    const summary=p.locator('.booking-selection');
+    assert.equal(await summary.count(),2);
+    for(const card of await summary.all()){assert.match(await card.innerText(),/Inschrijving van\s+Test Schutter/);assert.match(await card.innerText(),/Bevestigde inschrijving/);}
     await p.screenshot({path:tmpdir()+'/epp-planner-member-'+width+'.png',fullPage:true});
     p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Afmelden',exact:true}).click();await p.getByText('Online opgeslagen',{exact:true}).waitFor();assert.equal(booked.length,0);
     await c.close();

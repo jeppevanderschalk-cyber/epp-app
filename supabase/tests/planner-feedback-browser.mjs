@@ -79,6 +79,7 @@ try{
     await page.getByText('Deelnemers per ronde',{exact:true}).click();
     await page.getByRole('button',{name:'Verplaatsen / afmelden',exact:true}).click();
     await page.getByText('Inschrijving wijzigen: Test Schutter',{exact:true}).waitFor();
+    assert.equal(await page.locator('.booking-selection-name').innerText(),'Test Schutter');
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'28 mei 2027 · 09:20',exact:true}).click();
     await page.getByLabel('Reden wijziging').fill('Op verzoek deelnemer');
     await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).click();

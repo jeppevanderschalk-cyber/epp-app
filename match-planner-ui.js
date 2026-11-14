@@ -17,6 +17,7 @@ const plannerError=e=>({tijdslot_betaling_loopt:'Dit tijdslot wordt vastgehouden
 
 const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const mine=target||view.mine;
+  const shooterName=target?(target.name||'Geselecteerde schutter'):(view.profile?.display_name||eppSession()?.account?.displayName||'Jouw schutterprofiel');
   const disciplineScope=React.useRef("planner-disciplines-"+newId());
   const order=mine.payment,paymentLock=order&&['creating','open','pending','review'].includes(order.status);
   const paidBooking=view.match.payment_required&&mine.choices.length>0;
@@ -74,7 +75,14 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
           return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'aria-label':plannerSlot(s.starts_at)+(s.blocked?' · Geblokkeerd':full?' · Vol':past?' · Verstreken':''),disabled:blocked||full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:88,padding:'12px 8px',borderRadius:8,opacity:blocked||full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},s.blocked?'Geblokkeerd':full?'Vol':past?'Verstreken':Math.max(0,s.capacity-s.booked)+' vrij'),h('small',{style:{fontSize:12,fontWeight:600,minHeight:15}},reserved?'Gereserveerd':selected?'Nog bevestigen':''));
         })),
         !dates.length&&h('p',{className:'hint'},'Nog geen tijdsloten beschikbaar.'),
-        chosen&&h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:10}},h('span',{style:{fontSize:14,fontWeight:700}},plannerSlot(chosen.starts_at)+' – '+plannerClock(chosen.ends_at)),h('button',{type:'button',className:'btn btn-ghost',style:{padding:'8px 10px',fontSize:12},onClick:()=>choose('')},'Niet deelnemen'))
+        chosen&&h('section',{className:'booking-selection','aria-label':'Inschrijving van '+shooterName+' · '+(EPP_DISCIPLINES.find(x=>x.id===d)?.label||d)},
+          h('div',{className:'booking-selection-label'},'Inschrijving van'),
+          h('strong',{className:'booking-selection-name'},shooterName),
+          h('div',{className:'booking-selection-discipline'},EPP_DISCIPLINES.find(x=>x.id===d)?.label||d),
+          h('div',{className:'booking-selection-time'},plannerSlot(chosen.starts_at)+' – '+plannerClock(chosen.ends_at)),
+          h('div',{className:'booking-selection-footer'},
+            h('span',{className:'booking-selection-status'},mine.choices.some(c=>c.discipline===d&&c.slotId===chosen.id)?'Bevestigde inschrijving':paymentLock?'In afwachting van betaling':'Keuze nog bevestigen'),
+            h('button',{type:'button',className:'btn btn-ghost',onClick:()=>choose('')},'Niet deelnemen')))
       );
     }),
     target&&h('label',null,'Reden wijziging',h('input',{className:'txt-in',value:reason,disabled:busy,onChange:e=>setReason(e.target.value)})),
