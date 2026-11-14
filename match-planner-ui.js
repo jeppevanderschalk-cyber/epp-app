@@ -17,6 +17,7 @@ const plannerError=e=>({tijdslot_betaling_loopt:'Dit tijdslot wordt vastgehouden
 
 const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   const mine=target||view.mine;
+  const slotStatusScope=React.useId();
   const shooterName=target?(target.name||'Geselecteerde schutter'):(view.profile?.display_name||eppSession()?.account?.displayName||'Jouw schutterprofiel');
 
   const order=mine.payment,paymentLock=order&&['creating','open','pending','review'].includes(order.status);
@@ -79,7 +80,12 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
         h('div',{className:'booking-slots',role:'radiogroup','aria-label':'Tijdslot '+d,style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(105px,1fr))',gap:8}},view.slots.filter(s=>plannerDay(s.starts_at)===day).map(s=>{
           const own=mine.choices.some(c=>c.slotId===s.id),full=s.booked>=s.capacity&&!own,past=Date.parse(s.starts_at)<=Date.now(),selected=choices[d]===s.id;
           const reserved=mine.choices.some(c=>c.discipline===d&&c.slotId===s.id),blocked=s.blocked&&!reserved;
-          return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'aria-label':plannerSlot(s.starts_at)+(s.blocked?' · Geblokkeerd':full?' · Vol':past?' · Verstreken':''),disabled:blocked||full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:88,padding:'12px 8px',borderRadius:8,opacity:blocked||full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},s.blocked?'Geblokkeerd':full?'Vol':past?'Verstreken':Math.max(0,s.capacity-s.booked)+' vrij'),h('small',{style:{fontSize:12,fontWeight:600,minHeight:15}},reserved?'Gereserveerd':selected?'Nog bevestigen':''));
+          const shortLabel=discipline=>discipline==='pistool'?'Standaard':discipline==='optiek'?'Optics':EPP_DISCIPLINES.find(x=>x.id===discipline)?.label||discipline;
+          const confirmed=mine.choices.filter(c=>c.slotId===s.id);
+          const pending=view.match.offered_disciplines.filter(discipline=>choices[discipline]===s.id&&!confirmed.some(c=>c.discipline===discipline));
+          const labels=[...confirmed.map(c=>'Gereserveerd · '+shortLabel(c.discipline)),...pending.map(discipline=>'Nog bevestigen · '+shortLabel(discipline))];
+          const statusId=slotStatusScope+'-'+s.id;
+          return h('button',{key:s.id,type:'button',role:'radio','aria-checked':selected,'data-own-reservation':confirmed.length>0?'true':undefined,'data-pending-selection':pending.length>0?'true':undefined,'aria-describedby':labels.length?statusId:undefined,'aria-label':plannerSlot(s.starts_at)+(s.blocked?' · Geblokkeerd':full?' · Vol':past?' · Verstreken':''),disabled:blocked||full||past,className:'btn '+(selected?'btn-gold':'btn-ghost'),style:{display:'grid',gap:5,minHeight:88,padding:'12px 8px',borderRadius:8,opacity:blocked||full||past?0.4:1},onClick:()=>choose(s.id)},h('strong',{style:{fontSize:18}},plannerClock(s.starts_at)),h('small',{style:{fontSize:12,fontWeight:600}},s.blocked?'Geblokkeerd':full?'Vol':past?'Verstreken':Math.max(0,s.capacity-s.booked)+' vrij'),h('span',{id:statusId,className:'booking-slot-labels'},labels.map(label=>h('small',{key:label},label))));
         })),
         !dates.length&&h('p',{className:'hint'},'Nog geen tijdsloten beschikbaar.')
 

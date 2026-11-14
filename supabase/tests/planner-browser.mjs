@@ -80,6 +80,8 @@ try{
     await p.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Optics',exact:true}).click();
     await optics.getByRole('radio',{name:'14 nov 2030 · 09:30',exact:true}).click();
     assert.equal(await p.locator('.booking-slots').count(),1,'one time slot list is rendered');
+    assert.match(await p.locator('.booking-slots').getByRole('radio',{name:'14 nov 2030 · 09:00',exact:true}).innerText(),/Nog bevestigen · Standaard/);
+    assert.match(await p.locator('.booking-slots').getByRole('radio',{name:'14 nov 2030 · 09:30',exact:true}).innerText(),/Nog bevestigen · Optics/);
     for(const card of await p.locator('.booking-selection').all()){assert.match(await card.innerText(),/Test Schutter/);assert.match(await card.innerText(),/Keuze nog bevestigen/);}
     rejectBooking=true;
     await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
@@ -92,6 +94,17 @@ try{
     const summary=p.locator('.booking-selection');
     assert.equal(await summary.count(),2);
     for(const card of await summary.all()){assert.match(await card.innerText(),/Inschrijving van\s+Test Schutter/);assert.match(await card.innerText(),/Bevestigde inschrijving/);}
+    for(const [time,discipline] of [['09:00','Standaard'],['09:30','Optics']]){
+      const slot=p.locator('.booking-slots').getByRole('radio',{name:'14 nov 2030 · '+time,exact:true});
+      assert.equal(await slot.getAttribute('data-own-reservation'),'true');
+      assert.match(await slot.innerText(),new RegExp('Gereserveerd · '+discipline));
+      const description=await slot.getAttribute('aria-describedby');assert.ok(description);
+      assert.match(await p.locator('[id="'+description+'"]').innerText(),new RegExp(discipline));
+    }
+    await p.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Optics',exact:true}).click();
+    assert.equal(await p.locator('.booking-slots [data-own-reservation="true"]').count(),2);
+    assert.equal(await p.locator('.booking-slots [aria-checked="true"]').count(),1);
+    assert.equal(bookingRevision,1,'switching discipline does not change saved bookings');
     await p.screenshot({path:tmpdir()+'/epp-planner-member-'+width+'.png',fullPage:true});
     p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Afmelden',exact:true}).click();await p.getByText('Online opgeslagen',{exact:true}).waitFor();assert.equal(booked.length,0);
     await c.close();
