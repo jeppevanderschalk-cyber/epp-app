@@ -41,6 +41,7 @@ try{
   }
   await dropdown.locator('option[value="'+sid+'"]').waitFor({state:'attached'});
   assert.equal(await page.getByPlaceholder('Naam toevoegen…').count(),0);
+  await page.getByText('Schutter zoeken en beheren',{exact:true}).click();
   const search=page.getByLabel('Zoek schutter voor training',{exact:true});
   const listButton=page.getByRole('button',{name:'Kies uit lijst ▾',exact:true});
   await listButton.click();

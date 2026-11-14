@@ -8,6 +8,9 @@
       const [busy,setBusy]=React.useState(false),[status,setStatus]=React.useState(''),[saved,setSaved]=React.useState(false);
       const [expected,setExpected]=React.useState(5),[selected,setSelected]=React.useState(null);
       const [showBefore,setShowBefore]=React.useState(false);
+      const [photoView,setPhotoView]=React.useState(null);
+      const startReady=!!before&&root.EppCameraSeries.validCorners(before.corners);
+      const cameraStep=photoView||(result?'review':startReady?'after':'before');
       const native=root.EppCameraNative,nativeAvailable=!!native?.available();
       const [autoSave,setAutoSave]=React.useState(false);
       const nativeContext=React.useMemo(()=>newId(),[sid,stage,trainingId]);
@@ -35,7 +38,7 @@
         if(nativeAvailable)native.state({contextId:nativeContext,captureAllowed,message:nativeMessage,stage,score:activeScore,pendingScore:result&&!saved?pending:0,uncertain:uncertain.length});
       },[nativeContext,nativeAvailable,captureAllowed,nativeMessage,stage,activeScore,pending,saved,uncertain.length]);
 
-      const reset=()=>{setBefore(null);setAfter(null);setResult(null);setShots([]);setSaved(false);setStatus('');setSelected(null);};
+      const reset=()=>{setBefore(null);setAfter(null);setResult(null);setShots([]);setSaved(false);setPhotoView(null);setStatus('');setSelected(null);};
       const change=(fn,value)=>{
         if(busy)return;
         if((before||after||shots.length)&&!saved&&!confirm('De nog niet opgeslagen serie verwijderen?'))return;
@@ -44,18 +47,19 @@
       async function choose(which,file){
         if(!file||locked.current)return;
         if(result&&!saved&&!confirm('De beoordeling van deze serie vervangen?'))return;
-        locked.current=true;setBusy(true);setStatus('Foto openen...');
+        locked.current=true;setBusy(true);setStatus('Foto openen...');setPhotoView(null);
         try{
           const photo=await root.EppCameraSeries.readPhoto(file);
           if(!mounted.current)return;
           (which==='before'?setBefore:setAfter)(photo);
-          setResult(null);setShots([]);setSaved(false);setStatus('');setSelected(null);
+          setResult(null);setShots([]);setSaved(false);setPhotoView(null);setStatus('');setSelected(null);
         }catch(e){if(mounted.current)setStatus(e.message);}
         finally{locked.current=false;if(mounted.current)setBusy(false);}
       }
       function corner(which,event){
+        setPhotoView(null);
         if(busy||saved||result)return;
-        const box=event.currentTarget.getBoundingClientRect(),p={x:(event.clientX-box.left)/box.width,y:(event.clientY-box.top)/box.height};
+        const box=event.currentTarget.getBoundingClientRect(),p={x:Math.max(0,Math.min(1,(event.clientX-box.left)/box.width)),y:Math.max(0,Math.min(1,(event.clientY-box.top)/box.height))};
         (which==='before'?setBefore:setAfter)(old=>old&&old.corners.length<4?{...old,corners:[...old.corners,p]}:old);
       }
       async function comparePhotos(first,last,fromNative=false){
@@ -69,7 +73,7 @@
           if(border)reasons.push('Inslag bij een scoringsrand: controleer de score.');
           return {...p,id:newId(),score,confidence:border&&p.confidence==='high'?'medium':p.confidence,reasons,reviewed:false,source:'serie'};
         });
-        setResult(next);setShowBefore(false);setShots(evaluated);setSaved(false);setSelected(null);
+        setPhotoView(null);setResult(next);setShowBefore(false);setShots(evaluated);setSaved(false);setSelected(null);
         if(fromNative&&autoSave&&evaluated.length===Number(expected)&&evaluated.length>0&&evaluated.length<=remaining&&evaluated.every(s=>s.confidence==='high')){
           commitShots(evaluated,'recognition');
           return {ok:true,phase:'saved',message:'Zekere serie toegevoegd.',score:[...active,...evaluated].reduce((n,s)=>n+s.score,0)};
@@ -92,14 +96,14 @@
           if(!mounted.current||contextRef.current!==photo.contextId)throw new Error('De serie is gewijzigd. Maak een nieuwe foto.');
           const first=saved?after:before;
           if(!first){
-            setBefore(image);setAfter(null);setResult(null);setShots([]);setSaved(false);imported=true;
+            setBefore(image);setAfter(null);setResult(null);setShots([]);setSaved(false);setPhotoView(null);imported=true;
             setStatus('Startfoto ontvangen. Markeer de vier kaarthoeken en vul kaliber en kaartmaten in.');
             return {ok:true,phase:'baseline',message:'Markeer de vier kaarthoeken op de iPhone.'};
           }
           if(!root.EppCameraSeries.validCorners(first.corners))throw new Error('Markeer eerst de vier hoeken van de startfoto.');
           const sameShape=Math.abs(image.canvas.width/image.canvas.height-first.canvas.width/first.canvas.height)<.02;
           const last={...image,corners:sameShape?first.corners.map(p=>({...p})):[]};
-          setBefore(first);setAfter(last);setResult(null);setShots([]);setSaved(false);imported=true;
+          setBefore(first);setAfter(last);setResult(null);setShots([]);setSaved(false);setPhotoView(null);imported=true;
           if(!sameShape)throw new Error('De fotoverhouding is veranderd. Markeer de hoeken op de nieuwe foto.');
           return await comparePhotos(first,last,true);
         }catch(e){
@@ -131,12 +135,12 @@
         locked.current=true;try{commitShots(shots,'manual');}finally{locked.current=false;}
       }
       function nextSeries(){
-        setBefore(after);setAfter(null);setResult(null);setShots([]);setSaved(false);setSelected(null);setStatus('');setExpected(Math.min(5,remaining));
+        setBefore(after);setAfter(null);setResult(null);setShots([]);setSaved(false);setPhotoView(null);setSelected(null);setStatus('');setExpected(Math.min(5,remaining));
       }
       const cornerNames=['Linksboven','Rechtsboven','Rechtsonder','Linksonder'];
       function photoPanel(which,photo){
         const title=which==='before'?'Voor de serie':'Na de serie';
-        return h('section',{className:'series-photo-section',key:which},
+        return h('section',{className:'series-photo-section',key:which,hidden:cameraStep!==which},
           h('h3',null,title),
           h('div',{className:'series-file-row'},
             h('label',{className:'btn btn-ghost'},'Foto maken',h('input',{type:'file',accept:'image/*',capture:'environment',disabled:busy||saved,onChange:e=>{choose(which,e.target.files[0]);e.target.value='';},'aria-label':'Foto maken '+title.toLowerCase()})),
@@ -173,12 +177,12 @@
             h('p',{className:'hint'},'Automatisch toevoegen gebruikt de herkenningsindicatie, geen menselijke controle. Bij twijfel of een afwijkend aantal blijft de serie ter beoordeling staan.')
           ),
           h(StageCarousel,{stageKey:stage,onSelect:s=>change(setStage,s)}),
-          h('div',{className:'series-calibration'},
+          h('details',{className:'series-calibration-tools',key:result?'review':'capture',open:!result},h('summary',null,'Kaliber en kaartmaten'),h('div',{className:'series-calibration'},
             h('label',null,'Kaliber (mm)',h('input',{className:'sel-in',type:'number',min:2,max:20,step:.01,placeholder:'Bijv. 9',value:caliber,disabled:busy||saved||!!result,onChange:e=>setCaliber(e.target.value)})),
             h('label',null,'Kaartbreedte (mm)',h('input',{className:'sel-in',type:'number',min:50,max:2000,step:1,value:cardWidth,placeholder:'Bijv. 450',disabled:busy||saved||!!result,onChange:e=>setCardWidth(e.target.value)})),
             h('label',null,'Kaarthoogte (mm)',h('input',{className:'sel-in',type:'number',min:50,max:2000,step:1,value:cardHeight,placeholder:'Bijv. 650',disabled:busy||saved||!!result,onChange:e=>setCardHeight(e.target.value)}))
-          ),
-          h('p',{className:'hint'},'Vul de werkelijke afmetingen tussen de vier gemarkeerde hoeken in. Zonder deze maten blijven detecties onzeker. Gatoppervlakte en randbogen geven een schatting; volledig overlappende schoten zijn niet uit een foto te tellen.'),
+          )),
+          h('p',{className:'hint camera-calibration-note'},'Vul de werkelijke afmetingen tussen de vier gemarkeerde hoeken in. Zonder deze maten blijven detecties onzeker. Gatoppervlakte en randbogen geven een schatting; volledig overlappende schoten zijn niet uit een foto te tellen.'),
           h('div',{className:'series-count'},
             h('label',null,'Schoten in deze serie',h('select',{className:'sel-in',value:expected,disabled:busy||saved||!remaining,onChange:e=>setExpected(Number(e.target.value))},Array.from({length:remaining},(_,i)=>h('option',{key:i+1,value:i+1},i+1)))),
             h('strong',null,active.reduce((n,s)=>n+s.score,0)+' / '+maxOf(stage)+' punten'),
@@ -186,10 +190,11 @@
           )
         ),
         !remaining&&!saved&&h('p',{className:'hint'},'Deze stage is volledig geregistreerd. Kies een andere stage of start een nieuwe training.'),
+        h('nav',{className:'camera-steps','aria-label':'Stappen fotometing'},[['before','1 · Startfoto'],['after','2 · Seriefoto'],['review','3 · Controle']].map(([key,label])=>h('button',{key,type:'button','aria-current':cameraStep===key?'step':undefined,disabled:busy||(key==='after'&&!startReady)||(key==='review'&&!result),onClick:()=>setPhotoView(key)},label))),
         h('div',{className:'series-photos'},photoPanel('before',before),photoPanel('after',after)),
         !result&&h('button',{className:'btn btn-gold btn-full',disabled:busy||saved||!remaining||!before||!after||!root.EppCameraSeries.validCorners(before.corners)||!root.EppCameraSeries.validCorners(after.corners),onClick:analyze},busy?'Vergelijken...':'Vergelijk serie'),
         status&&h('p',{role:'status',className:'hint'},status),
-        result&&h('section',{className:'series-review'},
+        result&&h('section',{className:'series-review',hidden:cameraStep!=='review'},
           h('h3',null,'Serie controleren'),
           h('p',{className:'series-confidence-legend'},h('span',{className:'confidence-high'},'Groen: zeker'),h('span',{className:'confidence-medium'},'Oranje: twijfel'),h('span',{className:'confidence-low'},'Rood: onzeker')),
           h('p',{className:'hint'},'Kleur geeft een herkenningsindicatie, geen gemeten kans. Controleer ook de score bij een zonerand. Onzekere schoten staan bovenaan.'),

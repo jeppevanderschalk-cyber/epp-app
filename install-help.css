@@ -7,3 +7,13 @@
 @media (display-mode:standalone),(display-mode:fullscreen),(display-mode:minimal-ui){.epp-install-help{display:none}}
 
 .login-card .epp-install-help{width:100%;margin:0 0 8px;grid-column:1 / -1}
+
+.login-card .epp-install-help{padding:0 40px 0 0;margin:4px 0 0;border:0;border-radius:0;background:none;box-shadow:none;font-size:12px;max-height:none;overflow:visible}
+.login-card .epp-install-help>strong{display:none}
+.login-card .epp-install-help summary{min-height:36px;align-content:center;margin:0;color:#c4ccdd}
+.epp-install-close{width:40px;height:40px;top:-2px;right:0}
+.login-card .epp-install-steps{font-size:13px;line-height:1.5}
+@media(max-height:740px){.login-card .epp-install-help{margin:0}.login-card .epp-install-help summary{min-height:32px}}
+
+.login-card .epp-install-help summary{min-height:44px}
+.epp-install-close{width:44px;height:44px}

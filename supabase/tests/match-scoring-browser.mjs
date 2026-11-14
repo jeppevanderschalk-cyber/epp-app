@@ -5,7 +5,7 @@ import {createServer} from 'node:http';
 import {resolve,extname} from 'node:path';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
 const root=resolve(import.meta.dirname,'../..');
-const server=createServer(async(req,res)=>{try{const name=new URL(req.url,'http://localhost').pathname;const file=resolve(root,'.'+(name==='/'?'/index.html':name));if(!file.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.png':'image/png'})[extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.writeHead(404);res.end();}});
+const server=createServer(async(req,res)=>{try{const name=new URL(req.url,'http://localhost').pathname;const file=resolve(root,'.'+(name==='/'?'/index.html':name));if(!file.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',({'.css':'text/css','.jpg':'image/jpeg','.html':'text/html','.js':'text/javascript','.png':'image/png'})[extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.writeHead(404);res.end();}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 const match={id:'match',organizer:'Testwedstrijd',match_date:'2026-11-14',offered_disciplines:['pistool','optiek'],scoring:true,can_score:true};

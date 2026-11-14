@@ -57,3 +57,197 @@
 .training-shooter-options button[aria-selected="true"]{color:#f1cf68;font-weight:700}
 .training-shooter-options button:disabled{opacity:.5;cursor:wait}
 .training-shooter-options .hint{padding:8px}
+
+/* Shared visual rhythm: calm surfaces, readable secondary text and clear actions. */
+.app{--ui-line:#ffffff20;--ui-muted:#b9c5de;--ui-gold:#f0cc60;font-weight:400;line-height:1.45}
+.app .main{gap:16px;padding-top:16px;padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+.app .card,.app .match-card{border-radius:16px;box-shadow:none;background:linear-gradient(145deg,#152143,#101a34);border-color:var(--ui-line)}
+.app .card-body{padding:16px}
+.app .card-head{padding:16px 16px 0}
+.app h2,.app h3{line-height:1.3;letter-spacing:0}
+.app h3{margin:0 0 12px;font-size:18px}
+.app .eyebrow{letter-spacing:.1em;font-size:12px;font-weight:700;margin-bottom:8px}
+.app .hint,.app .set-sub,.app .match-sub{font-size:14px;font-weight:400;line-height:1.55;color:var(--ui-muted)}
+.app .hint{margin:8px 0}
+.app .btn{min-height:48px;border-radius:12px;font-weight:700;font-size:14px;padding:10px 16px;box-shadow:none}
+.app .btn:hover{transform:none}
+.app .btn-gold{background:linear-gradient(120deg,#f1cf66,#d9b13e)}
+.app .btn-ghost{background:#ffffff04;border-color:#ffffff28;color:#e0e7f6}
+.app .btn-link{background:transparent;border:0;color:var(--ui-gold);min-height:44px;padding:8px 0;justify-content:flex-start;text-align:left;text-decoration:underline;text-underline-offset:4px;box-shadow:none}
+.app .btn-danger{background:#ff6b5d0a}
+.app .txt-in,.app .cam-select,.app .sel-in{min-height:48px;border-radius:12px;font-weight:600;font-size:16px;color-scheme:dark}
+.app .main label:not(.btn):not(.chk-row):not(.toggle-row){font-weight:600}
+.app .main input,.app .main select,.app .main summary{scroll-margin-top:20px;scroll-margin-bottom:190px}
+.app details>summary{min-height:44px;align-content:center;cursor:pointer;font-size:14px;font-weight:600;line-height:1.45}
+.app .score-save,.app .spill,.app .maxbadge,.app .cal-btn{min-height:44px}
+.app .score-save,.app .maxbadge{min-width:44px}
+.app .stat-card,.app .cam-metric{min-height:88px;box-shadow:none;border-radius:12px;background:#ffffff04}
+.app .stat-card::before,.app .stat-card::after{display:none}
+.app .stat-lbl{letter-spacing:.03em;font-size:12px;font-weight:600}
+.app .sub-tab-row{border-radius:12px;margin-bottom:0}
+.app .sub-tab{font-weight:600;font-size:14px;min-height:44px;border-radius:8px}
+.app .sub-tab[data-on="1"]{color:#f7d979;background:#e4bb4a16;box-shadow:inset 0 -2px #e4bb4a}
+.app .competition-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.app .competition-nav .sub-tab{padding:10px 6px;min-width:0;white-space:normal;font-size:13px}
+.app .empty{padding:20px 12px}
+.app .empty-icon{display:none}
+.app .empty p{font-weight:600}
+.app .empty .empty-hint{font-size:14px;font-weight:400;max-width:40ch}
+.app .sync-line{font-weight:500;box-shadow:none}
+.app .topbar-inner{padding-top:10px;padding-bottom:10px}
+.app .topbar-logo{filter:none}
+.app .bottomnav{min-height:60px}
+.app .bnav-btn{min-height:60px;padding:8px 4px;font-weight:600}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
+
+/* Training: choose, enter, save. Supporting tools stay available on demand. */
+.app .training-intro .hint{margin:4px 0 0}
+.training-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.app .training-title-row h2{margin:0;font-size:20px}
+.app .training-title-row .btn-link{font-size:13px;padding:4px 0}
+.app .training-selector .card-head{display:none}
+.app .training-selector .card-body{padding:12px 16px}
+.app .training-shooter-picker label{gap:6px;font-size:13px}
+.app .training-search-tools{margin-top:4px}
+.app .training-search-tools>summary,.app .training-shooter-help>summary{color:var(--ui-muted)}
+.app .training-shooter-help{margin:0}
+.app .training-search-tools .training-shooter-search{margin-top:8px}
+.app .personal-training-ready{display:none}
+.app .training-score-card .stage-hdr{margin:0 0 12px;background:none;border:0;border-radius:0;padding:0}
+.app .score-row[data-active="1"]{background:none;box-shadow:none;padding:0;gap:10px}
+.app .score-avatar{width:36px;height:36px;font-size:14px;box-shadow:none!important}
+.app .score-name-txt{font-size:16px;font-weight:700;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+.app .score-prev{font-size:13px;font-weight:400;line-height:1.45}
+.app .entry-status{font-size:12px;font-weight:600;margin-top:4px}
+.app .score-form{padding-bottom:0}
+.app .toggle-row{min-height:48px;padding:8px 0;border:0;border-radius:0;background:none;font-weight:600}
+.app .score-entry{align-items:center;padding:4px 0}
+.app .score-entry .num-in{height:76px;width:140px;font-size:40px;border-radius:12px}
+.app .score-max{font-size:20px;font-weight:600}
+.app .training-action{margin-top:8px;padding-top:12px;gap:0}
+.app .training-action .hint{font-size:13px;margin:0}
+.app .save-dock{border-radius:0;border:0;border-top:1px solid #ffffff28;background:#111b36;box-shadow:0 -4px 16px #0003;bottom:calc(60px + env(safe-area-inset-bottom,0px));padding:10px 14px}
+.app .save-dock .btn{min-height:44px;flex-shrink:0}
+.app .save-dock .dock-summary{font-weight:700}
+.app .save-dock small{font-size:13px;line-height:1.4}
+.app:has(.save-dock) .main{padding-bottom:calc(190px + env(safe-area-inset-bottom,0px))}
+.stage-picker{margin-bottom:16px}
+.stage-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.stage-choice{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px;border:1px solid #ffffff20;border-radius:10px;background:#ffffff03;color:#c8d3e8;text-align:left;font:600 13px/1.3 'Archivo',system-ui,sans-serif;cursor:pointer}
+.stage-choice[aria-pressed="true"]{border-color:#d9b13e;color:#f7d979;background:#e4bb4a12}
+.stage-number{display:grid;place-items:center;flex-shrink:0;min-width:22px;height:22px;border-radius:6px;background:#ffffff09;font-size:12px}
+.stage-reference summary{color:#b9c5de}
+.stage-reference img{display:block;max-width:100%;max-height:400px;width:auto;margin:8px auto;border-radius:12px}
+.app .form-disclosure{margin:12px 0;padding:8px 12px;border:1px solid var(--ui-line);border-radius:12px}
+.app .form-disclosure>summary{color:#d8e1f3}
+.app .score-totals{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px 0 8px}
+.app .score-totals .stat-card{flex:1;min-width:70px;padding:10px 8px;min-height:70px}
+.app .score-totals .stat-val{font-size:22px;color:#c8d3e8}
+.app .score-totals .stat-card:last-child{flex:2;background:#e4bb4a0c;border-color:#e4bb4a40}
+.app .score-totals .stat-card:last-child .stat-val{font-size:32px;color:var(--ui-gold)}
+
+/* Overview and settings share the same modest surfaces. */
+.app .home-hero{padding:16px;border-radius:16px;background:#15203b;border-color:var(--ui-line)}
+.app .home-hero .eyebrow{display:none}
+.app .home-hero h2{font-size:22px;margin:0 0 4px}
+.app .home-hero p{font-size:14px;margin:4px 0 12px}
+.home-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.app .home-progress h3{margin:4px 0 12px}
+.app .home-grid .home-stats .stat-card{padding:12px 6px}
+.app .home-stages .home-stage{font-size:14px}
+.app .home-round{align-items:center}
+.app .menu-group-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ui-muted);padding:14px 16px 8px;margin:0}
+.app .more-item summary{padding:12px 16px;min-height:60px}
+.app .danger-zone{border-color:#ff6b5d30}
+.app .team-result{border:1px solid var(--ui-line);border-radius:12px;padding:12px;background:#ffffff03}
+.app .team-result>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none}
+.app .team-result>summary::after{content:'⌄';color:var(--ui-muted)}
+.app .team-result li{margin-top:6px;font-size:14px}
+.app .booking-steps{display:flex;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--ui-muted);margin:0 0 8px;padding:0;list-style:none}
+.app .booking-steps li{padding:6px 10px;border-radius:8px;background:#ffffff05}
+.app .booking-steps li[aria-current="step"]{color:var(--ui-gold);background:#e4bb4a12}
+.app .booking-slots [role="radio"][aria-checked="true"],.app .booking-dates [aria-pressed="true"],.app .series-toggle [aria-pressed="true"]{background:#e4bb4a12;border:1px solid #e4bb4a;color:#f7d979;box-shadow:none}
+.app .match-card .match-collapse{align-self:flex-end;width:auto;min-height:44px;padding:6px 0}
+.app .planner-form{gap:16px}
+.app .planner-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.app .planner-fields label{min-width:0;display:grid;gap:6px;font-size:14px}
+.app .planner-fields input{width:100%;min-width:0}
+.app .planner-group{border:0;margin:0;padding:0;min-width:0}
+.app .planner-group>legend{font-weight:700;padding:0;margin:0 0 12px}
+.app .capacity-summary{font-size:13px;color:var(--ui-muted)}
+
+@media(max-width:560px){
+ .app .competition-nav{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .app .competition-nav .sub-tab{font-size:13px}
+ .app .home-actions{gap:4px;flex-direction:column;align-items:stretch}
+ .app .home-actions .btn-link{justify-content:center}
+ .app .save-dock .btn{max-width:48%;font-size:13px;padding:10px 12px}
+ .app .save-dock .dock-summary{font-size:13px}
+ .app .save-dock small{font-size:12px}
+ .app .planner-fields{grid-template-columns:minmax(0,1fr)}
+}
+@media(min-width:700px){.stage-choices{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1100px){
+ .app .main{max-width:1120px;padding-left:24px;padding-right:24px}
+ .app .main:has(.training-entry){max-width:820px}
+ .app .topbar-inner{max-width:1120px;padding-left:24px;padding-right:24px}
+ .app .home-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+ .home-hero,.home-shooter,.home-progress{grid-column:1/-1}
+ .app .ranking-results{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .app .home-hero{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:24px}
+ .app .home-hero h2,.app .home-hero p{grid-column:1}
+ .home-actions{grid-column:2;grid-row:1/3}
+}
+
+/* Login remains usable at small heights and with the software keyboard open. */
+.login-gate{padding:16px;scroll-padding:16px}
+.login-personal-toggle{min-height:44px;padding:8px 0}
+@media(max-height:740px){
+ .login-card{gap:4px;padding:12px 16px}
+ .login-card label{gap:4px;margin-bottom:2px}
+ .login-brand{margin-bottom:4px}
+ .login-personal-toggle{min-height:36px;padding:6px 0}
+}
+@media(max-height:520px) and (min-width:560px){
+ .login-card{width:min(100%,660px);gap:6px 16px;padding:10px 16px}
+ .login-brand{grid-column:1/-1;grid-template-columns:48px 1fr;max-width:240px}
+ .login-logo{width:48px;height:48px}
+ .login-card h2{width:150px}
+ .login-card .login-subtitle{font-size:10px}
+ .login-card>label{grid-column:2}
+ .login-card>label:has(#loginRole){grid-column:1;grid-row:2/4;align-self:start}
+ .login-submit{grid-column:1;grid-row:3;align-self:end}
+ .login-personal-toggle{grid-column:auto;min-height:36px;padding:4px 0}
+ .login-card .login-error,.login-card #loginStatus,.login-help{grid-column:1/-1}
+}
+.app .more-sub{font-size:13px;font-weight:400;line-height:1.5;white-space:normal;overflow:visible;text-overflow:clip}
+.app .training-shooter-search{grid-template-columns:1fr auto;align-items:end;gap:8px}
+.app .training-shooter-search>label{grid-column:1;grid-row:1}
+.app .training-shooter-search>input{grid-column:1;grid-row:2}
+.app .training-shooter-search>.btn{grid-column:2;grid-row:2;font-size:12px;padding:8px}
+.app .training-shooter-options{grid-column:1/-1}
+.app .series-camera{gap:16px}
+.app .series-photos{grid-template-columns:minmax(0,1fr);gap:16px}
+.app .series-photo-section{border-top:0;padding-top:0}
+.app .series-calibration-tools{margin-top:12px}
+.app .series-calibration{margin-top:8px}
+.app .camera-calibration-note{font-size:13px}
+.camera-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.camera-steps button{font:600 14px/1.3 'Archivo',system-ui,sans-serif;min-height:48px;border:1px solid #ffffff20;border-radius:10px;background:#ffffff03;color:#c8d3e8;padding:8px;cursor:pointer}
+.camera-steps button[aria-current="step"]{color:#f7d979;background:#e4bb4a12;border-color:#d9b13e}
+.camera-steps button:disabled{opacity:.45}
+.app .series-review-total{font-size:16px;align-items:center}
+.app .series-review-total strong{font-size:24px;color:var(--ui-gold)}
+.app .series-shot-focus{min-height:44px}
+.app .series-shot-row{grid-template-columns:60px minmax(70px,1fr) minmax(90px,1fr) 44px;gap:4px}
+.app .series-shot-row label{min-height:44px;align-content:center}
+@media(max-width:360px){.app .series-shot-row{grid-template-columns:70px minmax(0,1fr) 44px}.app .series-shot-row label{grid-column:1/3;grid-row:auto}.app .series-shot-row>.btn{grid-column:3;grid-row:1/3}}
+@media(max-height:740px){.login-personal-toggle{min-height:44px;padding:6px 0}}
+@media(max-height:520px) and (min-width:560px){.login-logo{width:64px;height:64px}.login-brand{grid-template-columns:64px 1fr}.login-personal-toggle{min-height:44px;padding:4px 0}}
+.stage-select{display:grid;gap:6px;font-size:13px}
+.stage-choices{display:none}
+@media(min-width:700px){.stage-select{display:none}.stage-choices{display:grid}}
+.app .training-score-card .card-body:has(.stage-picker) .stage-hdr{display:none}
+.app .training-selector .training-search-tools{margin-bottom:-4px}
+@media(min-width:1100px){.app .main:has(.save-dock){max-width:820px}}
+@media(max-height:520px) and (min-width:560px){.login-card{grid-template-columns:repeat(2,minmax(0,1fr))}}

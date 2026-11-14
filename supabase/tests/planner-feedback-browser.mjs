@@ -41,7 +41,7 @@ try{
       await input.fill(value);
       assert.equal(await input.inputValue(),value,'replacement has no leading zero');
     }
-    await page.getByRole('button',{name:'+ Afwijkende capaciteit',exact:true}).click();
+    await page.getByText('Pauzes en uitzonderingen',{exact:true}).click();await page.getByRole('button',{name:'+ Afwijkende capaciteit',exact:true}).click();
     const override=page.getByLabel('Schietplaatsen',{exact:true});
     await override.fill('');assert.equal(await override.inputValue(),'');
     await override.fill('2');
@@ -76,6 +76,7 @@ try{
     assert.equal(await page.getByText('Mail naar inschrijfbureau',{exact:true}).count(),0);
     assert.equal(await page.locator('a[href^="mailto:"]').count(),0);
     await page.getByRole('button',{name:'Planning en deelnemers beheren',exact:true}).click();
+    await page.getByText('Deelnemers per ronde',{exact:true}).click();
     await page.getByRole('button',{name:'Verplaatsen / afmelden',exact:true}).click();
     await page.getByText('Inschrijving wijzigen: Test Schutter',{exact:true}).waitFor();
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'28 mei 2027 · 09:20',exact:true}).click();

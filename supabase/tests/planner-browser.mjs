@@ -5,7 +5,7 @@ import {createServer} from 'node:http';
 import {resolve,extname} from 'node:path';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE);
 const root=resolve(import.meta.dirname,'../..');
-const server=createServer(async(req,res)=>{try{const p=resolve(root,'.'+(req.url.split('?')[0]==='/'?'/index.html':req.url.split('?')[0]));if(!p.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',extname(p)==='.js'?'text/javascript':extname(p)==='.html'?'text/html':'application/octet-stream');res.end(await readFile(p));}catch{res.writeHead(404);res.end();}});
+const server=createServer(async(req,res)=>{try{const p=resolve(root,'.'+(req.url.split('?')[0]==='/'?'/index.html':req.url.split('?')[0]));if(!p.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',extname(p)==='.css'?'text/css':extname(p)==='.js'?'text/javascript':extname(p)==='.html'?'text/html':'application/octet-stream');res.end(await readFile(p));}catch{res.writeHead(404);res.end();}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH});
 const url='http://127.0.0.1:'+server.address().port;
@@ -55,6 +55,7 @@ try{
     await p.getByLabel('Schietplaatsen per ronde',{exact:true}).fill('2');
     await p.getByLabel('Planner publiceren',{exact:true}).check();
     await p.getByLabel('Onze vereniging organiseert deze wedstrijd',{exact:true}).check();
+    await p.getByText('Pauzes en uitzonderingen',{exact:true}).click();
     await p.getByRole('button',{name:'+ Pauze',exact:true}).click();
     await p.getByRole('button',{name:'Planning opslaan',exact:true}).click();
     await p.getByText('Online opgeslagen',{exact:true}).waitFor();

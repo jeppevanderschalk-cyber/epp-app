@@ -23,7 +23,7 @@ try{
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
    await panel.getByRole('button',{name:'Installatie-uitleg sluiten'}).click();assert.equal(await panel.isVisible(),false);
    await page.reload();assert.equal(await page.locator('.epp-install-help').isVisible(),false);
-   await page.evaluate(()=>sessionStorage.clear());await page.reload();await panel.waitFor();
+   await page.evaluate(()=>{sessionStorage.clear();localStorage.removeItem('epp-install-help-dismissed');});await page.reload();await panel.waitFor();
    await page.evaluate(()=>window.dispatchEvent(new Event('appinstalled')));assert.equal(await panel.isVisible(),false);
   }else{await page.locator('.epp-install-help').waitFor({state:'attached'});assert.equal(await panel.isVisible(),false);}
   await context.close();

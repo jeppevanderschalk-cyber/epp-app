@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-KjHUztcAihVIFNJAAXHmXAXjDXnFNZWnx+nWelZgrsc=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-kgfZ/JzrScmslWBNZawqYozoK2gaLRRSv8UV+N2Cu7c='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-KjHUztcAihVIFNJAAXHmXAXjDXnFNZWnx+nWelZgrsc=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-gNo+cmYvlR7pVHiLWFt8FYlDvgHojqGxHLErxOv4tY0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -113,21 +113,21 @@
   </form>
 </div>
 <div id="root" hidden></div>
-<link rel="stylesheet" href="experience.css?v=909559ef9148" />
+<link rel="stylesheet" href="experience.css?v=76e03857ec6f" />
 <script src="app-experience.js?v=8f5919232c06"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
 <script src="publication-ui.js?v=consent-capacity-1"></script>
 <script src="planner-capacity.js?v=consent-capacity-1"></script>
 <script src="payment-ui.js?v=prepared-payments-1"></script>
-<script src="match-planner-ui.js?v=73982441c625"></script>
+<script src="match-planner-ui.js?v=8d4748fae54a"></script>
 <script src="head-view-ui.js?v=5be215eff9d0"></script>
 <script src="match-scoring-ui.js?v=707491eafbff"></script>
-<script src="club-teams-ui.js?v=aa279e3e1d93"></script>
+<script src="club-teams-ui.js?v=d4d95835434e"></script>
 <link rel="stylesheet" href="camera-series.css?v=cbb21d40c594" />
 <script src="camera-series.js?v=cbb21d40c594"></script>
 <script src="camera-native.js?v=cbb21d40c594"></script>
-<script src="camera-series-ui.js?v=cbb21d40c594"></script>
+<script src="camera-series-ui.js?v=d2d1daf37c3a"></script>
 <script>
 window.__eppError=function(msg){
   console.error("EPP runtime error",msg);
@@ -1140,10 +1140,11 @@ const StageCard = ({stage, active, onClick}) => h("button",{className:"stage-car
 );
 
 const StageCarousel = ({stageKey, onSelect}) => {
-  const idx = Math.max(0,STAGES.findIndex(s=>s.key===stageKey));
-  return h("div",null,
-    h("div",{className:"stage-card-row"},STAGES.map(stage=>h(StageCard,{key:stage.key,stage,active:stage.key===stageKey,onClick:()=>onSelect(stage.key)}))),
-    h("div",{className:"stage-progress"},h("div",{className:"stage-progress-fill",style:{width:`${((idx+1)/STAGES.length)*100}%`}}))
+  const stage=STAGES.find(s=>s.key===stageKey)||STAGES[0];
+  return h('div',{className:'stage-picker'},
+    h('label',{className:'stage-select'},'Stage',h('select',{className:'txt-in','aria-label':'Stage voor score-invoer',value:stageKey,onChange:e=>onSelect(e.target.value)},STAGES.map(item=>h('option',{key:item.key,value:item.key},item.id+'. '+item.kort+' · '+item.afstand)))),
+    h('div',{className:'stage-choices','aria-label':'Kies een stage'},STAGES.map(item=>h('button',{key:item.key,type:'button',className:'stage-choice','aria-pressed':item.key===stageKey,'aria-label':`${item.id}. ${item.kort}, ${item.distance}, ${item.shots} schoten, max ${item.maxScore}`,onClick:()=>onSelect(item.key)},h('span',{className:'stage-number'},item.id),item.kort))),
+    h('details',{className:'stage-reference',key:stage.key},h('summary',null,'Stagekaart bekijken'),h('img',{src:stageImageSrc(stage),alt:stage.kort+' · '+stage.afstand,loading:'lazy'}))
   );
 };
 
@@ -1329,20 +1330,24 @@ const TabInvoer = ({
     if(next)setActiveSid(next.id);
   };
   const missingCount = shooters.filter(s=>roundGroups(s.id).length===0).length;
-  return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
-    h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},personalTraining?"Mijn scores":"Schutter kiezen")),
+  return h("div",{className:"page-fade training-entry",style:{display:"flex",flexDirection:"column",gap:12}},
+    h("div",{className:personalTraining&&shooters.length?"personal-training-ready":"card training-selector"},
+      !personalTraining&&h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Schutter kiezen")),
       h("div",{className:"card-body"},
         personalTraining
           ?h(React.Fragment,null,
-            h('strong',{className:'personal-training-name'},shooters[0]?.naam||eppSession()?.account?.displayName||'Mijn schutterprofiel'),
-            h('p',{className:'hint'},shooters.length?'Je bent al toegevoegd met je eigen account. Vul hieronder je score in en tik op ‘Ronde opslaan’.':'Je schutterprofiel is nog niet geladen. Probeer de gegevens opnieuw te laden; je hoeft jezelf niet opnieuw toe te voegen.'),
+            !shooters.length&&h('p',{className:'hint'},'Je schutterprofiel is nog niet geladen. Probeer je gegevens opnieuw te laden.'),
             !shooters.length&&h('button',{type:'button',className:'btn btn-ghost',onClick:reloadShooters},'Mijn gegevens opnieuw laden'))
           :h(React.Fragment,null,
-            h('p',{className:'hint'},eppSession()?.account?.isPlatformAdmin?'Kies een schutter uit het landelijke overzicht. Een nieuwe selectie wordt direct aan deze training toegevoegd.':'Kies een schutter van je vereniging. Een nieuwe selectie wordt direct aan deze training toegevoegd.'),
+            h('div',{className:'training-shooter-picker'},
+              h('label',null,'Schutter voor score-invoer',h('select',{className:'txt-in','aria-label':'Schutter voor score-invoer',value:activeSid,disabled:!selectableShooters.length,onChange:e=>selectForInput(e.target.value)},
+                h('option',{value:''},shooterDirectoryStatus&&!selectableShooters.length?(shooterDirectoryStatus.includes('mislukt')?'Schutters niet beschikbaar':'Schutters laden…'):'Kies een schutter…'),
+                matchingShooters.map(s=>h('option',{key:s.id,value:s.id,disabled:!s.existing&&!!shooterDirectoryStatus},s.naam))))
+            ),
+            h('details',{className:'training-search-tools'},h('summary',null,'Schutter zoeken en beheren'),
             h('div',{className:'training-shooter-search',onBlur:e=>{if(!e.currentTarget.contains(e.relatedTarget))setSearchOpen(false);}},
               h('button',{type:'button',className:'btn btn-ghost','aria-expanded':searchOpen,'aria-controls':searchListId,'aria-haspopup':'listbox',onClick:e=>{e.currentTarget.focus();setShooterSearch('');setSearchIndex(0);setSearchOpen(true);},onKeyDown:e=>{if(e.key==='Escape')setSearchOpen(false);}},'Kies uit lijst ▾'),
-              h('label',{htmlFor:searchListId+'-input'},'Of zoek op naam'),
+              h('label',{htmlFor:searchListId+'-input'},'Zoek op naam'),
               h('input',{id:searchListId+'-input',type:'search',role:'combobox',className:'txt-in',value:shooterSearch,placeholder:'Kies een schutter of typ een naam…','aria-label':'Zoek schutter voor training','aria-expanded':searchOpen,'aria-controls':searchListId,'aria-autocomplete':'list','aria-activedescendant':searchOpen&&searchOptions[searchIndex]?searchListId+'-'+searchOptions[searchIndex].id:undefined,
                 onFocus:()=>{setSearchOpen(true);setSearchIndex(0);},onClick:()=>setSearchOpen(true),
                 onChange:e=>{setShooterSearch(e.target.value);setSearchOpen(true);setSearchIndex(0);},
@@ -1354,22 +1359,18 @@ const TabInvoer = ({
               searchOpen&&h('div',{className:'training-shooter-options',id:searchListId,role:'listbox','aria-label':'Beschikbare schutters'},
                 searchMatches.map(s=>h('button',{key:s.id,id:searchListId+'-'+s.id,type:'button',role:'option','aria-selected':s.id===activeSid,disabled:!s.existing&&!!shooterDirectoryStatus,className:searchOptions[searchIndex]?.id===s.id?'is-highlighted':'',onMouseDown:e=>e.preventDefault(),onClick:()=>selectForInput(s.id)},s.naam)),
                 !searchMatches.length&&h('p',{className:'hint',role:'status'},shooterDirectoryStatus||'Geen schutter met deze naam gevonden.'))),
-            !shooterDirectoryStatus&&h('p',{className:'hint'},selectableShooters.length+' '+(selectableShooters.length===1?'schutter beschikbaar':'schutters beschikbaar')+' voor deze training.'),
-            h('div',{className:'training-shooter-picker'},
-              h('label',null,'Schutter voor score-invoer',h('select',{className:'txt-in','aria-label':'Schutter voor score-invoer',value:activeSid,disabled:!selectableShooters.length,onChange:e=>selectForInput(e.target.value)},
-                h('option',{value:''},shooterDirectoryStatus&&!selectableShooters.length?(shooterDirectoryStatus.includes('mislukt')?'Schutters niet beschikbaar':'Schutters laden…'):'Kies een schutter…'),
-                matchingShooters.map(s=>h('option',{key:s.id,value:s.id,disabled:!s.existing&&!!shooterDirectoryStatus},s.naam)))),
-              activeSid&&h('button',{type:'button',className:'btn btn-danger',title:'Schutter en bijbehorende trainingsinvoer verwijderen','aria-label':'Geselecteerde schutter verwijderen',onClick:()=>removeShooter(activeSid)},'Verwijderen')
+              activeSid&&h('button',{type:'button',className:'btn btn-danger',title:'Schutter en bijbehorende trainingsinvoer verwijderen','aria-label':'Geselecteerde schutter verwijderen',onClick:()=>removeShooter(activeSid)},'Verwijderen'),
+              !shooterDirectoryStatus&&h('details',{className:'training-shooter-help',ref:shooterHelp},h('summary',null,'Staat je naam er niet bij?'),h('p',{className:'hint'},'Gebruik je eigen persoonlijke account om alleen jouw scores bij te houden. Voor de gezamenlijke training zijn een persoonlijk account bij de juiste vereniging en goedkeuring van die vereniging nodig. Kies de naam om direct de score-invoer te openen.'),h('button',{type:'button',className:'btn btn-ghost',onClick:reloadShooters},'Schutters opnieuw laden'))
             ),
             shooterSearch&&!selectableShooters.some(s=>EppUx.normalize(s.naam).includes(searchText))&&h('p',{className:'hint',role:'status'},'Geen schutter met deze naam gevonden.'),
             shooterDirectoryStatus&&h('p',{className:'hint',role:'status'},shooterDirectoryStatus),
-            !shooterDirectoryStatus&&!registeredShooters.length&&h('p',{className:'hint'},'Er zijn nog geen goedgekeurde persoonlijke schuttersaccounts beschikbaar. De verenigingsbeheerder kan een nieuw account goedkeuren.'),
-            h('details',{className:'training-shooter-help',ref:shooterHelp},h('summary',null,'Staat je naam er niet bij?'),h('p',{className:'hint'},'Gebruik je eigen persoonlijke account om alleen jouw scores bij te houden. Voor de gezamenlijke training zijn een persoonlijk account bij de juiste vereniging en goedkeuring van die vereniging nodig. Kies de naam om direct de score-invoer te openen.'),h('button',{type:'button',className:'btn btn-ghost',onClick:reloadShooters},'Schutters opnieuw laden')),
-            activeSid&&h('p',{className:'hint',role:'status'},'Geselecteerd: '+(shooters.find(s=>s.id===activeSid)?.naam||selectableShooters.find(s=>s.id===activeSid)?.naam||'schutter')+'. Vul hieronder de score in.')
+            !shooterDirectoryStatus&&!selectableShooters.length&&h('p',{className:'hint'},'Er zijn nog geen goedgekeurde schutters beschikbaar. Vraag je verenigingsbeheerder om hulp.'),
+            shooterDirectoryStatus&&h('details',{className:'training-shooter-help',ref:shooterHelp},h('summary',null,'Staat je naam er niet bij?'),h('p',{className:'hint'},'Gebruik je eigen persoonlijke account om alleen jouw scores bij te houden. Voor de gezamenlijke training zijn een persoonlijk account bij de juiste vereniging en goedkeuring van die vereniging nodig. Kies de naam om direct de score-invoer te openen.'),h('button',{type:'button',className:'btn btn-ghost',onClick:reloadShooters},'Schutters opnieuw laden')),
+            activeSid&&h('p',{className:'sr-only',role:'status'},'Geselecteerd: '+(shooters.find(s=>s.id===activeSid)?.naam||selectableShooters.find(s=>s.id===activeSid)?.naam||'schutter')+'. Vul hieronder de score in.')
           )
       )
     ),
-    h("div",{className:"card"},
+    h("div",{className:"card training-score-card"},
       mode==="stage" && h("div",{className:"card-body"},
         h(StageCarousel,{stageKey:stage,onSelect:setTrainingStage}),
         h("div",{className:"stage-hdr"},
@@ -1425,8 +1426,8 @@ const TabInvoer = ({
       ),
       h("div",{className:"card-body"},
         h("div",{className:"training-action"},
-          h("p",{className:"hint"},"Rondes nu: ",trainingRounds.length,". Nog zonder ronde: ",missingCount,". Controleer en sluit af via de tab Training."),
-          h("button",{className:"btn btn-ghost btn-full",onClick:()=>onOverview?onOverview():setTab("training")},"Naar huidige training")
+          h("p",{className:"hint"},trainingRounds.length," rondes · ",missingCount," schutters nog zonder ronde"),
+          h("button",{className:"btn btn-link",onClick:()=>onOverview?onOverview():setTab("training")},"Naar huidige training")
         )
       )
     )
@@ -1497,7 +1498,7 @@ const TabTraining = ({shooters, currentTraining, finishTraining, isTrainer,archi
 const TrainingHub = props => {
   const view=props.trainingView,setView=props.setTrainingView;
   return h('div',{style:{display:'flex',flexDirection:'column',gap:12,minWidth:0}},
-    h('section',{className:'training-intro'},h('h2',null,'Trainingsscores'),h('p',{className:'hint'},'Dit zijn oefenscores. Officiële wedstrijdscores voer je apart in bij Wedstrijden → Scores.'),h('button',{type:'button',className:'btn btn-ghost',onClick:props.onMatchScores},'Wedstrijdscore invoeren')),
+    h('section',{className:'training-intro'},h('div',{className:'training-title-row'},h('h2',null,'Trainingsscores'),h('button',{type:'button',className:'btn btn-link',onClick:props.onMatchScores},'Wedstrijdscore invoeren')),h('p',{className:'hint'},'Oefenscores voor je training.')),
     props.canTrain&&h('div',{className:'sub-tab-row'},[['parcours','Parcours'],['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
     props.canTrain&&view!=='overview'
       ?h(TabInvoer,{...props,key:view,fixedMode:view==='stages'?'stage':'parcours',onOverview:()=>setView('overview')})
@@ -1524,11 +1525,11 @@ const TabRanglijst = ({shooters, bestParcours, bestStageAverages, maxOf,qualific
   const stageItems = shooters.map((s,i)=>({sid:s.id,naam:s.naam,qualification:qualifications[s.id],kleur:kleur(i,shooters.length),gem:bestStageAverages?.[stage]?.[s.id]?.avg,max:maxOf(stage)})).sort((a,b)=>(b.gem??-1)-(a.gem??-1));
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Parcours stand · hoogste score")),
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Trainingsstand · parcours")),
       h("div",{className:"card-body"},h(RankList,{items:parcoursItems,max:250}))
     ),
     h("div",{className:"card"},
-      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Stage stand · hoogste gemiddelde")),
+      h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Trainingsstand · stages")),
       h("div",{className:"card-body"},
         h("div",{className:"stage-strip"},
           STAGES.map(s=>h("button",{key:s.key,className:"spill","data-on":stage===s.key?"1":"0",onClick:()=>setStage(s.key)},s.kort))
@@ -1849,7 +1850,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
     }catch(e){setStatus("Opslaan mislukt: "+(scoringMatch?.scoring?scoringError(e):eppPlatformError(e.message)));}
     finally{submitLock.current=false;setBusy(false);}
   };
-  const navigation=h('div',{className:'sub-tab-row scroll tabs-cue'},[['signup','Inschrijven'],['individual','Scores'],['ranking','Klassement'],['teams','Teams'],['team-results','Teamuitslag'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
+  const navigation=h('div',{className:'sub-tab-row competition-nav','aria-label':'Wedstrijdonderdelen'},[['signup','Inschrijven'],['individual','Scores'],['ranking','Klassement'],['teams','Teams'],['team-results','Teamuitslag'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0','aria-pressed':view===id,onClick:()=>{resetForm();setView(id);}},label)));
   if(view==='signup')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash}));
   const disciplineSelect=h("label",null,"Discipline",h("select",{className:"txt-in","aria-label":"Discipline",value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setRanking([]);setMatchRanking([]);resetForm();}},h("option",{value:"pistool"},"EPP pistool"),h("option",{value:"optiek"},"Open (Optics)")));
   if(view==='ranking')return h('div',{className:'page-fade',style:{display:'flex',flexDirection:'column',gap:12}},navigation,disciplineSelect,
@@ -1861,7 +1862,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
   if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters',resultsOnly:view==='team-results'}));
   const formReady=!!matchId&&!!(selectedShooter||newShooter);
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},navigation,
-    h('section',{className:'training-intro'},h('h2',null,'Wedstrijdscores'),h('p',{className:'hint'},'1. Kies de wedstrijd en discipline. 2. Kies een ingeschreven schutter. 3. Vul de kaarttelling en tijden in en bevestig de score. Trainingsscores worden hier niet automatisch overgenomen.')),
+    h('section',{className:'training-intro'},h('h2',null,'Wedstrijdscores'),h('p',{className:'hint'},'Kies de wedstrijd en schutter. Bevestig daarna de officiële score.')),
     !scoringCatalogLoaded&&!scoringCatalogError&&h('p',{className:'hint',role:'status'},'Wedstrijden voor score-invoer laden…'),
     scoringCatalogError&&h('div',null,h('p',{className:'hint',role:'status'},'Wedstrijden ophalen mislukt. Probeer opnieuw.'),h('button',{type:'button',className:'btn btn-ghost',onClick:load},'Wedstrijden opnieuw laden')),
     scoringCatalogLoaded&&!scoringCatalogError&&!matchesCalendar.length&&h('p',{className:'hint',role:'status'},'Er zijn geen wedstrijden voor score-invoer geladen. Alleen de wedstrijdbeheerder en aangewezen scoorders kunnen officiële scores vastleggen. Ga naar Inschrijven voor je deelname of vraag de organisator om scoorderrechten.'),
@@ -1914,14 +1915,15 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
           )),
           h("p",{className:"hint"},shots-rapidShots,"/40 schoten"),
           h("label",null,"Eindtijd (minuten:seconden, inclusief snelvuur)",h("input",{className:"txt-in",inputMode:"decimal",value:totalTime,disabled:busy||resultLoading,onChange:e=>setTotalTime(e.target.value)})),
-          h("h3",{style:{fontSize:16}},"Strafcorrecties"),
+          h("details",{className:"form-disclosure",open:penalty>0||penaltyTimeMs>0?true:undefined},h("summary",null,"Strafcorrecties"),
           h("div",{className:"set-row"},
             h("div",{className:"set-lbl"},h("div",null,"Strafpunten"),h("div",{className:"set-sub"},"Totale aftrek, standaard 0")),
             h("input",{className:"set-in",disabled:busy||matchLoading||resultLoading,type:"number",inputMode:"numeric",min:0,value:counts.penaltyPoints,onChange:e=>setCounts(p=>({...p,penaltyPoints:e.target.value}))})
           ),
           h("label",null,"Straftijd (seconden)",h("input",{className:"txt-in",inputMode:"decimal",value:penaltyTime,disabled:busy||resultLoading,onChange:e=>setPenaltyTime(e.target.value)})),
           (penalty>0||penaltyTimeMs>0)&&h("label",null,"Reden strafcorrectie",h("input",{className:"txt-in",value:penaltyReason,disabled:busy||resultLoading,onChange:e=>setPenaltyReason(e.target.value)})),
-          h("div",{className:"stat-grid"},
+          ),
+          h("div",{className:"stat-grid score-totals"},
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},shots),h("div",{className:"stat-lbl"},"schoten")),
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},gross),h("div",{className:"stat-lbl"},"bruto")),
             h("div",{className:"stat-card"},h("div",{className:"stat-val"},countedFinal),h("div",{className:"stat-lbl"},"eindscore"))
@@ -2554,15 +2556,18 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
         h("div",{className:"account-name"},name),
         h("div",{className:"account-sub"},(account.isPlatformAdmin?"Hoofdbeheerder":account.isAdmin?"Verenigingsbeheerder":isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
     account.isAdmin&&h("div",{className:"card more-list"},
+      h("h3",{className:"menu-group-title"},"Verenigingsbeheer"),
       h(MoreItem,{title:account.isPlatformAdmin?"Verenigingsrechten":"Scoorderrechten",sub:account.isPlatformAdmin?"Rechten en goedkeuringen per vereniging":"Wie per wedstrijd scores mag invoeren"},h(PlatformAccessManagement)),
       h(MoreItem,{id:"membership-requests",title:"Nieuwe aanvragen",sub:"Bekijk en keur openstaande accountaanvragen goed"},h(MembershipRequests)),
       h(MoreItem,{id:"account-management",title:"Accounts",sub:"Accounts en lidmaatschappen van je vereniging"},h(AccountManagement)),
       h(MoreItem,{title:"Back-ups",sub:"Back-up maken of training herstellen"},h(BackupManagement,{canRestore,onRestored}))),
     h("div",{className:"card more-list"},
+      h("h3",{className:"menu-group-title"},"Mijn account"),
       account.role==='schutter'&&personal&&h(MoreItem,{title:"Gebruikersnaam",sub:account.loginUsername?"Inloggen als "+account.loginUsername:"Nog niet gekozen"},h(ShooterUsername)),
       personal&&h(MoreItem,{title:"Privacy en publicatie",sub:"Zelf kiezen of je naam in klassementen verschijnt"},h(PublicationPreference)),
       personal&&h(MoreItem,{title:"Wachtwoord",sub:"Wijzig je wachtwoord"},h(ChangeTrainerPassword,{logout})),
       account.isAdmin&&h(MoreItem,{title:"E-mailmeldingen",sub:"Bij nieuwe accounts en inschrijvingen"},h(NotificationSettings)),
+      isTrainer&&h("h3",{className:"menu-group-title"},"Training"),
       isTrainer&&h(MoreItem,{title:"Training afsluiten",sub:"Bewaar de rondes in de stand of begin opnieuw"},
         h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
         h("p",{className:"hint"},"Gebruik Training afsluiten voor bewaren in de stand. Nieuwe trainingsdag starten wist alleen de tijdelijke rondes en behoudt de stand."),
@@ -2659,14 +2664,17 @@ using (true)
 with check (true);`)
         )
       )),
-      isTrainer&&h(MoreItem,{title:"Alles wissen",sub:"Verwijdert alle trainingsgegevens",danger:true},
-        h("button",{className:"btn btn-danger btn-full",onClick:resetAll},"Alles wissen")),
+    ),
+    h('div',{className:'card more-list'},h('h3',{className:'menu-group-title'},'App en ondersteuning'),
+      h(MoreItem,{title:'App installeren',sub:'EPP op het beginscherm van je telefoon'},h('div',{className:'card-body'},h('p',{className:'hint'},'iPhone / iPad: open EPP in Safari, tik op Delen en kies ‘Zet op beginscherm’.'),h('p',{className:'hint'},'Android: open EPP in Chrome, tik op het menu ⋮ en kies ‘App installeren’ of ‘Toevoegen aan startscherm’.'))),
       h(MoreItem,{title:"Steun dit project",sub:"Doneer voor hosting en ontwikkeling"},
         h("div",{className:"card-body",style:{display:"flex",flexDirection:"column",gap:8}},
         h("a",{className:"btn btn-gold btn-full",href:"https://www.ing.nl/payreq/m/?trxid=WHUfzGumUOrs0LK419CNQYuHLT9dGwQt",target:"_blank",rel:"noopener noreferrer"},"Doneer via iDEAL"),
         h("p",{className:"hint",style:{textAlign:"center"}},"Donatie voor hosting en ontwikkeling"),
         h("p",{className:"hint",style:{textAlign:"center",opacity:.6}},"Of maak zelf over naar NL89 INGB 0796 2022 57")
       ))),
+
+    isTrainer&&h('div',{className:'card more-list danger-zone'},h('h3',{className:'menu-group-title'},'Gegevens verwijderen'),h(MoreItem,{title:'Alles wissen',sub:'Verwijdert alle trainingsgegevens',danger:true},h('button',{className:'btn btn-danger btn-full',onClick:resetAll},'Alles wissen'))),
     h("button",{type:"button",className:"logout-link",onClick:logout},"Uitloggen")
   );
 };
@@ -2695,22 +2703,22 @@ const PersonalHome=({shooters,currentTraining,archives,personalTraining,canTrain
   return h('div',{className:'home-grid page-fade'},
     h('section',{className:'home-hero'},h('div',{className:'eyebrow'},'Jouw EPP overzicht'),h('h2',null,'Welkom, ',account.displayName||'schutter'),
       h('p',null,canTrain?'Pak je training op en volg je ontwikkeling.':'Bekijk wedstrijden en de gezamenlijke trainingsstand.'),
-      h('button',{className:'btn btn-gold btn-full',onClick:()=>setTab(canTrain?'training':'landelijk')},canTrain?'Trainingsscore invoeren':'Naar wedstrijden'),h('button',{type:'button',className:'btn btn-ghost btn-full',onClick:onMatchScores},'Wedstrijdscore invoeren')),
-    !personalTraining&&shooters.length>0&&h('label',null,'Voortgang van schutter',h('select',{className:'txt-in',value:sid,onChange:e=>setSid(e.target.value)},shooters.map(s=>h('option',{key:s.id,value:s.id},s.naam)))),
-    selected&&h('section',{'aria-label':'Trainingsvoortgang van '+selected.naam},h('h3',null,personalTraining?'Mijn trainingsvoortgang':selected.naam+' · training'),
+      h('div',{className:'home-actions'},h('button',{className:'btn btn-gold',onClick:()=>setTab(canTrain?'training':'landelijk')},canTrain?'Trainingsscore invoeren':'Naar wedstrijden'),h('button',{type:'button',className:'btn btn-link',onClick:onMatchScores},'Wedstrijdscore invoeren'))),
+    !personalTraining&&shooters.length>0&&h('label',{className:'home-shooter'},'Voortgang van schutter',h('select',{className:'txt-in',value:sid,onChange:e=>setSid(e.target.value)},shooters.map(s=>h('option',{key:s.id,value:s.id},s.naam)))),
+    selected&&h('section',{className:'home-progress','aria-label':'Trainingsvoortgang van '+selected.naam},h('h3',null,personalTraining?'Mijn trainingsvoortgang':selected.naam+' · training'),
       h('div',{className:'home-stats'},[['Laatste parcours',data.latest?.score],['Gem. laatste 5',data.average],['Aantal rondes',data.parcours.length]].map(([label,value])=>h('div',{key:label,className:'stat-card'},h('div',{className:'stat-val'},format(value)),h('div',{className:'stat-lbl'},label)))),
       data.change!==null&&h('p',{className:'hint'},(data.change>0?'+':'')+format(data.change)+' punten ten opzichte van de vorige 5 parcoursrondes.'),
       !data.parcours.length&&h('p',{className:'hint'},'Je eerste parcoursronde verschijnt hier zodra die is ingevoerd.')),
-    h('section',{className:'card'},h('div',{className:'card-body'},h('h3',null,'Volgende wedstrijd'),
+    h('section',{className:'card home-next'},h('div',{className:'card-body'},h('h3',null,'Volgende wedstrijd'),
       calendarStatus&&h('p',{className:'hint',role:'status'},calendarStatus),
       next?h('div',null,h('p',{style:{fontSize:20,fontWeight:800}},next.organizer),h('p',{className:'hint'},date(next.date+'T12:00:00'),next.location?' · '+next.location:''),h('p',{className:'hint'},'Eerstvolgende wedstrijd in de kalender. Bekijk je deelname bij Wedstrijden.')):!calendarStatus&&h('p',{className:'hint'},'Er staan nog geen komende wedstrijden in de kalender.'),
       calendarStatus.includes('niet volledig')&&h('button',{className:'btn btn-ghost',onClick:()=>setReload(n=>n+1)},'Kalender opnieuw laden'),
       h('button',{className:'btn btn-ghost btn-full',onClick:()=>setTab('landelijk')},'Wedstrijden en inschrijven'))),
-    data.recent.length>0&&h('section',{className:'card'},h('div',{className:'card-body'},h('h3',null,'Laatste parcoursrondes'),
+    data.recent.length>0&&h('section',{className:'card home-trend'},h('div',{className:'card-body'},h('h3',null,'Laatste parcoursrondes'),
       h('div',{className:'trend-bars',role:'img','aria-label':data.recent.map(r=>date(r.ts)+': '+r.score+' van 250 punten').join('; ')},data.recent.map(r=>h('div',{key:r.id,className:'trend-column'},h('span',null,r.score),h('div',{className:'trend-bar',style:{height:Math.max(1,r.score/250*90)+'px'}}),h('span',null,date(r.ts))))))),
-    selected&&h('section',{className:'card'},h('div',{className:'card-body'},h('h3',null,'Ontwikkeling per stage'),
-      STAGES.map(stage=>{const rounds=data.rounds.filter(r=>r.type==='stage'&&r.stage===stage.key).slice(-5);return h('div',{key:stage.key,className:'home-stage'},h('span',null,stage.kort),h('span',null,rounds.length?format(rounds.reduce((n,r)=>n+r.score,0)/rounds.length)+' punten · '+rounds.length+(rounds.length===1?' ronde':' rondes'):'Nog geen rondes'));}),h('p',{className:'hint'},'Gemiddelde van maximaal 5 recente rondes per stage.'))),
-    data.rounds.length>0&&h('section',{className:'card'},h('div',{className:'card-body'},h('h3',null,'Recente invoer'),data.rounds.slice(-5).reverse().map(r=>h('div',{key:r.id,className:'home-round'},h('span',null,date(r.ts),' · ',r.type==='parcours'?'Parcours':STAGES.find(st=>st.key===r.stage)?.kort||r.stage),h('strong',null,r.score+' punten')))))
+    selected&&h('section',{className:'card home-stages'},h('div',{className:'card-body'},h('h3',null,'Ontwikkeling per stage'),
+      data.rounds.some(r=>r.type==='stage')?STAGES.map(stage=>{const rounds=data.rounds.filter(r=>r.type==='stage'&&r.stage===stage.key).slice(-5);return h('div',{key:stage.key,className:'home-stage'},h('span',null,stage.kort),h('span',null,rounds.length?format(rounds.reduce((n,r)=>n+r.score,0)/rounds.length)+' punten · '+rounds.length+(rounds.length===1?' ronde':' rondes'):'Nog geen rondes'));}):h('p',{className:'hint'},'Na je eerste stageronde zie je hier je ontwikkeling.'),data.rounds.some(r=>r.type==='stage')&&h('p',{className:'hint'},'Gemiddelde van maximaal 5 recente rondes per stage.'))),
+    data.rounds.length>0&&h('section',{className:'card home-recent'},h('div',{className:'card-body'},h('h3',null,'Recente invoer'),data.rounds.slice(-5).reverse().map(r=>h('div',{key:r.id,className:'home-round'},h('span',null,date(r.ts),' · ',r.type==='parcours'?'Parcours':STAGES.find(st=>st.key===r.stage)?.kort||r.stage),h('strong',null,r.score+' punten')))))
   );
 };
 
@@ -3021,7 +3029,7 @@ eppAuthReady.then(function(verified){
 });
 
 </script>
-<link rel="stylesheet" href="install-help.css?v=2" />
-<script src="install-help.js?v=2"></script>
+<link rel="stylesheet" href="install-help.css?v=922e506e1947" />
+<script src="install-help.js?v=da2f49e8ccb0"></script>
 </body>
 </html>

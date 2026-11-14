@@ -29,7 +29,7 @@ try{
   await page.getByRole('button',{name:'Training',exact:true}).click();
   await page.getByRole('button',{name:'Parcours',exact:true}).waitFor();
   assert.equal(await page.getByPlaceholder('Naam toevoegen…').count(),0);assert.equal(await page.getByRole('button',{name:'Geselecteerde schutter verwijderen'}).count(),0);
-  assert.equal(await page.locator('[aria-label="Schutter voor score-invoer"]').count(),0);await page.getByText('Je bent al toegevoegd met je eigen account.',{exact:false}).waitFor();
+  assert.equal(await page.locator('[aria-label="Schutter voor score-invoer"]').count(),0);await page.locator('.score-name-txt').waitFor();
   await page.locator('.num-in').fill('200');await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
   await page.waitForFunction(()=>document.body.innerText.includes('Online opgeslagen'));
   assert.ok(saves.some(r=>r.type==='parcours'&&r.score===200));

@@ -56,9 +56,9 @@ const ClubTeams=({directoryOnly=false,resultsOnly=false})=>{
       h('h3',null,'Teamuitslag · '+label(discipline)),
       !matchId&&h('p',{className:'hint'},'Kies wedstrijd'),
       matchId&&!(data?.teams||[]).length&&h('p',{className:'hint'},'Nog geen teams'),
-      (data?.teams||[]).map(t=>h('section',{key:t.id,style:{borderBottom:'1px solid '+C.border,padding:'12px 0',overflowWrap:'anywhere'}},
-        h('div',{style:{display:'flex',justifyContent:'space-between',gap:12}},h('strong',null,(t.position?t.position+'. ':'')+'Team '+t.number+' · '+t.club),h('strong',{style:{whiteSpace:'nowrap'}},t.completed===4?t.score+' / 1000':t.score+' punten · '+t.completed+' / 4 scores')),
-        h('ul',{style:{paddingLeft:20,marginBottom:0}},t.members.map(s=>h('li',{key:s.id},s.name+' · '+s.club+' · '+(s.score==null?'Nog geen score':s.score+' punten')))),
+      (data?.teams||[]).map(t=>h('section',{key:t.id,style:{overflowWrap:'anywhere'}},
+        h('details',{className:'team-result'},h('summary',null,h('strong',null,(t.position?t.position+'. ':'')+'Team '+t.number+' · '+t.club),h('strong',{style:{whiteSpace:'nowrap'}},t.completed===4?t.score+' / 1000':t.score+' punten · '+t.completed+' / 4 scores')),
+        h('ul',{style:{paddingLeft:20,marginBottom:0}},t.members.map(s=>h('li',{key:s.id},s.name+' · '+s.club+' · '+(s.score==null?'Nog geen score':s.score+' punten'))))),
         !resultsOnly&&data.canManage&&t.clubCode===data.clubCode&&h('div',{style:{display:'grid',gap:8,marginTop:12}},h('button',{type:'button',className:'btn btn-ghost',disabled:busy||t.locked,onClick:()=>editTeam(t)},'Team bewerken'),t.locked&&h('p',{className:'hint',style:{margin:0}},'Vastgelegd: er zijn bevestigde wedstrijdscores.'))))
     ),
     !data&&!status&&h('p',{className:'hint'},'Laden...'),
