@@ -270,3 +270,8 @@
 .app .booking-slots [data-own-reservation="true"],.app .booking-slots [data-pending-selection="true"]{border-color:#e4bb4a;background:#e4bb4a12;color:#f7d979}
 .booking-slot-labels{display:grid;gap:3px;min-height:15px;line-height:1.4}
 .booking-slot-labels small{font-size:12px;font-weight:600;color:#f7d979;white-space:normal}
+
+.planner-pdf-export{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px;border:1px solid #ffffff25;border-radius:12px;background:#ffffff03}
+.app .planner-pdf-export h3{margin:0;font-size:16px}
+.app .planner-pdf-export .hint{margin:4px 0 0}
+.planner-pdf-export>[role="alert"],.planner-pdf-export>div:last-child:not(:first-child){flex-basis:100%}

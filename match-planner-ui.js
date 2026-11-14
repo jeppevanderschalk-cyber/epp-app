@@ -171,6 +171,32 @@ const PlannerDayCapacity=({slots})=>{
   return h('section',{'aria-label':'Capaciteit per wedstrijddag',style:{display:'grid',gap:6}},days.map(day=>h('p',{key:day.day,className:'hint',style:{margin:0}},eppFmtDate(day.day)+' · '+day.slots+' tijdsloten · maximaal '+day.maxShooters+' schutters · '+day.free+' vrije plaatsen')),h('details',{className:'capacity-summary'},h('summary',null,'Hoe telt de capaciteit?'),h('p',{className:'hint'},'Maximum bij één discipline per schutter. Wie standaard én optics schiet gebruikt twee plaatsen. Geblokkeerde, niet-gereserveerde plaatsen tellen niet mee.')));
 };
 
+const PlannerPdfExport=({matchId})=>{
+  const [busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[file,setFile]=React.useState(null);
+  const lock=React.useRef(false),request=React.useRef(0);
+  React.useEffect(()=>()=>{request.current++;},[matchId]);
+  React.useEffect(()=>()=>{if(file?.url)URL.revokeObjectURL(file.url);},[file]);
+  const download=async()=>{
+    if(lock.current)return;lock.current=true;setBusy(true);setError('');setFile(null);const sequence=++request.current;
+    try{
+      const latest=await eppCall('epp-planner',{clubId:CLUB_ID,action:'view',matchId});
+      if(sequence!==request.current)return;
+      if(latest.managing!==true)throw Error('Je hebt geen beheerrechten voor deze wedstrijd.');
+      const result=await EppPlannerPdf.create(latest);
+      if(sequence!==request.current)return;
+      const url=URL.createObjectURL(new Blob([result.bytes],{type:'application/pdf'}));
+      setFile({...result,bytes:undefined,url});
+      const link=document.createElement('a');link.href=url;link.download=result.filename;document.body.append(link);link.click();link.remove();
+    }catch(e){if(sequence===request.current)setError(e.message==='sessie_verlopen'?'Log opnieuw in om de planning te downloaden.':e.message==='geen_toegang'||e.message==='geen_beheerrechten'?'Je hebt geen beheerrechten voor deze wedstrijd.':'PDF maken is niet gelukt. '+(['Alleen de organiserende','De volledige planning','De planning bevat','PDF-bibliotheek','PDF-lettertype'].some(prefix=>String(e.message).startsWith(prefix))?e.message:'Controleer je verbinding en probeer opnieuw.'));}
+    finally{lock.current=false;if(sequence===request.current)setBusy(false);}
+  };
+  return h('section',{className:'planner-pdf-export','aria-label':'Planning afdrukken'},
+    h('div',null,h('h3',null,'Planning op papier'),h('p',{className:'hint'},'Alle tijdblokken met schutters, disciplines en verenigingen.')),
+    h('button',{type:'button',className:'btn btn-ghost',disabled:busy,onClick:download},busy?'PDF maken…':'Planning downloaden (PDF)'),
+    error&&h('p',{role:'alert',className:'hint'},error),
+    file&&h('div',null,h('p',{role:'status',className:'hint'},'PDF gereed: '+file.slotCount+' tijdblokken. Open de PDF om deze af te drukken.'),h('a',{className:'btn btn-link',href:file.url,target:'_blank',rel:'noopener'},'PDF openen')));
+};
+
 const MatchPlanner=({matchId,manage=false})=>{
   const [view,setView]=React.useState(null),[status,setStatus]=React.useState(''),[version,setVersion]=React.useState(0),[target,setTarget]=React.useState(null);
   const [planningNotice,setPlanningNotice]=React.useState('');
@@ -201,6 +227,7 @@ const MatchPlanner=({matchId,manage=false})=>{
       manage&&view.managing&&h(PlannerSlotBlocks,{view,onSaved:load}),
       manage&&view.managing&&h(PlannerEditor,{key:'editor-'+version,view,onSaved:()=>saved(true),onReload:reload,saveNotice:planningNotice,onEdited:()=>setPlanningNotice('')}),
       view.planner&&h(React.Fragment,null,
+        manage&&view.managing&&h(PlannerPdfExport,{key:matchId,matchId}),
         h(PlannerDayCapacity,{slots:view.slots}),
         (!manage||view.profile||target)&&h('div',{ref:bookingRef},h(PlannerBooking,{key:'booking-'+version+(target?.shooterId||''),view,target,onSaved:cancel=>saved(false,cancel),onReload:reload,saveNotice:bookingNotice,onEdited:()=>setBookingNotice('')})),
         manage&&!view.profile&&!target&&bookingNotice&&h('p',{className:'hint',role:'status'},bookingNotice),
