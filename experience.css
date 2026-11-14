@@ -261,3 +261,7 @@
 .booking-selection-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:6px}
 .booking-selection-status{font-size:13px;font-weight:600;color:#f0cc60}
 .app .booking-selection-footer .btn{min-height:44px;padding:8px 12px;font-size:13px}
+.booking-disciplines{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.app .booking-disciplines .btn{display:flex;justify-content:center;gap:8px;min-height:48px}
+.app .booking-disciplines .btn[aria-pressed="true"]{color:#f7d979;border-color:#e4bb4a;background:#e4bb4a12}
+.booking-disciplines small{font-size:12px;color:#b9c5de;font-variant-numeric:tabular-nums}

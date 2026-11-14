@@ -65,9 +65,11 @@ try{
     const page=member.page;
     await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();await page.getByRole('button',{name:'Inschrijven',exact:true}).click();await page.getByRole('button',{name:'Doe mee',exact:true}).click();
     await page.getByRole('region',{name:'Capaciteit per wedstrijddag'}).waitFor();
-    await page.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Pistool met optics',exact:true}).click();
+    await page.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Standaard',exact:true}).click();
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:/09:00$/,exact:false}).click();
     await page.getByRole('button',{name:/Betalen en inschrijven.*12,00/}).waitFor();
+    await page.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Optics',exact:true}).click();
+    assert.equal(await page.locator('.booking-slots').count(),1);
     await page.getByRole('radiogroup',{name:'Tijdslot optiek',exact:true}).getByRole('radio',{name:/09:15$/,exact:false}).click();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.screenshot({path:tmpdir()+'/epp-payments-checkout-'+width+'.png',fullPage:true});

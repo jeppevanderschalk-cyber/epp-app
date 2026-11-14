@@ -40,6 +40,10 @@ try{
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).waitFor();
     await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'29 mei 2027',exact:true}).click();
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).click();
+    await page.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Optics',exact:true}).click();
+    assert.equal(await page.locator('.booking-slots').count(),1);
+    await page.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Standaard',exact:true}).click();
+    assert.equal(await page.getByRole('radio',{name:'29 mei 2027 · 09:00',exact:true}).getAttribute('aria-checked'),'true');
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
     assert.deepEqual(requests.at(-1).choices,[{discipline:'pistool',slotId:'day2'}]);

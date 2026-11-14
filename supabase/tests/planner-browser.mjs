@@ -77,11 +77,14 @@ try{
     await p.locator('.match-card').filter({has:p.getByText('Planner Test',{exact:true})}).getByRole('button',{name:'Doe mee',exact:true}).click();
     const pistol=p.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}),optics=p.getByRole('radiogroup',{name:'Tijdslot optiek',exact:true});
     await pistol.getByRole('radio',{name:'14 nov 2030 · 09:00',exact:true}).click();
+    await p.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Optics',exact:true}).click();
     await optics.getByRole('radio',{name:'14 nov 2030 · 09:30',exact:true}).click();
+    assert.equal(await p.locator('.booking-slots').count(),1,'one time slot list is rendered');
     for(const card of await p.locator('.booking-selection').all()){assert.match(await card.innerText(),/Test Schutter/);assert.match(await card.innerText(),/Keuze nog bevestigen/);}
     rejectBooking=true;
     await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await p.getByText('Dit tijdslot is net volgeboekt. Kies een andere tijd.',{exact:true}).waitFor();
+    await p.getByRole('navigation',{name:'Kies je discipline'}).getByRole('button',{name:'Standaard',exact:true}).click();
     assert.equal(await pistol.getByRole('radio',{name:'14 nov 2030 · 09:00',exact:true}).getAttribute('aria-checked'),'true');assert.equal(booked.length,0);
     rejectBooking=false;await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await p.getByText('Online opgeslagen',{exact:true}).waitFor();assert.equal(booked.length,2);
