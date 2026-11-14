@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-KjHUztcAihVIFNJAAXHmXAXjDXnFNZWnx+nWelZgrsc=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-qoH2qk8t/BubJhV6r4OQxOHSbt9TnI4ixu1hf3zTAgQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-KjHUztcAihVIFNJAAXHmXAXjDXnFNZWnx+nWelZgrsc=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J0PpiX7ixunk9VBFI2SAlpjRKuLhvH1azzTYeFXIDsw=' 'sha256-UbfIHULKyilQbJfRp68V1Q9qVApdJ/Nhr2UvDtSpbl8=' 'sha256-BsGR08lTdEEJhvB2C57bT/IgojrVO38SChzBAaWOnnc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -123,7 +123,7 @@
 <script src="match-planner-ui.js?v=membership-requests-1"></script>
 <script src="head-view-ui.js?v=5"></script>
 <script src="match-scoring-ui.js?v=1"></script>
-<script src="club-teams-ui.js?v=team-edit-2"></script>
+<script src="club-teams-ui.js?v=team-results-4"></script>
 <link rel="stylesheet" href="camera-series.css?v=cbb21d40c594" />
 <script src="camera-series.js?v=cbb21d40c594"></script>
 <script src="camera-native.js?v=cbb21d40c594"></script>
@@ -1670,7 +1670,7 @@ const shooterCandidates = (directory, published) => {
   return result.sort((a,b)=>a.name.localeCompare(b.name,"nl"));
 };
 
-const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, initialView='individual'}) => {
+const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, initialView='signup'}) => {
   const [view,setView]=React.useState(initialView);
   const emptyCounts = {hits5:"",hits4:"",hits3:"",hits2:"",misses:"",penaltyPoints:"0"};
   const emptyRapid={hits5:"",hits4:"",hits3:"",hits2:"",misses:""};
@@ -1848,7 +1848,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
     }catch(e){setStatus("Opslaan mislukt: "+(scoringMatch?.scoring?scoringError(e):eppPlatformError(e.message)));}
     finally{submitLock.current=false;setBusy(false);}
   };
-  const navigation=h('div',{className:'sub-tab-row scroll tabs-cue'},[['signup','Inschrijven'],['individual','Scores'],['ranking','Klassement'],['teams','Teams'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
+  const navigation=h('div',{className:'sub-tab-row scroll tabs-cue'},[['signup','Inschrijven'],['individual','Scores'],['ranking','Klassement'],['teams','Teams'],['team-results','Teamuitslag'],['shooters','Schutters']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>{resetForm();setView(id);}},label)));
   if(view==='signup')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(TabInschrijven,{isTrainer,shooters,eppPassword,setEppPassword,flash}));
   const disciplineSelect=h("label",null,"Discipline",h("select",{className:"txt-in","aria-label":"Discipline",value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setRanking([]);setMatchRanking([]);resetForm();}},h("option",{value:"pistool"},"EPP pistool"),h("option",{value:"optiek"},"Open (Optics)")));
   if(view==='ranking')return h('div',{className:'page-fade',style:{display:'flex',flexDirection:'column',gap:12}},navigation,disciplineSelect,
@@ -1857,7 +1857,7 @@ const TabLandelijk = ({isTrainer, flash, shooters, eppPassword, setEppPassword, 
       h("div",{className:"card-body"},!canInput && h("p",{className:"hint",role:"status"},status),h(RankingTable,{items:ranking}))
     ),
     h(PublishedStandings));
-  if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters'}));
+  if(view!=='individual')return h('div',{className:'page-fade',style:{display:'grid',gap:16}},navigation,h(ClubTeams,{key:view,directoryOnly:view==='shooters',resultsOnly:view==='team-results'}));
   const formReady=!!matchId&&!!(selectedShooter||newShooter);
   return h("div",{className:"page-fade",style:{display:"flex",flexDirection:"column",gap:12}},navigation,
     h('section',{className:'training-intro'},h('h2',null,'Wedstrijdscores'),h('p',{className:'hint'},'1. Kies de wedstrijd en discipline. 2. Kies een ingeschreven schutter. 3. Vul de kaarttelling en tijden in en bevestig de score. Trainingsscores worden hier niet automatisch overgenomen.')),
@@ -2723,6 +2723,7 @@ function App({headClubs,onHeadClubChange}={}) {
   const canTrain=isTrainer||personalTraining;
   const [trainingView,setTrainingView]=React.useState('parcours');
   const [competitionEntry,setCompetitionEntry]=React.useState(null);
+  const [competitionMenuVisit,setCompetitionMenuVisit]=React.useState(0);
   const openMatchScores=()=>{setCompetitionEntry('individual');setTab('landelijk');};
   const accountClubId=eppSession()?.account?.clubId;
   const accountClubName=EPP_CLUBS.find(c=>c.id===accountClubId)?.label||accountClubId||"Vereniging";
@@ -2997,7 +2998,7 @@ function App({headClubs,onHeadClubChange}={}) {
     : tab==="training" ? h(TrainingHub,{shooters,nieuw,setNieuw,addShooter,removeShooter,registeredShooters,shooterDirectoryStatus,reloadShooters,currentTraining,setTrainingMode,setTrainingStage,addRound:addRoundAndFlash,finishTraining,setTab,maxOf,isTrainer,canTrain,personalTraining,archives,trainingView,setTrainingView,onMatchScores:openMatchScores})
     : tab==="camera" && isTrainer ? h(TabCamera,{shooters,registeredShooters,shooterDirectoryStatus,addShooter,cameraShots,setCameraShots,maxOf,flash,addRound,trainingId:currentTraining.id})
     : tab==="stand"  ? h(SharedTrainingStand)
-    : tab==="landelijk" ? h(TabLandelijk,{isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:competitionEntry||(isTrainer?'individual':'signup')})
+    : tab==="landelijk" ? h(TabLandelijk,{key:competitionMenuVisit,isTrainer,flash,shooters,eppPassword,setEppPassword,initialView:competitionEntry||'signup'})
     : tab==="instel" ? h(TabInstellingen,{isTrainer,stageShots,setStageShots,finishTraining,clearCurrentTraining,resetAll,syncConfig,setSyncConfig,syncStatus,syncNow,logout,setTab,canRestore:!store.current.busy&&!store.current.conflict&&!EppStore.diff(store.current.base,makePayload()).length,onRestored:pullRemote})
     : h(TabStand,{shooters,bestParcours,bestStageAverages,maxOf});
 
@@ -3021,7 +3022,7 @@ function App({headClubs,onHeadClubChange}={}) {
       canTrain&&syncLevel==="warn"&&!store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:syncNow},"Opslag opnieuw proberen"),
       store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:recoverConflict},"Online versie laden met herstelkopie"),activeContent),
     h("nav",{className:"bottomnav",style:{gridTemplateColumns:`repeat(${navItems.length},1fr)`}},
-      navItems.map(n=>h("button",{key:n.key,className:"bnav-btn","data-on":tab===n.key?"1":"0",onClick:()=>setTab(n.key)},
+      navItems.map(n=>h("button",{key:n.key,className:"bnav-btn","data-on":tab===n.key?"1":"0",onClick:()=>{if(n.key==='landelijk'){setCompetitionEntry(null);setCompetitionMenuVisit(v=>v+1);}setTab(n.key);}},
         n.icon(),n.label
       ))
     ),

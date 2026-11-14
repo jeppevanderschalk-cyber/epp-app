@@ -1,6 +1,6 @@
 const teamError=e=>({geen_beheerrechten:'Alleen de beheerder van je eigen vereniging kan teams wijzigen.',vier_unieke_schutters_verplicht:'Selecteer vier verschillende schutters.',schutter_niet_van_vereniging:'Deze schutter is op de wedstrijddatum niet verbonden aan je vereniging.',schutter_al_in_team:'Een schutter zit al in een ander team voor deze wedstrijd en discipline.',team_conflict:'Dit team is elders gewijzigd. Haal de nieuwste versie op.',team_vast_na_score:'De teamsamenstelling staat vast zodra een teamlid een bevestigde wedstrijdscore heeft.',ongeldige_wedstrijd_of_discipline:'Kies een wedstrijd en een aangeboden discipline.'}[e.message]||(/duplicate key/.test(e.message)?'Dit teamnummer bestaat al. Kies een ander nummer.':e.message));
 
-const ClubTeams=({directoryOnly=false})=>{
+const ClubTeams=({directoryOnly=false,resultsOnly=false})=>{
   const [data,setData]=React.useState(null),[matchId,setMatchId]=React.useState(''),[discipline,setDiscipline]=React.useState('pistool');
   const [query,setQuery]=React.useState(''),[status,setStatus]=React.useState(''),[busy,setBusy]=React.useState(false),[editing,setEditing]=React.useState(null);
   const request=React.useRef(0);
@@ -37,9 +37,11 @@ const ClubTeams=({directoryOnly=false})=>{
       h('input',{className:'txt-in',type:'search','aria-label':'Zoek schutter of vereniging',value:query,onChange:e=>setQuery(e.target.value)}),
       visible.map(s=>h('div',{key:s.id,style:{padding:'12px 0',borderBottom:'1px solid '+C.border,overflowWrap:'anywhere'}},h('strong',null,s.name),h('div',{className:'hint'},s.clubs.map(c=>c.name).join(' · ')||'Geen vereniging gekoppeld'),h('small',{className:'hint'},s.publicId)))
     ):h(React.Fragment,null,
+      h('h2',null,resultsOnly?'Teamuitslag':'Teams samenstellen'),
+      h('p',{className:'hint'},resultsOnly?'De totaalscore is de som van de vier bevestigde wedstrijdscores. Teams met vier scores worden gerangschikt per wedstrijd en discipline.':'De verenigingsbeheerder stelt per wedstrijd en discipline teams samen van precies vier verschillende schutters van de eigen vereniging. Bekijk de gezamenlijke scores ook bij Teamuitslag.'),
       h('label',null,'Wedstrijd',h('select',{className:'txt-in','aria-label':'Teamwedstrijd',value:matchId,disabled:busy,onChange:e=>{setMatchId(e.target.value);setEditing(null);}},h('option',{value:''},'Kies wedstrijd'),(data?.matches||[]).map(m=>h('option',{key:m.id,value:m.id},m.match_date+' · '+m.organizer)))),
       h('label',null,'Discipline',h('select',{className:'txt-in','aria-label':'Teamdiscipline',value:discipline,disabled:busy,onChange:e=>{setDiscipline(e.target.value);setEditing(null);}},(match?.offered_disciplines||['pistool','optiek']).map(d=>h('option',{key:d,value:d},label(d))))),
-      matchId&&data?.canManage&&h('section',{style:{display:'grid',gap:12}},h('h3',null,'Teams van jouw vereniging'),
+      matchId&&!resultsOnly&&data?.canManage&&h('section',{style:{display:'grid',gap:12}},h('h3',null,'Teams van jouw vereniging'),
         h('select',{className:'txt-in','aria-label':'Eigen team',disabled:busy,value:editing?.id||'',onChange:e=>{if(editing&&!confirm('Niet opgeslagen teamwijzigingen vervallen. Doorgaan?'))return;const t=ownTeams.find(t=>t.id===e.target.value);if(t)begin(t);else setEditing(null);}},h('option',{value:''},'Kies team'),ownTeams.map(t=>h('option',{key:t.id,value:t.id},'Team '+t.number+' · '+t.club+(t.locked?' · vastgelegd':'')))),
         !editing&&h('button',{className:'btn btn-ghost',disabled:busy||ownTeams.length>=99,onClick:()=>begin(null)},'Nieuw team'),
         editing&&h('fieldset',{ref:editorRef,disabled:busy||ownTeams.find(t=>t.id===editing.id)?.locked,style:{border:0,padding:0,minWidth:0,display:'grid',gap:12}},
@@ -55,9 +57,9 @@ const ClubTeams=({directoryOnly=false})=>{
       !matchId&&h('p',{className:'hint'},'Kies wedstrijd'),
       matchId&&!(data?.teams||[]).length&&h('p',{className:'hint'},'Nog geen teams'),
       (data?.teams||[]).map(t=>h('section',{key:t.id,style:{borderBottom:'1px solid '+C.border,padding:'12px 0',overflowWrap:'anywhere'}},
-        h('div',{style:{display:'flex',justifyContent:'space-between',gap:12}},h('strong',null,(t.position?t.position+'. ':'')+'Team '+t.number+' · '+t.club),h('strong',{style:{whiteSpace:'nowrap'}},t.completed===4?t.score+' / 1000':t.completed+' / 4 scores')),
+        h('div',{style:{display:'flex',justifyContent:'space-between',gap:12}},h('strong',null,(t.position?t.position+'. ':'')+'Team '+t.number+' · '+t.club),h('strong',{style:{whiteSpace:'nowrap'}},t.completed===4?t.score+' / 1000':t.score+' punten · '+t.completed+' / 4 scores')),
         h('ul',{style:{paddingLeft:20,marginBottom:0}},t.members.map(s=>h('li',{key:s.id},s.name+' · '+s.club+' · '+(s.score==null?'Nog geen score':s.score+' punten')))),
-        data.canManage&&t.clubCode===data.clubCode&&h('div',{style:{display:'grid',gap:8,marginTop:12}},h('button',{type:'button',className:'btn btn-ghost',disabled:busy||t.locked,onClick:()=>editTeam(t)},'Team bewerken'),t.locked&&h('p',{className:'hint',style:{margin:0}},'Vastgelegd: er zijn bevestigde wedstrijdscores.'))))
+        !resultsOnly&&data.canManage&&t.clubCode===data.clubCode&&h('div',{style:{display:'grid',gap:8,marginTop:12}},h('button',{type:'button',className:'btn btn-ghost',disabled:busy||t.locked,onClick:()=>editTeam(t)},'Team bewerken'),t.locked&&h('p',{className:'hint',style:{margin:0}},'Vastgelegd: er zijn bevestigde wedstrijdscores.'))))
     ),
     !data&&!status&&h('p',{className:'hint'},'Laden...'),
     status&&h('p',{className:'hint',role:'status'},status)

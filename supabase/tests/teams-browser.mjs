@@ -67,6 +67,15 @@ try{
       await page.getByText('940 / 1000',{exact:true}).waitFor();
       await page.screenshot({path:'/private/tmp/epp-teams-'+width+'.png',fullPage:true});
     }else assert.equal(await page.getByRole('button',{name:'Nieuw team',exact:true}).count(),0,'viewer has no team controls');
+    await page.getByRole('button',{name:'Teamuitslag',exact:true}).click();
+    await page.getByLabel('Teamwedstrijd').selectOption('team-match');
+    await page.getByRole('heading',{name:'Teamuitslag',exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Nieuw team',exact:true}).count(),0,'results have no create controls');
+    assert.equal(await page.getByRole('button',{name:'Team bewerken',exact:true}).count(),0,'results have no edit controls');
+    if(manager){
+      await page.getByText('940 / 1000',{exact:true}).waitFor();
+      await page.getByText('900 / 1000',{exact:true}).waitFor();
+    }
     await page.getByRole('button',{name:'Schutters',exact:true}).click();
     await page.getByText('Schutter 6',{exact:true}).waitFor();
     assert.equal(await page.locator('#root div.hint').filter({hasText:/^SV Mercurius '75$/}).count(),4);
