@@ -63,7 +63,7 @@ try{
   await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:resolve(tmpdir(),'epp-four-home-1440.png'),fullPage:true,animations:'disabled'});
   console.log('PASS home progress and calendar at 390 and 1440');
   await page.setViewportSize({width:390,height:844});
-  await page.evaluate(()=>{sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify({sessionToken:'a'.repeat(64),account:{id:'a1',clubId:'svbb',role:'trainer'}}));testRoot.render(h('div',{className:'app'},h('style',null,CSS),h(TabLandelijk,{isTrainer:true,flash:()=>{},shooters:[],eppPassword:'',setEppPassword:()=>{}})));});
+  await page.evaluate(()=>{sessionStorage.setItem(EPP_SESSION_KEY,JSON.stringify({sessionToken:'a'.repeat(64),account:{id:'a1',clubId:'svbb',role:'trainer'}}));testRoot.render(h('div',{className:'app'},h('style',null,CSS),h(TabLandelijk,{initialView:'individual',isTrainer:true,flash:()=>{},shooters:[],eppPassword:'',setEppPassword:()=>{}})));});
   await page.getByLabel('Wedstrijd',{exact:true}).selectOption('m1');
   await page.getByLabel('Schutter zoeken').fill('Test');await page.getByRole('button',{name:/Test Schutter/}).click();
   await page.getByLabel('Snelvuur 5 punten',{exact:true}).fill('10');await page.getByLabel('Overige 5 punten',{exact:true}).fill('40');

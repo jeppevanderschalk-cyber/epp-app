@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
@@ -24,6 +25,7 @@ try{
       if(body.action==='view')response={ok:true,match:planned,planner:{published:true,opens_at:'2020-01-01T00:00:00Z',closes_at:'2027-05-27T18:00:00Z'},profile:{id:'member'},managing:false,slots,mine:{revision,choices},roster:[],audit:[]};
       await route.fulfill({contentType:'application/json',body:JSON.stringify(response)});
     });
+    await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.evaluate(()=>{localStorage.setItem(EPP_SESSION_KEY,JSON.stringify({account:{username:'lid.test',displayName:'Test Schutter'}}));window.pickerRoot=ReactDOM.createRoot(document.getElementById('root'));pickerRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(TabInschrijvenLid,{password:'',onAuthFail:()=>{},flash:()=>{}}))));eppShowApp();});
     await page.getByText('Test Schutter',{exact:true}).waitFor();
@@ -64,7 +66,7 @@ try{
     await page.getByRole('group',{name:'Wedstrijddag pistool',exact:true}).getByRole('button',{name:'28 mei 2027',exact:true}).click();
     await group.getByRole('radio',{name:'28 mei 2027 · 09:00',exact:true}).getByText('2 vrij',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).count(),0,'confirmation disappears after saving');
-    await page.screenshot({path:'/private/tmp/epp-slot-picker-'+width+'.png',fullPage:true});
+    await page.screenshot({path:tmpdir()+'/epp-slot-picker-'+width+'.png',fullPage:true});
     await page.evaluate(({match,slots})=>{
       window.renderBooking=(revision,slotId='a')=>pickerRoot.render(h('div',{className:'app'},h('style',null,CSS),h('main',{className:'main'},h(PlannerBooking,{view:{match,slots,profile:{id:'member'},managing:false,planner:{published:true,opens_at:'2020-01-01',closes_at:'2027-05-27'},mine:{revision,choices:[{discipline:'pistool',slotId}]}},onSaved:async()=> 'Boeking online bevestigd',onReload:()=>{}}))));
       renderBooking(1);

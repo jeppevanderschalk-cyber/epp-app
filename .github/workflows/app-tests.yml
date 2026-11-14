@@ -14,42 +14,14 @@ jobs:
       - run: node tools/security-policy.mjs
       - run: npm install --prefix /tmp/epp-test-tools playwright@1.62.1
       - run: /tmp/epp-test-tools/node_modules/.bin/playwright install --with-deps chromium
-      - run: node supabase/tests/camera-native-browser.mjs
+      - name: Browser checks with a mocked backend (live checks excluded)
         env:
           PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/camera-series-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/login-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/head-scorer-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/registration-approval-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/personal-training-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/training-dropdown-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/shared-training-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/app-experience-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/discipline-payments-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/publication-registration-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/install-help-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
-      - run: node supabase/tests/membership-requests-browser.mjs
-        env:
-          PLAYWRIGHT_MODULE: /tmp/epp-test-tools/node_modules/playwright/index.mjs
+        run: |
+          set -e
+          for f in supabase/tests/*-browser.mjs supabase/tests/browser-smoke.mjs; do
+            case "$f" in *live*) continue;; esac
+            echo "::group::$f"
+            node "$f"
+            echo "::endgroup::"
+          done

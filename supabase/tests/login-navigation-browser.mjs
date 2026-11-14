@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -46,7 +47,7 @@ try{
         }
         assert.deepEqual(errors,[]);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-        await page.screenshot({path:'/private/tmp/epp-login-nav-'+engine.name()+'-'+width+'.png'});
+        await page.screenshot({path:tmpdir()+'/epp-login-nav-'+engine.name()+'-'+width+'.png'});
         await context.close();console.log('PASS '+engine.name()+' '+width+': login, reload, immediate menu taps without scrolling');
       }
     }finally{await browser.close();}

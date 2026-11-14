@@ -18,5 +18,7 @@
   function draftKey(account,scope){return 'epp-draft-v1:'+encodeURIComponent(account?.clubId||'')+':'+encodeURIComponent(account?.id||account?.username||'')+':'+scope;}
   function readDraft(storage,key){try{const data=JSON.parse(storage.getItem(key)||'null');return data&&data.version===1&&data.fields&&typeof data.fields==='object'?data:null;}catch{return null;}}
   function writeDraft(storage,key,fields){try{storage.setItem(key,JSON.stringify({version:1,updatedAt:Date.now(),fields}));return true;}catch{return false;}}
+  // Background tabs keep the same timer id but skip refreshes until the app is visible again.
+  root.eppPoll=(fn,ms)=>setInterval(()=>{if(!root.document?.hidden)fn();},ms);
   root.EppUx={normalize,filterRanking,progress,draftKey,readDraft,writeDraft};
 })(typeof globalThis!=='undefined'?globalThis:window);

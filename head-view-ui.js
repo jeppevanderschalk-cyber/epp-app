@@ -13,15 +13,12 @@ const HeadClubViewer=({clubId,clubs,onChange,onExit})=>{
         if(active){setSnapshot({...result,payload:EppStore.decode(result.entities||[])});setStatus('Online bijgewerkt');}
       }catch(e){if(active)setStatus('Bekijken mislukt: '+e.message);}
     };
-    load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};
+    load();const timer=eppPoll(load,10000);return()=>{active=false;clearInterval(timer);};
   },[clubId]);
   const payload=snapshot?.payload;
   const clubName=snapshot?.club?.naam||clubs.find(c=>c.code===clubId)?.naam||clubId;
   return h('div',{className:'app'},h('style',null,CSS),
-    h('header',{className:'topbar'},h('div',{className:'topbar-inner'},
-      h('div',{className:'topbar-logo'},h(EPPLogo,{size:53})),
-      h('div',{className:'topbar-title'},h('h1',null,'EPP'),h('div',{className:'topbar-sub'},'Europees Praktijk Parcours')),
-      h(HeadClubSelector,{clubs,value:clubId,onChange})),h('div',{className:'gold-stripe'})),
+    h(AppTopbar,null,h(HeadClubSelector,{clubs,value:clubId,onChange})),
     h('main',{className:'main'},
       h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:16}},h('strong',{style:{overflowWrap:'anywhere'}},clubName),h('span',{className:'hint'},'Alleen bekijken')),
       h('p',{role:'status',className:'hint'},status),
@@ -29,8 +26,8 @@ const HeadClubViewer=({clubId,clubs,onChange,onExit})=>{
         ?h(TabTraining,{shooters:payload.shooters||[],currentTraining:ensureTraining(payload.currentTraining),archives:payload.archives||[],isTrainer:false})
         :h(SharedTrainingStand,{targetClubId:clubId,qualificationRecords:snapshot.qualifications||[]})),
     h('nav',{className:'bottomnav',style:{gridTemplateColumns:'repeat(3,1fr)'}},
-      [['training','Training',Icon.chart],['stand','Stand',Icon.trophy]].map(([id,label,icon])=>h('button',{key:id,className:'bnav-btn','data-on':tab===id?'1':'0',onClick:()=>setTab(id)},icon(),label)),
-      h('button',{className:'bnav-btn',onClick:onExit},Icon.gear(),'Hoofdbeheer')));
+      [['training','Training',Icon.chart],['stand','Stand',Icon.trophy]].map(([id,label,icon])=>h('button',{key:id,className:'bnav-btn','data-on':tab===id?'1':'0','aria-current':tab===id?'page':undefined,onClick:()=>setTab(id)},icon(),label)),
+      h('button',{className:'bnav-btn',onClick:onExit},Icon.back(),'Hoofdbeheer')));
 };
 
 const HeadWorkspace=()=>{

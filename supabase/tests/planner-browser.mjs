@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -59,7 +60,7 @@ try{
     await p.getByText('Online opgeslagen',{exact:true}).waitFor();
     assert.equal(configuration.config.capacity,2);assert.equal(configuration.config.breaks.length,1);assert.equal(configuration.expectedRevision,0);
     await p.waitForTimeout(700);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:'/private/tmp/epp-planner-admin-'+width+'.png',fullPage:true});
+    await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:tmpdir()+'/epp-planner-admin-'+width+'.png',fullPage:true});
     await p.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     await p.getByRole('button',{name:'Scores',exact:true}).click();
     await p.getByLabel('Wedstrijd',{exact:true}).selectOption('match-test');
@@ -83,7 +84,7 @@ try{
     rejectBooking=false;await p.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await p.getByText('Online opgeslagen',{exact:true}).waitFor();assert.equal(booked.length,2);
     await p.waitForTimeout(700);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await p.screenshot({path:'/private/tmp/epp-planner-member-'+width+'.png',fullPage:true});
+    await p.screenshot({path:tmpdir()+'/epp-planner-member-'+width+'.png',fullPage:true});
     p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Afmelden',exact:true}).click();await p.getByText('Online opgeslagen',{exact:true}).waitFor();assert.equal(booked.length,0);
     await c.close();
     ({c,p}=await open({id:'head-test',username:'hoofdbeheer',displayName:'Hoofdbeheer',role:'trainer',clubId:'eppnationaal',isAdmin:true,isPlatformAdmin:true,mustChangePassword:true}));

@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -79,7 +80,7 @@ try{
       assert.equal(registration,null);
     }
     registrationError='';
-    await page.screenshot({path:'/private/tmp/epp-member-register-'+viewport.width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-member-register-'+viewport.width+'.png'});
     await page.getByRole('button',{name:'Account aanmaken',exact:true}).click();
     await page.getByText('Account aangemaakt. Log in met je eigen wachtwoord.',{exact:true}).waitFor();
     assert.equal(await page.locator('#loginClub').inputValue(),'apgs');
@@ -94,7 +95,10 @@ try{
     await page.locator('#loginEmail').fill('anne.schutter');
     await page.locator('#loginPassword').fill('SafePassword123!');
     await page.getByRole('button',{name:'Inloggen',exact:true}).click();
-    // Personal accounts start on their own training; registration is one tap away.
+    // Personal accounts start on their own home page; training and registration are one tap away.
+    await page.getByRole('heading',{name:/^Welkom/}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Start',exact:true}).getAttribute('data-on'),'1');
+    await page.locator('nav.bottomnav').getByRole('button',{name:'Training',exact:true}).click();
     await page.getByRole('button',{name:'Parcours',exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Training',exact:true}).getAttribute('data-on'),'1');
     await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
@@ -110,7 +114,7 @@ try{
     assert.equal(await donation.evaluate(el=>el.closest('.more-list').lastElementChild===el.closest('.more-item')),true);
     assert.equal(await donation.getAttribute('href'),'https://www.ing.nl/payreq/m/?trxid=WHUfzGumUOrs0LK419CNQYuHLT9dGwQt');
     await donation.scrollIntoViewIfNeeded();
-    await page.screenshot({path:'/private/tmp/epp-donation-member-'+viewport.width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-donation-member-'+viewport.width+'.png'});
     assert.equal(await page.getByRole('button',{name:'Inschrijven voor wedstrijden',exact:true}).count(),0);
     await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
     await page.getByText('Jouw inschrijvingen',{exact:true}).waitFor();
@@ -120,12 +124,12 @@ try{
     assert.equal(await page.getByRole('combobox',{name:'Kies je naam'}).count(),0);
     await page.getByRole('button',{name:'Doe mee',exact:true}).click();
     await page.getByLabel('Pistool standaard',{exact:true}).check();
-    await page.getByRole('button',{name:'OPSLAAN',exact:true}).click();
+    await page.getByRole('button',{name:'Opslaan',exact:true}).click();
     await page.getByText('Inschrijving opgeslagen',{exact:true}).waitFor();
     assert.equal(signup.shooterId,'own-shooter');assert.equal(signup.sessionToken,'b'.repeat(64));
     assert.deepEqual(sharedDataRequests,[]);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await page.screenshot({path:'/private/tmp/epp-member-signup-'+viewport.width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-member-signup-'+viewport.width+'.png'});
     await context.close();
     console.log('PASS '+viewport.width+': registration, password confirmation, personal session and own match signup');
   }

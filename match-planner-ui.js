@@ -157,7 +157,7 @@ const MatchPlanner=({matchId,manage=false})=>{
     const request=++loadRequest.current;
     try{const r=await eppCall('epp-planner',{clubId:CLUB_ID,action:'view',matchId});if(request===loadRequest.current){setView(r);setStatus('');}return r;}catch(e){if(request===loadRequest.current)setStatus(plannerError(e));}
   },[matchId]);
-  React.useEffect(()=>{let active=true;load();const timer=setInterval(()=>{if(active)load();},10000);return()=>{active=false;clearInterval(timer);};},[load]);
+  React.useEffect(()=>{let active=true;load();const timer=eppPoll(()=>{if(active)load();},10000);return()=>{active=false;clearInterval(timer);};},[load]);
   const saved=async(planning=false,cancel=false)=>{
     const latest=await load();
     if(latest){setVersion(v=>v+1);setTarget(null);setStatus('Online opgeslagen');}
@@ -204,7 +204,7 @@ const PlannerMatchCard=({match})=>{
 
 const MatchPlannerCatalog=({excludeIds=[]})=>{
   const [matches,setMatches]=React.useState([]),[status,setStatus]=React.useState('');
-  React.useEffect(()=>{let active=true;const load=()=>eppCall('epp-planner',{clubId:CLUB_ID,action:'catalog'}).then(r=>{if(active){setMatches(r.matches);setStatus('');}}).catch(e=>{if(active)setStatus(plannerError(e));});load();const timer=setInterval(load,10000);return()=>{active=false;clearInterval(timer);};},[]);
+  React.useEffect(()=>{let active=true;const load=()=>eppCall('epp-planner',{clubId:CLUB_ID,action:'catalog'}).then(r=>{if(active){setMatches(r.matches);setStatus('');}}).catch(e=>{if(active)setStatus(plannerError(e));});load();const timer=eppPoll(load,10000);return()=>{active=false;clearInterval(timer);};},[]);
   return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.filter(m=>!excludeIds.includes(m.id)).map(m=>h(PlannerMatchCard,{key:m.id,match:m})));
 };
 
@@ -214,7 +214,7 @@ const PendingMembershipNotice=({onReview})=>{
     const account=eppSession()?.account;if(!account?.isAdmin)return;
     let active=true;
     const load=async()=>{try{const r=await eppCall('epp-auth',{clubId:account.clubId,action:account.isPlatformAdmin?'list_club_access':'list_accounts'});if(active)setCount((r.accounts||[]).filter(a=>a.membership_approved===false&&a.active!==false).length);}catch{ /* Account management retains its own loading errors. */ }};
-    load();const timer=setInterval(load,60000);
+    load();const timer=eppPoll(load,60000);
     window.addEventListener('focus',load);window.addEventListener('epp-membership-approved',load);
     return()=>{active=false;clearInterval(timer);window.removeEventListener('focus',load);window.removeEventListener('epp-membership-approved',load);};
   },[]);
@@ -259,7 +259,7 @@ const PlatformAccessManagement=()=>{
   React.useEffect(()=>{load();},[]);
   const catalogRequest=React.useRef(0);
   const refreshMatches=async()=>{const version=++catalogRequest.current;try{const r=await eppCall('epp-scoring',{clubId:CLUB_ID,action:'catalog'});if(version!==catalogRequest.current)return;const available=r.matches||[];setMatches(available);setMatch(current=>current|| (available.length===1?available[0].id:''));}catch(e){if(version===catalogRequest.current)setStatus(scoringError(e));}};
-  React.useEffect(()=>{refreshMatches();const timer=setInterval(refreshMatches,10000);return()=>{clearInterval(timer);catalogRequest.current++;};},[]);
+  React.useEffect(()=>{refreshMatches();const timer=eppPoll(refreshMatches,10000);return()=>{clearInterval(timer);catalogRequest.current++;};},[]);
   React.useEffect(()=>{
     const version=++request.current;setAccess(null);
     if(match)eppCall('epp-scoring',{clubId:CLUB_ID,action:'view',matchId:match}).then(r=>{if(request.current===version)setAccess(r);}).catch(e=>{if(request.current===version)setStatus(scoringError(e));});

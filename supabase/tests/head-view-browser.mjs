@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -53,7 +54,7 @@ try{
     await page.getByText('Expert · 2026',{exact:true}).first().waitFor();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     const overlap=await page.locator('.app:visible').evaluate(el=>el.querySelector('.head-club-selector').getBoundingClientRect().left<el.querySelector('.topbar-title').getBoundingClientRect().right-1);assert.equal(overlap,false);
-    await page.waitForTimeout(600);await page.screenshot({path:'/private/tmp/epp-head-view-'+width+'.png',fullPage:true});
+    await page.waitForTimeout(600);await page.screenshot({path:tmpdir()+'/epp-head-view-'+width+'.png',fullPage:true});
     assert.equal(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('epp-session-v2')).account.clubId),'eppnationaal');
     assert.equal(await page.evaluate(()=>localStorage.getItem('epp-app-club-v1')),'eppnationaal');
     assert.ok(calls.filter(c=>c.fn==='epp-head-view').every(c=>['view','catalog'].includes(c.action)&&c.clubId==='eppnationaal'));
@@ -82,7 +83,7 @@ try{
       await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
     });
     const page=await context.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
-    await page.getByRole('button',{name:'Training',exact:true}).click();
+    await page.locator('nav.bottomnav').getByRole('button',{name:'Training',exact:true}).click();
     const dropdown=page.getByLabel('Schutter voor score-invoer',{exact:true});
     await dropdown.locator('option[value="pending-head-shooter"]').waitFor({state:'attached'});
     await dropdown.selectOption('pending-head-shooter');

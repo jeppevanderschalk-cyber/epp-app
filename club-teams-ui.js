@@ -11,7 +11,7 @@ const ClubTeams=({directoryOnly=false,resultsOnly=false})=>{
     try{const r=await eppCall('epp-teams',{clubId:CLUB_ID,action:'context',matchId:directoryOnly?null:matchId||null,discipline});if(sequence===request.current){setData(r);return r;}}
     catch(e){if(sequence===request.current)setStatus('Ophalen mislukt: '+teamError(e));}
   },[matchId,discipline,directoryOnly]);
-  React.useEffect(()=>{setData(null);setEditing(null);setStatus('');load();const timer=setInterval(load,10000);return()=>{++request.current;clearInterval(timer);};},[load]);
+  React.useEffect(()=>{setData(null);setEditing(null);setStatus('');load();const timer=eppPoll(load,10000);return()=>{++request.current;clearInterval(timer);};},[load]);
   React.useEffect(()=>{const m=data?.matches.find(m=>m.id===matchId);if(m&&!m.offered_disciplines.includes(discipline))setDiscipline(m.offered_disciplines[0]);},[data,matchId,discipline]);
   const own=(data?.shooters||[]).filter(s=>s.clubs.some(c=>c.code===data.clubCode));
   const ownTeams=(data?.teams||[]).filter(t=>t.clubCode===data.clubCode);

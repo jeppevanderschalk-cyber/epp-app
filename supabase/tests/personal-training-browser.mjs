@@ -25,7 +25,6 @@ try{
    await route.fulfill({contentType:'application/json',body:JSON.stringify(r)});
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
-  await page.locator('#loginClub').selectOption('svbb');
   await page.getByLabel('Gebruikersnaam of e-mailadres',{exact:true}).fill('personal');await page.getByLabel('Wachtwoord',{exact:true}).fill('TestPassword123');await page.getByRole('button',{name:'Inloggen',exact:true}).click();
   await page.getByRole('button',{name:'Training',exact:true}).click();
   await page.getByRole('button',{name:'Parcours',exact:true}).waitFor();

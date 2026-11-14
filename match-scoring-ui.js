@@ -25,7 +25,7 @@ const useScoreReservation=(matchId,shooterId,discipline,enabled)=>{
 const MatchScoringManagement=({matchId,discipline,onClosed})=>{
   const [data,setData]=React.useState(null),[search,setSearch]=React.useState(''),[target,setTarget]=React.useState(''),[status,setStatus]=React.useState(''),[busy,setBusy]=React.useState(false);
   const load=React.useCallback(async()=>{try{const r=await eppCall('epp-scoring',{clubId:CLUB_ID,action:'view',matchId,discipline});setData(r);}catch(e){setStatus(scoringError(e));}},[matchId,discipline]);
-  React.useEffect(()=>{setData(null);load();const timer=setInterval(load,10000);return()=>clearInterval(timer);},[load]);
+  React.useEffect(()=>{setData(null);load();const timer=eppPoll(load,10000);return()=>clearInterval(timer);},[load]);
   const control=async(control,accountId,enabled)=>{
     if(busy||!data)return;
     if(control==='close'&&!confirm('Deze wedstrijduitslag definitief maken? Hierna kunnen geen scores meer worden ingevoerd of gecorrigeerd.'))return;

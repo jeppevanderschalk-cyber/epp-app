@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -63,13 +64,13 @@ try{
       assert.equal(await page.getByRole('button',{name:'Parcours',exact:true}).getAttribute('data-on'),'1');
       await page.waitForTimeout(600);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-      await page.screenshot({path:'/private/tmp/epp-training-parcours-'+width+'.png',fullPage:true});
+      await page.screenshot({path:tmpdir()+'/epp-training-parcours-'+width+'.png',fullPage:true});
       await page.getByRole('button',{name:'Stages',exact:true}).click();
       await choice.waitFor();
       await page.waitForTimeout(600);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       await page.evaluate(()=>window.scrollTo(0,0));
-      await page.screenshot({path:'/private/tmp/epp-training-stages-'+width+'.png',fullPage:true});
+      await page.screenshot({path:tmpdir()+'/epp-training-stages-'+width+'.png',fullPage:true});
       assert.equal(await page.locator('.stage-card-img').evaluateAll(images=>images.every(image=>image.complete&&image.naturalWidth>0)),true);
       await choice.selectOption('a');
       await page.getByLabel('Kaarttelling en tijden',{exact:true}).check();
@@ -98,7 +99,7 @@ try{
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.waitForTimeout(600);
     assert.equal(await page.getByRole('button',{name:'Training',exact:true}).getAttribute('data-on'),'1');
-    await page.screenshot({path:'/private/tmp/epp-training-'+role+'-'+width+'.png',fullPage:true});
+    await page.screenshot({path:tmpdir()+'/epp-training-'+role+'-'+width+'.png',fullPage:true});
     await page.close();console.log('PASS '+role+' '+width+': merged training, shooter dropdown and retained scores');
   }
   assert.deepEqual(errors,[]);

@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
@@ -44,6 +45,6 @@ try{for(const width of [390,1440]){
  assert.equal(await page.getByRole('button',{name:'Doe mee',exact:true}).count(),0);
  assert.ok(await page.getByText('Beemte Broekland',{exact:true}).isVisible());
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
- await page.screenshot({path:'/private/tmp/epp-opening-'+width+'.png',fullPage:true});
+ await page.screenshot({path:tmpdir()+'/epp-opening-'+width+'.png',fullPage:true});
  assert.deepEqual(errors,[]);await page.close();console.log('Opening date and visible locked match verified at '+width+'px');
 }}finally{await browser.close();server.close();}

@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -65,7 +66,7 @@ try{
       await page.getByText('Vastgelegd: er zijn bevestigde wedstrijdscores.',{exact:true}).waitFor();
       await page.getByText("2. Team 1 · SV Mercurius '75",{exact:true}).waitFor();
       await page.getByText('940 / 1000',{exact:true}).waitFor();
-      await page.screenshot({path:'/private/tmp/epp-teams-'+width+'.png',fullPage:true});
+      await page.screenshot({path:tmpdir()+'/epp-teams-'+width+'.png',fullPage:true});
     }else assert.equal(await page.getByRole('button',{name:'Nieuw team',exact:true}).count(),0,'viewer has no team controls');
     await page.getByRole('button',{name:'Teamuitslag',exact:true}).click();
     await page.getByLabel('Teamwedstrijd').selectOption('team-match');

@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -32,7 +33,7 @@ try{
     await page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).fill('4:53');
     await page.waitForFunction(()=>document.querySelector('.num-in').value==='228');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await page.screenshot({path:'/private/tmp/epp-training-countcard-'+width+'.png',fullPage:true});
+    await page.screenshot({path:tmpdir()+'/epp-training-countcard-'+width+'.png',fullPage:true});
     await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
     let saved=await page.evaluate(()=>savedRounds);
     assert.equal(saved[0].score,228);assert.equal(saved[0].details.rapid_time_ms,12340);assert.equal(saved[0].details.total_time_ms,293000);
@@ -40,11 +41,11 @@ try{
     await page.getByLabel('Kaarttelling en tijden',{exact:true}).check();
     await page.getByLabel('Stage 5 punten',{exact:true}).fill('99');
     assert.equal(await page.getByLabel('Stage 5 punten',{exact:true}).inputValue(),'7','uses configured training shot count');
-    await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
+    assert.equal(await page.getByRole('button',{name:'Ronde opslaan',exact:true}).isDisabled(),true,'incomplete time cannot be saved');
     assert.equal((await page.evaluate(()=>savedRounds)).length,1,'incomplete time cannot be saved');
     await page.getByLabel('Stagetijd (seconden en honderdsten)',{exact:true}).fill('9,87');
     await page.waitForFunction(()=>document.querySelector('.num-in').value==='35');
-    await page.screenshot({path:'/private/tmp/epp-training-stage-countcard-'+width+'.png',fullPage:true});
+    await page.screenshot({path:tmpdir()+'/epp-training-stage-countcard-'+width+'.png',fullPage:true});
     await page.getByRole('button',{name:'Ronde opslaan',exact:true}).click();
     saved=await page.evaluate(()=>savedRounds);assert.equal(saved[1].score,35);assert.equal(saved[1].details.stage_time_ms,9870);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);

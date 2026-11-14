@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
@@ -53,16 +54,16 @@ try{
     const count=configures;await page.waitForTimeout(10500);assert.equal(configures,count);assert.ok(views>=3);
     await page.getByText('Planning online opgeslagen.',{exact:true}).scrollIntoViewIfNeeded();
     const position=await page.getByText('Planning online opgeslagen.',{exact:true}).evaluate(el=>el.getBoundingClientRect().top-el.previousElementSibling.querySelector('button[type="submit"]').getBoundingClientRect().bottom);assert.ok(position>=0&&position<30);
-    await page.screenshot({path:'/private/tmp/epp-planner-feedback-'+width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-planner-feedback-'+width+'.png'});
     assert.equal(await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).isDisabled(),true);
     await page.getByText('Nog geen tijdslot gekozen.',{exact:true}).waitFor();assert.equal(bookings,0);
-    assert.equal(await page.locator('details').filter({has:page.getByText('Alle tijdsloten (40)',{exact:true})}).getAttribute('open'),null);
+    assert.equal(await page.locator('details').filter({has:page.getByText(/^Alle tijdsloten \(40\)/)}).getAttribute('open'),null);
     await page.getByRole('radiogroup',{name:'Tijdslot pistool',exact:true}).getByRole('radio',{name:'28 mei 2027 · 09:10',exact:true}).click();
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();assert.equal(bookings,1);
     await page.waitForTimeout(10500);await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
     await page.getByText('Jouw inschrijving',{exact:true}).scrollIntoViewIfNeeded();
-    await page.screenshot({path:'/private/tmp/epp-booking-feedback-'+width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-booking-feedback-'+width+'.png'});
     await page.getByLabel('Rondeduur (minuten)',{exact:true}).fill('8');assert.equal(await page.getByText('Planning online opgeslagen.',{exact:true}).count(),0);
     mode='error';await page.getByLabel('Onze vereniging organiseert deze wedstrijd').check();await page.getByRole('button',{name:'Planning opslaan',exact:true}).click();
     await page.getByText('De laatste starttijd sluit niet aan op de rondeduur en wisseltijd.',{exact:true}).waitFor();assert.equal(await page.getByLabel('Rondeduur (minuten)',{exact:true}).inputValue(),'8');
@@ -82,7 +83,7 @@ try{
     await page.getByRole('button',{name:'Gewijzigd slot bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
     assert.equal(lastBooking.shooterId,'member');assert.equal(lastBooking.reason,'Op verzoek deelnemer');assert.equal(booked[0].slotId,'slot-2');
-    await page.screenshot({path:'/private/tmp/epp-online-signup-admin-'+width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-online-signup-admin-'+width+'.png'});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);await page.close();
     console.log('PASS '+width+': adjacent confirmation survives remount/poll, edits clear success, errors retain input, refresh failure is distinguished');
   }

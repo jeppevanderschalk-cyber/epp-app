@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -19,7 +20,7 @@ try{
     assert.equal(await tag.getAttribute('title'),label);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     const overlap=await page.evaluate(()=>{const a=document.querySelector('.club-tag').getBoundingClientRect(),b=document.querySelector('.topbar-title').getBoundingClientRect();return a.left<b.right-1;});assert.equal(overlap,false);
-    await page.screenshot({path:'/private/tmp/epp-club-header-'+clubId+'-'+viewport.width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-club-header-'+clubId+'-'+viewport.width+'.png'});
     assert.deepEqual(errors,[]);await context.close();console.log('PASS '+clubId+' '+viewport.width+': correct account association and no header overlap');
   }
 }finally{await browser.close();await new Promise(r=>server.close(r));}

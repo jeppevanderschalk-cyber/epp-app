@@ -6,7 +6,9 @@
 .save-dock .btn{width:auto;flex:0 0 auto;min-height:44px;padding:10px 14px}
 .save-dock .dock-summary{flex:1;min-width:0;font-size:14px;font-weight:800}
 .save-dock small{display:block;font-size:12px;font-weight:500;color:#c2cee8;line-height:1.4}
-.score-form{padding-bottom:85px}
+/* Reserve room once, outside the score cards, for the fixed save dock. */
+.app:has(.save-dock) .main{padding-bottom:calc(12rem + env(safe-area-inset-bottom,0px))}
+.score-form{padding-bottom:0}
 .draft-note{font-size:13px;line-height:1.5;color:#c2cee8;margin:8px 0}
 .rank-controls{display:grid;gap:10px;margin-bottom:14px}
 .rank-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
@@ -24,7 +26,7 @@
 .home-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .home-stats .stat-val{font-size:24px}
 .home-stats .stat-card{min-width:0;padding:14px 5px}
-.home-stats .stat-lbl{font-size:11px;letter-spacing:.02em;overflow-wrap:anywhere}
+.home-stats .stat-lbl{font-size:12px;letter-spacing:.02em;overflow-wrap:anywhere}
 .home-stage{padding:10px 0;border-bottom:1px solid #ffffff16;display:flex;justify-content:space-between;gap:12px}
 .home-round{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #ffffff16;font-size:14px}
 .trend-bars{display:flex;align-items:end;gap:10px;height:130px;padding-top:10px}

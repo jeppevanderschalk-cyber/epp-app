@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -58,8 +59,8 @@ try{
     await first.page.getByLabel('Snelvuurtijd (seconden en honderdsten)',{exact:true}).fill('12,40');
     await first.page.getByLabel('Eindtijd (minuten:seconden, inclusief snelvuur)',{exact:true}).fill('4:53');
     assert.equal(await first.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await first.page.screenshot({path:'/private/tmp/epp-match-scoring-'+viewport.width+'.png',fullPage:true});
-    await first.page.screenshot({path:'/private/tmp/epp-match-scoring-viewport-'+viewport.width+'.png'});
+    await first.page.screenshot({path:tmpdir()+'/epp-match-scoring-'+viewport.width+'.png',fullPage:true});
+    await first.page.screenshot({path:tmpdir()+'/epp-match-scoring-viewport-'+viewport.width+'.png'});
     await first.page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).click();
     await first.page.getByText('Opgeslagen — klassement bijgewerkt',{exact:true}).waitFor();
     assert.equal(saved.length,1);assert.equal(saved[0].shooterId,'s1');assert.equal(saved[0].rapid.hits5,10);assert.equal(saved[0].hits5,50);
@@ -79,7 +80,7 @@ try{
     const donation=admin.page.getByRole('link',{name:'Doneer via iDEAL',exact:true});
     assert.equal(await donation.evaluate(el=>el.closest('.more-list').lastElementChild===el.closest('.more-item')),true);
     await donation.scrollIntoViewIfNeeded();
-    await admin.page.screenshot({path:'/private/tmp/epp-donation-trainer-'+viewport.width+'.png'});
+    await admin.page.screenshot({path:tmpdir()+'/epp-donation-trainer-'+viewport.width+'.png'});
     await admin.context.close();
     console.log('PASS '+viewport.width+': delegated input, two scorers, collision blocking, save, rights and closing');
   }

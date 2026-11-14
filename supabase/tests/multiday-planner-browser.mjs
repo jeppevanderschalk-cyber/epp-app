@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
@@ -31,7 +32,7 @@ try{
     assert.deepEqual(saved.match_dates,['2027-05-28','2027-05-29']);assert.equal(saved.match_date,'2027-05-28');assert.equal(saved.deadline,'2027-04-28');
     assert.equal(await page.evaluate(()=>eppOneMonthBefore('2027-03-31')),'2027-02-28');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await page.waitForTimeout(600);await page.screenshot({path:'/private/tmp/epp-multiday-form-'+width+'.png',fullPage:true});
+    await page.waitForTimeout(600);await page.screenshot({path:tmpdir()+'/epp-multiday-form-'+width+'.png',fullPage:true});
     await page.evaluate(()=>{
       window.multiView={match:{id:'multi',organizer:'SVBB',match_date:'2027-05-28',match_dates:['2027-05-28','2027-05-29'],offered_disciplines:['pistool','optiek']},managing:false,profile:{id:'member'},planner:{published:true,opens_at:'2020-01-01T00:00:00Z',closes_at:'2027-05-27T00:00:00Z'},mine:{revision:0,choices:[]},slots:[{id:'day1',starts_at:'2027-05-28T07:00:00Z',ends_at:'2027-05-28T07:30:00Z',capacity:4,booked:0},{id:'day2',starts_at:'2027-05-29T07:00:00Z',ends_at:'2027-05-29T07:30:00Z',capacity:4,booked:0}]};
       window.showTest(h(PlannerBooking,{view:window.multiView,onSaved:()=>{},onReload:()=>{}}));
@@ -42,7 +43,7 @@ try{
     await page.getByRole('button',{name:'Tijdsloten bevestigen',exact:true}).click();
     await page.getByText('Boeking online bevestigd',{exact:true}).waitFor();
     assert.deepEqual(requests.at(-1).choices,[{discipline:'pistool',slotId:'day2'}]);
-    await page.waitForTimeout(600);await page.screenshot({path:'/private/tmp/epp-multiday-booking-'+width+'.png',fullPage:true});
+    await page.waitForTimeout(600);await page.screenshot({path:tmpdir()+'/epp-multiday-booking-'+width+'.png',fullPage:true});
     await page.evaluate(()=>{window.multiView.managing=true;window.multiView.planner=null;window.showTest(h(PlannerEditor,{view:window.multiView,onSaved:()=>{},onReload:()=>{}}));});
     await page.getByText('28 mei 2027 / 29 mei 2027',{exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);

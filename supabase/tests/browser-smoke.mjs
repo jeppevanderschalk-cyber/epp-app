@@ -1,3 +1,4 @@
+import {tmpdir} from 'node:os';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
@@ -39,7 +40,7 @@ try{
     await context.route('https://nnsozxjkltcnexqpnwia.supabase.co/functions/v1/**',async route=>{
       const body=route.request().postDataJSON();
       const fn=route.request().url().split('/').pop();
-      let response={ok:true},status=200;
+      let response={ok:true,matches:[],shooters:[],signups:[]},status=200;
       if(fn==='epp-auth')response={ok:true,account,accounts:[]};
       if(fn==='epp-platform'){
         response={ok:true,ranking:[],shooters:[{id:'00000000-0000-4000-8000-000000000001',display_name:'Test Schutter',public_id:'EPP-TEST'}],events:[],matches:[{id:'match-a',organizer:'Wedstrijd A',match_date:'2026-11-14'},{id:'match-b',organizer:'Wedstrijd B',match_date:'2026-12-14'}]};
@@ -85,6 +86,7 @@ try{
     const page=await context.newPage();
     page.on('pageerror',e=>errors.push(e.message));
     await page.goto(url);
+    await page.locator('nav.bottomnav').getByRole('button',{name:'Training',exact:true}).click();
     await page.getByText('Volledig Parcours',{exact:true}).waitFor();
     const score=page.getByPlaceholder('0',{exact:true}).first();
     await score.fill('210');
@@ -105,13 +107,14 @@ try{
     await page.getByText('Huidige training',{exact:true}).waitFor();
     await page.waitForTimeout(650);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await page.screenshot({path:'/private/tmp/epp-audit-'+viewport.width+'.png',fullPage:true});
+    await page.screenshot({path:tmpdir()+'/epp-audit-'+viewport.width+'.png',fullPage:true});
     await page.getByRole('button',{name:'Parcours',exact:true}).click();
     failSave=true;
     await score.fill('220');await score.press('Enter');
     await page.getByRole('status').filter({hasText:'nog niet online'}).waitFor({timeout:15000});
     assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('epp-data-reset-20261011-confirmed-svbb-records-v3')).wanted.currentTraining.rounds.some(r=>r.score===220)));
     await page.reload();
+    await page.locator('nav.bottomnav').getByRole('button',{name:'Training',exact:true}).click();
     await page.getByText('Volledig Parcours',{exact:true}).waitFor();
     assert((await page.locator('body').innerText()).includes('220'));
     failSave=false;
@@ -120,6 +123,8 @@ try{
     await page.getByRole('button',{name:'Nu synchroniseren',exact:true}).click();
     await page.getByRole('status').filter({hasText:'Online opgeslagen'}).first().waitFor({timeout:15000});
     await page.getByRole('button',{name:'Wedstrijden',exact:true}).click();
+    assert.equal(await page.getByRole('button',{name:'Inschrijven',exact:true}).getAttribute('data-on'),'1');
+    await page.getByRole('button',{name:'Scores',exact:true}).click();
     const match=page.getByLabel('Wedstrijd',{exact:true});
     await match.selectOption('match-a');await match.selectOption('match-b');
     await page.getByLabel('Schutter zoeken').fill('Test Schutter');
@@ -160,7 +165,7 @@ try{
     await page.waitForTimeout(650);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await page.getByText('Snelvuurscore · 7 meter · 2 × 5 schoten',{exact:true}).scrollIntoViewIfNeeded();
-    await page.screenshot({path:'/private/tmp/epp-shot-controls-'+viewport.width+'.png',fullPage:true});
+    await page.screenshot({path:tmpdir()+'/epp-shot-controls-'+viewport.width+'.png',fullPage:true});
     await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).click();
     await page.getByText('Landelijke score opgeslagen',{exact:true}).waitFor();
     assert.equal(confirmed.roundId,'round-match-b');assert.equal(confirmed.hits5,50);assert.equal(confirmed.rapid.hits5,10);assert.equal(confirmed.rapidTimeMs,12400);assert.equal(confirmed.totalTimeMs,293000);
@@ -181,17 +186,18 @@ try{
     await page.getByRole('button',{name:'Kwalificatie opslaan',exact:true}).click();
     await page.getByText('Kwalificatie opgeslagen',{exact:true}).waitFor();
     await page.getByText('Master · '+(new Date().getFullYear()-1),{exact:true}).first().waitFor();
-    await page.screenshot({path:'/private/tmp/epp-national-'+viewport.width+'.png',fullPage:true});
+    await page.screenshot({path:tmpdir()+'/epp-national-'+viewport.width+'.png',fullPage:true});
     await page.evaluate(()=>window.scrollTo(0,0));
-    await page.screenshot({path:'/private/tmp/epp-national-viewport-'+viewport.width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-national-viewport-'+viewport.width+'.png'});
     await page.getByLabel('Discipline',{exact:true}).selectOption('optiek');
     await page.waitForTimeout(500);
     assert((await page.locator('body').innerText()).includes('Open is niet aangeboden bij deze wedstrijd.'));
-    assert(await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).isDisabled());
+    // Changing the discipline clears the selected shooter, so the confirm dock is not offered.
+    assert.equal(await page.getByRole('button',{name:'Bevestigen en opslaan',exact:true}).count(),0);
     await page.getByRole('button',{name:'Stand',exact:true}).click();
     await page.getByText('Master · '+(new Date().getFullYear()-1),{exact:true}).first().waitFor();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await page.screenshot({path:'/private/tmp/epp-qualification-stand-'+viewport.width+'.png'});
+    await page.screenshot({path:tmpdir()+'/epp-qualification-stand-'+viewport.width+'.png'});
     await context.close();
   }
   assert.deepEqual(errors,[]);
