@@ -4,3 +4,7 @@ project_id = "epp-app"
 # verified app session; webhooks re-fetch the payment using the club's account.
 [functions.epp-payments]
 verify_jwt = false
+
+# The scheduler authenticates with its own secret; user actions verify app sessions.
+[functions.epp-push]
+verify_jwt = false

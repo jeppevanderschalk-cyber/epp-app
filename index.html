@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-6nUjKzvr+xYg4q7PY712C49EliFM32mzMASboobkLEo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-BZbr9UGfCM4w84h4o04MOiTcRgJoZQcZB635AA4Zyus='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-6nUjKzvr+xYg4q7PY712C49EliFM32mzMASboobkLEo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-43AonGwlKRRBi/LeHDuDbglmsP/baiWzHL6MKQju7cI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -117,6 +117,7 @@
 <link rel="stylesheet" href="password-recovery.css?v=1" />
 <script src="password-recovery.js?v=3"></script>
 <script src="password-help-ui.js?v=1"></script>
+<script src="phone-push.js?v=1"></script>
 <script src="app-experience.js?v=8f5919232c06"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
@@ -2590,6 +2591,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
       account.role==='schutter'&&personal&&h(MoreItem,{title:"Gebruikersnaam",sub:account.loginUsername?"Inloggen als "+account.loginUsername:"Nog niet gekozen"},h(ShooterUsername)),
       personal&&h(MoreItem,{title:"Privacy en publicatie",sub:"Zelf kiezen of je naam in klassementen verschijnt"},h(PublicationPreference)),
       personal&&h(MoreItem,{title:"Wachtwoord",sub:"Wijzig je wachtwoord"},h(ChangeTrainerPassword,{logout})),
+      account.isAdmin&&h(MoreItem,{id:"phone-push-settings",title:"Telefoonmeldingen",sub:"Melding op je telefoon bij wachtwoordherstel"},h(PhonePushSettings)),
       account.isAdmin&&h(MoreItem,{title:"E-mailmeldingen",sub:"Bij nieuwe accounts en inschrijvingen"},h(NotificationSettings)),
       isTrainer&&h("h3",{className:"menu-group-title"},"Training"),
       isTrainer&&h(MoreItem,{title:"Training afsluiten",sub:"Bewaar de rondes in de stand of begin opnieuw"},
@@ -2984,6 +2986,7 @@ function App({headClubs,onHeadClubChange}={}) {
   const logout = async () => {
     if(canTrain&&EppStore.diff(store.current.base,latestPayload.current).length&&!confirm("Er is nog niet online opgeslagen invoer. Die blijft lokaal bewaard. Toch uitloggen?"))return;
     persistQueue();
+    try{await EppPhonePush.disable();}catch{}
     try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"logout"});}catch(e){}
     sessionStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem("epp-app-auth-v1");localStorage.removeItem(EPP_AUTH_ROLE_KEY);location.reload();
   };
@@ -3033,6 +3036,7 @@ function App({headClubs,onHeadClubChange}={}) {
     ),
     h("main",{className:"main"},h("p",{role:"status",className:syncLevel==="warn"?"sync-note":"sync-line "+syncLevel},syncStatus),
       h(PaymentReturn),
+      h(PhonePushBinding,{onReview:()=>{if(!eppSession()?.account?.isAdmin)return;setTab('instel');let tries=0;const reveal=()=>{const el=document.getElementById('password-help-requests');if(el){el.open=true;el.scrollIntoView({block:'start'});}else if(++tries<60)setTimeout(reveal,500);};setTimeout(reveal,0);}}),
       h(PasswordHelpNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById('password-help-requests');if(el){el.open=true;el.scrollIntoView({block:'start',behavior:'smooth'});}},0);}}),
       h(PendingMembershipNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById('membership-requests');const box=el?.closest('details');if(box)box.open=true;el?.scrollIntoView({block:'start',behavior:'smooth'});},0);}}),
       canTrain&&syncLevel==="warn"&&!store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:syncNow},"Opslag opnieuw proberen"),
