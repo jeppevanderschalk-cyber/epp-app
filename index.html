@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-6nUjKzvr+xYg4q7PY712C49EliFM32mzMASboobkLEo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J/mkK/QLvLXZYwNspPyDhy2sYmxt3/voB1nE6j/YMKw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-6nUjKzvr+xYg4q7PY712C49EliFM32mzMASboobkLEo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-BZbr9UGfCM4w84h4o04MOiTcRgJoZQcZB635AA4Zyus='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -114,7 +114,8 @@
 </div>
 <div id="root" hidden></div>
 <link rel="stylesheet" href="experience.css?v=845a7154a6a2" />
-<script src="password-recovery.js?v=1"></script>
+<script src="password-recovery.js?v=2"></script>
+<script src="password-help-ui.js?v=1"></script>
 <script src="app-experience.js?v=8f5919232c06"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
@@ -2508,6 +2509,7 @@ const AccountManagement = () => {
     try{
       await eppCall('epp-auth',{clubId:CLUB_ID,action:'admin_reset_password',accountId:resetAccount.id,newPassword:resetPassword});
       setStatus('Tijdelijk wachtwoord ingesteld voor '+resetAccount.display_name+'. Geef het persoonlijk door. De gebruiker moet bij de volgende login een eigen wachtwoord kiezen.');
+      window.dispatchEvent(new Event('epp-password-help-handled'));
       setResetPassword('');setResetAccount(null);
     }catch(error){setStatus(error.message==='nieuw_wachtwoord_ongeldig'?'Gebruik een tijdelijk wachtwoord van 10 tot 256 tekens.':'Het wachtwoord kon niet worden hersteld. Controleer je rechten en probeer opnieuw.');}
     finally{setBusy(false);}
@@ -2579,6 +2581,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
       h("h3",{className:"menu-group-title"},"Verenigingsbeheer"),
       h(MoreItem,{title:account.isPlatformAdmin?"Verenigingsrechten":"Scoorderrechten",sub:account.isPlatformAdmin?"Rechten en goedkeuringen per vereniging":"Wie per wedstrijd scores mag invoeren"},h(PlatformAccessManagement)),
       h(MoreItem,{id:"membership-requests",title:"Nieuwe aanvragen",sub:"Bekijk en keur openstaande accountaanvragen goed"},h(MembershipRequests)),
+      h(MoreItem,{id:"password-help-requests",title:"Wachtwoordherstel",sub:"Herstelverzoeken bekijken en een tijdelijk wachtwoord geven"},h(PasswordHelpRequests)),
       h(MoreItem,{id:"account-management",title:"Accounts",sub:"Accounts en lidmaatschappen van je vereniging"},h(AccountManagement)),
       h(MoreItem,{title:"Back-ups",sub:"Back-up maken of training herstellen"},h(BackupManagement,{canRestore,onRestored}))),
     h("div",{className:"card more-list"},
@@ -3029,6 +3032,7 @@ function App({headClubs,onHeadClubChange}={}) {
     ),
     h("main",{className:"main"},h("p",{role:"status",className:syncLevel==="warn"?"sync-note":"sync-line "+syncLevel},syncStatus),
       h(PaymentReturn),
+      h(PasswordHelpNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById('password-help-requests');if(el){el.open=true;el.scrollIntoView({block:'start',behavior:'smooth'});}},0);}}),
       h(PendingMembershipNotice,{onReview:()=>{setTab('instel');setTimeout(()=>{const el=document.getElementById('membership-requests');const box=el?.closest('details');if(box)box.open=true;el?.scrollIntoView({block:'start',behavior:'smooth'});},0);}}),
       canTrain&&syncLevel==="warn"&&!store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:syncNow},"Opslag opnieuw proberen"),
       store.current.conflict&&h("button",{className:"btn btn-ghost",onClick:recoverConflict},"Online versie laden met herstelkopie"),activeContent),

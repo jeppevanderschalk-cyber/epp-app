@@ -1,27 +1,27 @@
-# Wachtwoordherstel
+# Wachtwoordherstel via de beheerder
 
-‘Wachtwoord vergeten?’ vraagt vereniging en e-mailadres. De backend gebruikt uitsluitend het opgeslagen adres van een actief persoonlijk account. Zowel bestaande als onbekende adressen krijgen hetzelfde antwoord. Hoofdbeheer en gedeelde logins volgen de bestaande technische beheerroute.
+‘Wachtwoord vergeten?’ vraagt om vereniging en gebruikersnaam of e-mailadres. Er is geen maildienst nodig. Het antwoord is voor bestaande en onbekende accounts gelijk, zodat het formulier geen accountgegevens prijsgeeft. Een verzoek verandert het wachtwoord of de bestaande sessies nog niet.
 
-Resetlinks bevatten 32 cryptografisch willekeurige bytes in het URL-fragment. De browser verwijdert het fragment direct; de database bewaart alleen de SHA-256-hash. Een link verloopt na 30 minuten, werkt eenmaal en vervalt ook na een wachtwoord- of e-mailwijziging. Een geslaagde reset trekt alle accountsessies en overige links in. Goedkeuring, blokkering en rollen blijven behouden.
+Voor een actief persoonlijk account wordt één openstaand herstelverzoek bewaard in de private tabel `epp_password_help_requests`. Dubbele verzoeken komen samen. Per ingevulde gebruikersnaam/e-mailadres zijn maximaal vijf aanvragen per uur toegestaan en per IP maximaal dertig.
 
-Er geldt een limiet van vijf aanvragen per e-mailadres en dertig per IP per uur, plus twee minuten tussen mails voor hetzelfde account. Verzendfouten worden zonder adres of token gelogd als `password_reset_delivery_failed`. Het antwoord blijft gelijk om accountadressen te beschermen; er wordt geen oude link ingetrokken wanneer een nieuwe mail mislukt.
+De beheerder ziet na inloggen een melding bovenaan de app met **Wachtwoordverzoeken bekijken**. De lijst staat ook onder **Meer → Wachtwoordherstel** en ververst elke dertig seconden en bij terugkeer naar de app. Een verenigingsbeheerder ziet verzoeken van de eigen leden; hoofdbeheer ziet alle verenigingen en verzoeken van verenigingsbeheerders. Hoofdbeheeraccounts, gedeelde accounts, verwijderde accounts en geblokkeerde accounts kunnen via het openbare formulier niet worden hersteld.
 
-## In productie nemen
+## Afhandelen
 
-1. Voer alleen `migrations/20261115_password_recovery.sql` uit en deploy `epp-auth` met de bestaande JWT-instelling.
-2. Publiceer `index.html` en `password-recovery.js` samen.
-3. Maak een Resend-account aan, voeg het afzenderdomein toe en plaats de door Resend opgegeven DNS-records. Verifieer het domein.
-4. Stel via beveiligde Supabase-instellingen `RESEND_API_KEY` en `EPP_NOTIFICATION_FROM` in. Dit zijn dezelfde instellingen als voor de bestaande meldingen. Een `EPP_NOTIFICATION_SECRET` is voor wachtwoordherstel niet nodig. Zet nooit sleutels in de frontend, Git of chat.
-5. Test met een eigen testaccount de daadwerkelijke ontvangst en eenmalige link, gevolgd door login met het nieuwe wachtwoord. Zonder mailinstellingen toont de app dat resetmails nog niet beschikbaar zijn.
+1. Open het verzoek en kies **Tijdelijk wachtwoord geven**.
+2. Controleer persoonlijk wie je helpt. Het formulier stelt een willekeurig wachtwoord van zestien tekens voor. Dit is aanpasbaar, met minimaal tien tekens.
+3. Kies **Tijdelijk wachtwoord instellen**. De backend slaat alleen de gezouten wachtwoordhash op, trekt alle bestaande sessies en resetlinks in en sluit het verzoek. Deze handelingen gebeuren in één databasetransactie. Een tweede beheerder kan hetzelfde verzoek niet nogmaals afhandelen.
+4. Geef het getoonde tijdelijke wachtwoord persoonlijk door en klik **Gereed**. Het wachtwoord wordt niet opgeslagen in browseropslag of meegestuurd met een e-mailmelding.
+5. Na de volgende login krijgt de gebruiker verplicht het bestaande wachtwoordwijzigingsscherm. Andere functies blijven geblokkeerd totdat een eigen wachtwoord is gekozen. Lidmaatschap en rollen worden niet veranderd.
 
-De mailaanroep volgt [Resend Send Email](https://resend.com/docs/api-reference/emails/send-email). Er wordt uitsluitend naar `https://epp-app.nl/` gelinkt; de aanvrager kan geen afwijkende reset-URL meegeven.
+Ook een handmatige reset via **Meer → Accounts** sluit een eventueel openstaand herstelverzoek. Resets worden vastgelegd in `epp_access_audit`, zonder wachtwoorden.
 
-## Tijdelijk wachtwoord via beheer
+## Uitrollen
 
-Onder **Meer → Accounts → Wachtwoord herstellen** kan een verenigingsbeheerder na identiteitscontrole een tijdelijk wachtwoord voor een eigen verenigingslid instellen. Alleen hoofdbeheer kan dit voor een andere verenigingsbeheerder doen. Hoofdbeheeraccounts, gedeelde accounts, geblokkeerde accounts en het eigen account zijn uitgesloten. Geef het tijdelijke wachtwoord persoonlijk door. De volgende login verplicht de gebruiker een eigen wachtwoord te kiezen. De handeling wordt gelogd in `epp_access_audit`; bestaande sessies en resetlinks worden ingetrokken.
+Voer uitsluitend `migrations/20261115_password_help_requests.sql` uit op het EPP-project, na de eerdere `20261115_password_recovery.sql`. Deploy `epp-auth` met de bestaande JWT-instelling. Publiceer `index.html`, `password-recovery.js` en `password-help-ui.js` samen. Resend-instellingen zijn voor deze route niet nodig. Bestaande eerder verstuurde resetlinks blijven werken tot ze vervallen; het formulier vraagt voortaan hulp aan de beheerder.
 
-## Tests
+## Verificatie
 
-- `node --test supabase/tests/password-recovery.test.mjs`
-- `PLAYWRIGHT_MODULE=<module> CHROME_PATH=<chrome> node supabase/tests/password-recovery-browser.mjs`
-- Combineer de migratie zonder afsluitende `commit` met `tests/password-recovery.integration.sql`; voer als één query uit. De transactionele test eindigt met `rollback` en verstuurt geen mails.
+- `node --test supabase/tests/*.test.mjs`
+- Browser: `password-help-browser.mjs`, `password-recovery-browser.mjs` en `login-browser.mjs` onder `supabase/tests/` met `PLAYWRIGHT_MODULE` en `CHROME_PATH`.
+- Combineer de nieuwe migratie zonder afsluitende `commit` met `tests/password-help.integration.sql`. De test eindigt met `rollback` en verstuurt geen berichten.

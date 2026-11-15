@@ -12,15 +12,16 @@ try{
  for(const width of [320,390,1440]){
   const page=await browser.newPage({viewport:{width,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://**/*',r=>r.abort());await page.goto(url);
-  await page.evaluate(()=>{window.requests=[];window.eppRawCall=async(fn,body)=>{requests.push(body);if(!window.ready)throw Error('maildienst_niet_ingesteld');return {ok:true};};});
+  await page.evaluate(()=>{window.requests=[];window.eppRawCall=async(fn,body)=>{requests.push(body);if(!window.ready)throw Error('server_fout');return {ok:true};};});
   await page.getByRole('button',{name:'Wachtwoord vergeten?',exact:true}).click();
-  await page.getByLabel('E-mailadres van je account',{exact:true}).fill('test@example.invalid');
-  await page.getByRole('button',{name:'Resetlink aanvragen',exact:true}).click();
-  await page.getByText('Resetmails zijn nog niet beschikbaar.',{exact:false}).waitFor();
+  await page.getByLabel('Gebruikersnaam of e-mailadres van je account',{exact:true}).fill('test@example.invalid');
+  await page.getByRole('button',{name:'Beheerder om hulp vragen',exact:true}).click();
+  await page.getByText('Het is niet gelukt.',{exact:false}).waitFor();
   await page.evaluate(()=>{window.ready=true;});
-  await page.getByRole('button',{name:'Resetlink aanvragen',exact:true}).click();
-  await page.getByText('Als dit e-mailadres bij een account',{exact:false}).waitFor();
-  assert.equal((await page.evaluate(()=>requests.at(-1))).email,'test@example.invalid');
+  await page.getByRole('button',{name:'Beheerder om hulp vragen',exact:true}).click();
+  await page.getByText('Als deze gegevens bij een account',{exact:false}).waitFor();
+  assert.equal((await page.evaluate(()=>requests.at(-1))).identifier,'test@example.invalid');
+  assert.equal((await page.evaluate(()=>requests.at(-1))).action,'request_password_help');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.getByRole('button',{name:'Terug naar inloggen',exact:true}).click();
   await page.goto(url+'/#wachtwoord-herstellen='+'a'.repeat(64));
@@ -69,5 +70,5 @@ try{
   }
   await context.close();
  }
- console.log('PASS recovery mobile/desktop, missing mail service, request, fragment removal, mismatch, expired link, success and old-session removal');
+ console.log('PASS recovery mobile/desktop, failed request/retry, administrator request, fragment removal, mismatch, expired link, success and old-session removal');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

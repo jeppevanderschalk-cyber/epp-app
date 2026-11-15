@@ -10,6 +10,15 @@ Deno.serve(async req=>{
   let body:any;try{body=await req.json();}catch{return json({ok:false,error:'invalid_json'},400);}
   const db=serviceClient();
   try{
+    if(body.action==='request_password_help'){
+      const identifier=String(body.identifier||'').trim().toLowerCase();
+      if(!identifier||identifier.length>254)throw new Error('accountgegevens_ongeldig');
+      if(!isKnownClub(body.clubId))throw new Error('onbekende_club');
+      const ip=String(req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim();
+      const {error}=await db.rpc('epp_request_password_help',{p_identifier:identifier,p_club:body.clubId,p_ip_hash:await sha256Hex(ip)});
+      if(error)throw error;
+      return json({ok:true});
+    }
     if(body.action==='request_password_reset'){
       const email=memberEmail(body.email);
       if(!isKnownClub(body.clubId))throw new Error('onbekende_club');
@@ -166,6 +175,16 @@ Deno.serve(async req=>{
     }
     if(body.action==='approve_member'){
       const {error}=await db.rpc('epp_approve_member',{p_actor:actor.id,p_target:body.accountId});if(error)throw error;
+      return json({ok:true});
+    }
+    if(body.action==='list_password_help'){
+      const {data,error}=await db.rpc('epp_list_password_help',{p_actor:actor.id});if(error)throw error;
+      return json({ok:true,requests:data||[]});
+    }
+    if(body.action==='resolve_password_help'){
+      const password=recoveryPassword(body.newPassword),salt=randomSalt();
+      const {error}=await db.rpc('epp_resolve_password_help',{p_actor:actor.id,p_request:body.requestId,p_salt:salt,p_hash:await passwordHash(password,salt)});
+      if(error)throw error;
       return json({ok:true});
     }
     if(body.action==='admin_reset_password'){
