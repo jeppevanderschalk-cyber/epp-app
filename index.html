@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-KjHUztcAihVIFNJAAXHmXAXjDXnFNZWnx+nWelZgrsc=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-gNo+cmYvlR7pVHiLWFt8FYlDvgHojqGxHLErxOv4tY0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-6nUjKzvr+xYg4q7PY712C49EliFM32mzMASboobkLEo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-J/mkK/QLvLXZYwNspPyDhy2sYmxt3/voB1nE6j/YMKw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -114,6 +114,7 @@
 </div>
 <div id="root" hidden></div>
 <link rel="stylesheet" href="experience.css?v=845a7154a6a2" />
+<script src="password-recovery.js?v=1"></script>
 <script src="app-experience.js?v=8f5919232c06"></script>
 <script src="training-store.js?v=empty-records-2"></script>
 <script src="score-ranking.js?v=minutes-seconds-1"></script>
@@ -250,7 +251,8 @@ document.getElementById('loginPasswordToggle').addEventListener('click',function
 });
 function eppApplyLoginHelp(){document.getElementById('loginHelp').textContent=document.getElementById('loginRole').value==='hoofdbeheer'?'Neem contact op met de technisch beheerder van de EPP-app voor hulp bij het hoofdbeheeraccount.':'Neem contact op met je verenigingsbeheerder of hoofdbeheer voor hulp bij je account.';}
 document.getElementById('loginHelpToggle').addEventListener('click',function(){
-  var help=document.getElementById('loginHelp');eppApplyLoginHelp();help.hidden=!help.hidden;this.setAttribute('aria-expanded',String(!help.hidden));
+  if(document.getElementById('loginRole').value==='hoofdbeheer'){var help=document.getElementById('loginHelp');eppApplyLoginHelp();help.hidden=!help.hidden;this.setAttribute('aria-expanded',String(!help.hidden));return;}
+  eppOpenPasswordRecovery();
 });
 document.getElementById("loginForm").addEventListener("submit",function(event){
   event.preventDefault();
@@ -2481,6 +2483,7 @@ const NotificationSettings = () => {
 };
 
 const AccountManagement = () => {
+  const [resetAccount,setResetAccount]=React.useState(null),[resetPassword,setResetPassword]=React.useState('');
   const [accounts,setAccounts]=React.useState([]);
   const [shooters,setShooters]=React.useState([]);
   const [form,setForm]=React.useState({username:"",displayName:"",newPassword:"",role:"schutter",isAdmin:false,shooterId:""});
@@ -2498,6 +2501,15 @@ const AccountManagement = () => {
     e.preventDefault();setBusy(true);
     try{await eppCall("epp-auth",{clubId:CLUB_ID,action:"create_account",...form});setForm({...form,username:"",displayName:"",newPassword:"",shooterId:""});setStatus("Account aangemaakt.");await load();}
     catch(error){setStatus(error.message);}
+    finally{setBusy(false);}
+  };
+  const resetAccountPassword=async event=>{
+    event.preventDefault();if(busy||!resetAccount)return;setBusy(true);setStatus('');
+    try{
+      await eppCall('epp-auth',{clubId:CLUB_ID,action:'admin_reset_password',accountId:resetAccount.id,newPassword:resetPassword});
+      setStatus('Tijdelijk wachtwoord ingesteld voor '+resetAccount.display_name+'. Geef het persoonlijk door. De gebruiker moet bij de volgende login een eigen wachtwoord kiezen.');
+      setResetPassword('');setResetAccount(null);
+    }catch(error){setStatus(error.message==='nieuw_wachtwoord_ongeldig'?'Gebruik een tijdelijk wachtwoord van 10 tot 256 tekens.':'Het wachtwoord kon niet worden hersteld. Controleer je rechten en probeer opnieuw.');}
     finally{setBusy(false);}
   };
   const toggleTrainer=async a=>{
@@ -2527,8 +2539,15 @@ const AccountManagement = () => {
         h(MembershipApproval,{account:a,onApproved:load}),
         h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+(a.is_platform_admin?"Hoofdbeheerder":a.is_admin?"Verenigingsbeheerder":a.role==="trainer"?"Trainer":"Schutter")+(a.active?"":" - geblokkeerd"))),
         a.active&&a.membership_approved!==false&&!a.is_admin&&!a.is_platform_admin&&!['kijker','beheer','hoofdbeheer'].includes(a.username)&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-ghost",disabled:busy,onClick:()=>toggleTrainer(a)},a.role==="trainer"?"Trainerrechten intrekken":"Trainerrechten geven"),
+        a.active&&a.id!==eppSession()?.account?.id&&!a.is_platform_admin&&!['kijker','beheer','hoofdbeheer'].includes(a.username)&&(!a.is_admin||eppSession()?.account?.isPlatformAdmin)&&h('button',{className:'btn btn-ghost',disabled:busy,onClick:()=>{setResetAccount(a);setResetPassword('');setStatus('');}},'Wachtwoord herstellen'),
         a.active&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-danger",disabled:busy,onClick:()=>disable(a)},"Blokkeren"),
         eppSession()?.account?.isPlatformAdmin&&a.id!==eppSession()?.account?.id&&!a.is_platform_admin&&!['kijker','hoofdbeheer'].includes(a.username)&&h('button',{className:'btn btn-danger',disabled:busy,onClick:()=>remove(a)},'Account verwijderen'))),
+      resetAccount&&h('form',{onSubmit:resetAccountPassword,style:{display:'grid',gap:10}},
+        h('strong',null,'Wachtwoord herstellen voor '+resetAccount.display_name),
+        h('p',{className:'hint'},'Controleer eerst wie je helpt. Stel een uniek tijdelijk wachtwoord in en geef dit persoonlijk door. De gebruiker moet dit bij de volgende login wijzigen.'),
+        h('label',null,'Tijdelijk wachtwoord',h('input',{className:'txt-in',type:'password',autoComplete:'new-password',minLength:10,maxLength:256,required:true,value:resetPassword,disabled:busy,onChange:e=>setResetPassword(e.target.value)})),
+        h('button',{className:'btn btn-gold',type:'submit',disabled:busy},'Tijdelijk wachtwoord instellen'),
+        h('button',{className:'btn btn-ghost',type:'button',disabled:busy,onClick:()=>{setResetAccount(null);setResetPassword('');}},'Annuleren')),
       h("form",{onSubmit:create,style:{display:"grid",gap:10}},
         field("displayName","Naam"),field("username","Gebruikersnaam"),field("newPassword","Tijdelijk wachtwoord","password"),
         h("label",null,"Rol",h("select",{className:"txt-in",disabled:busy,value:form.role,onChange:e=>setForm(p=>({...p,role:e.target.value}))},

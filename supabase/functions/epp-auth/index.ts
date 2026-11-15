@@ -1,3 +1,4 @@
+import {recoveryToken,recoveryPassword,sendRecoveryMail} from '../_shared/password-recovery.ts';
 import {corsHeaders,json,serviceClient,isKnownClub,checkPassword,sha256Hex} from '../_shared/epp.ts';
 import {passwordHash,randomSalt} from '../_shared/trainer-auth.ts';
 import {requireAccount,createSession} from '../_shared/session.ts';
@@ -9,6 +10,34 @@ Deno.serve(async req=>{
   let body:any;try{body=await req.json();}catch{return json({ok:false,error:'invalid_json'},400);}
   const db=serviceClient();
   try{
+    if(body.action==='request_password_reset'){
+      const email=memberEmail(body.email);
+      if(!isKnownClub(body.clubId))throw new Error('onbekende_club');
+      const apiKey=Deno.env.get('RESEND_API_KEY'),from=Deno.env.get('EPP_NOTIFICATION_FROM');
+      if(!apiKey||!from)return json({ok:false,error:'maildienst_niet_ingesteld'},503);
+      const started=Date.now(),token=recoveryToken(),tokenHash=await sha256Hex(token);
+      // Only the platform-provided IP header is used, never a caller-supplied body field.
+      const ip=String(req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim();
+      const {data,error}=await db.rpc('epp_request_password_reset',{p_email:email,p_club:body.clubId,p_token_hash:tokenHash,p_ip_hash:await sha256Hex(ip)});
+      if(error)throw error;
+      if(data?.[0]){
+        try{await sendRecoveryMail(data[0].email,token,{apiKey,from});}
+        catch{
+          await db.from('epp_password_resets').delete().eq('token_hash',tokenHash);
+          // Never reveal whether an address exists or include tokens in logs.
+          console.error('password_reset_delivery_failed');
+        }
+      }
+      await new Promise(resolve=>setTimeout(resolve,Math.max(0,800-Date.now())));
+      return json({ok:true});
+    }
+    if(body.action==='complete_password_reset'){
+      if(typeof body.token!=='string'||!/^[a-f0-9]{64}$/.test(body.token))throw new Error('resetlink_ongeldig');
+      const password=recoveryPassword(body.newPassword),salt=randomSalt();
+      const {error}=await db.rpc('epp_complete_password_reset',{p_token_hash:await sha256Hex(body.token),p_salt:salt,p_hash:await passwordHash(password,salt)});
+      if(error)throw new Error('resetlink_ongeldig');
+      return json({ok:true});
+    }
     if(body.action==='login'&&body.autoClub===true){
       if(typeof body.password!=='string'||body.password.length>256)return json({ok:false,error:'ongeldig_wachtwoord'},401);
       const identifier=String(body.username||'').trim().toLowerCase();
@@ -137,6 +166,12 @@ Deno.serve(async req=>{
     }
     if(body.action==='approve_member'){
       const {error}=await db.rpc('epp_approve_member',{p_actor:actor.id,p_target:body.accountId});if(error)throw error;
+      return json({ok:true});
+    }
+    if(body.action==='admin_reset_password'){
+      const password=recoveryPassword(body.newPassword),salt=randomSalt();
+      const {error}=await db.rpc('epp_admin_reset_password',{p_actor:actor.id,p_target:body.accountId,p_salt:salt,p_hash:await passwordHash(password,salt)});
+      if(error)throw error;
       return json({ok:true});
     }
     if(body.action==='list_accounts'){
