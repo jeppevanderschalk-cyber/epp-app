@@ -51,7 +51,13 @@
           sessionStorage.removeItem(EPP_SESSION_KEY);localStorage.removeItem(EPP_SESSION_KEY);token=null;
           status.textContent='Je wachtwoord is gewijzigd. Log opnieuw in met je nieuwe wachtwoord.';
           $('recoveryClose').onclick=function(){location.reload();};
-        }else status.textContent='Als deze gegevens bij een account van deze vereniging horen, staat je herstelverzoek klaar voor de beheerder. Die kan je een tijdelijk wachtwoord geven. Neem zo nodig zelf contact op met je vereniging.';
+        }else{
+          $('passwordRecoveryTitle').textContent='Aanvraag ontvangen';
+          $('passwordRecoveryIntro').textContent='Wacht op een tijdelijk wachtwoord van je beheerder.';
+          status.textContent='Als de ingevulde gegevens bij jouw account horen, krijgt je beheerder een melding in de app. De beheerder moet je aanvraag eerst afhandelen en geeft je daarna persoonlijk een tijdelijk wachtwoord.\n\nNa inloggen met dat tijdelijke wachtwoord moet je verplicht een eigen wachtwoord kiezen.';
+          ['Club','Email'].forEach(function(part){$('recovery'+part+'Label').hidden=true;$('recovery'+part).disabled=true;});
+          $('recoveryHelp').hidden=true;
+        }
         completed=true;$('recoveryPassword').value='';$('recoveryRepeat').value='';$('recoverySubmit').hidden=true;
       }catch(error){
         status.textContent=error.message==='resetlink_ongeldig'?'Deze resetlink is verlopen of al gebruikt. Vraag via ‘Wachtwoord vergeten?’ een nieuwe link aan.':error.message==='nieuw_wachtwoord_ongeldig'?'Gebruik een wachtwoord van 10 tot 256 tekens.':'Het is niet gelukt. Probeer het later opnieuw of vraag je verenigingsbeheerder om hulp.';

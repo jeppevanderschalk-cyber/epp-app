@@ -19,10 +19,16 @@ try{
   await page.getByText('Het is niet gelukt.',{exact:false}).waitFor();
   await page.evaluate(()=>{window.ready=true;});
   await page.getByRole('button',{name:'Beheerder om hulp vragen',exact:true}).click();
-  await page.getByText('Als deze gegevens bij een account',{exact:false}).waitFor();
+  await page.getByRole('heading',{name:'Aanvraag ontvangen',exact:true}).waitFor();
+  await page.getByText('Wacht op een tijdelijk wachtwoord van je beheerder.',{exact:true}).waitFor();
+  await page.getByText('Als de ingevulde gegevens bij jouw account horen, krijgt je beheerder een melding in de app.',{exact:false}).waitFor();
+  assert.equal(await page.locator('#recoveryEmailLabel').isVisible(),false);
+  assert.equal(await page.locator('#recoveryClubLabel').isVisible(),false);
+  assert.equal(await page.locator('#passwordRecoveryForm').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(2, 13, 30)');
   assert.equal((await page.evaluate(()=>requests.at(-1))).identifier,'test@example.invalid');
   assert.equal((await page.evaluate(()=>requests.at(-1))).action,'request_password_help');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  if(width===390)await page.screenshot({path:'/private/tmp/epp-help-confirmation-390.png'});
   await page.getByRole('button',{name:'Terug naar inloggen',exact:true}).click();
   await page.goto(url+'/#wachtwoord-herstellen='+'a'.repeat(64));
   await page.getByRole('dialog').waitFor();assert.equal(new URL(page.url()).hash,'');
