@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     const {data, error} = await db.from('epp_match_planners').select('match_id');
     if (error) throw error;
     const planned = new Set((data || []).map((p: any) => p.match_id));
-    return matches.filter(m => m.club_id === actor.club_code || planned.has(m.id));
+    return matches.filter(m => m.club_id === actor.club_code || planned.has(m.id) || m.registration_mode==='email');
   };
 
   try {
@@ -82,6 +82,9 @@ Deno.serve(async (req) => {
 
     if (action === "create_match") {
       const m = body.match || {};
+      if(m.registration_mode!==undefined&&!['planner','email'].includes(m.registration_mode))return json({ok:false,error:'ongeldige_aanmeldwijze'},400);
+      if(m.registration_mode==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(m.organizer_email||'').trim()))return json({ok:false,error:'inschrijfemail_verplicht'},400);
+
       if(m.registration_opens_on && (!isValidDate(m.registration_opens_on)||Number.isNaN(Date.parse(m.registration_opens_on))||new Date(m.registration_opens_on).toISOString().slice(0,10)!==m.registration_opens_on))return json({ok:false,error:'ongeldige_openingsdatum'},400);
       const dates=m.match_dates!==undefined?matchDates(m.match_dates):m.match_date?matchDates([m.match_date]):[];
       if (typeof m.organizer !== "string" || !m.organizer.trim()) {
@@ -107,7 +110,8 @@ Deno.serve(async (req) => {
           match_dates: dates,
           deadline: m.deadline ?? null,
           registration_opens_on: m.registration_opens_on || null,
-          organizer_email: m.organizer_email ?? null,
+          registration_mode: m.registration_mode || 'planner',
+          organizer_email: m.organizer_email?.trim() || null,
           offered_disciplines: offered,
           notes: m.notes ?? null,
         })
@@ -120,9 +124,13 @@ Deno.serve(async (req) => {
     if (action === "update_match") {
       const id = body.id;
       const m = body.match || {};
+      if(m.registration_mode!==undefined&&!['planner','email'].includes(m.registration_mode))return json({ok:false,error:'ongeldige_aanmeldwijze'},400);
+      if(m.registration_mode==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(m.organizer_email||'').trim()))return json({ok:false,error:'inschrijfemail_verplicht'},400);
+
       if (typeof id !== "string") return json({ ok: false, error: "id_verplicht" }, 400);
 
       const patch: Record<string, unknown> = {};
+      if(m.registration_mode!==undefined)patch.registration_mode=m.registration_mode;
       if(m.registration_opens_on!==undefined){
         if(m.registration_opens_on && (!isValidDate(m.registration_opens_on)||Number.isNaN(Date.parse(m.registration_opens_on))||new Date(m.registration_opens_on).toISOString().slice(0,10)!==m.registration_opens_on))return json({ok:false,error:'ongeldige_openingsdatum'},400);
         patch.registration_opens_on=m.registration_opens_on||null;

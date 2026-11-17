@@ -241,6 +241,23 @@ const MatchPlanner=({matchId,manage=false})=>{
       )));
 };
 
+const EmailMatchCard=({match})=>{
+  const [preference,setPreference]=React.useState('');
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Amsterdam'}).format(new Date());
+  const notOpen=match.registration_opens_on&&today<match.registration_opens_on;
+  const closed=!!match.deadline&&today>match.deadline;
+  const body='Ik wil mij aanmelden voor '+match.organizer+' ('+eppFmtMatchDates(match)+').\n\nNaam: '+(eppSession()?.account?.displayName||'')+'\nVereniging: \nDisciplines: \nVoorkeursdag en -tijd: '+preference+'\n';
+  return h('section',{className:'match-card'},
+    h('div',{className:'match-hd'},h('div',null,h('div',{className:'match-org'},match.organizer),h('div',{className:'match-sub'},eppFmtMatchDates(match)),match.location&&h('div',{className:'match-sub'},match.location))),
+    h('p',{className:'hint'},'De vereniging plant deze wedstrijd zelf. Meld je per e-mail aan met je naam, vereniging, disciplines en voorkeurstijd. De organisator bevestigt je definitieve starttijd.'),
+    match.notes&&h('p',{className:'hint'},match.notes),
+    notOpen?h('p',{role:'status'},'Inschrijving opent op '+eppFmtDate(match.registration_opens_on)):closed?h('p',{role:'status'},'Inschrijving gesloten'):h(React.Fragment,null,
+      match.deadline&&h('p',{className:'hint'},'Inschrijven tot en met '+eppFmtDate(match.deadline)),
+      h('label',null,'Voorkeursdag en -tijd',h('input',{className:'txt-in',value:preference,placeholder:'Bijvoorbeeld zaterdag rond 11:00',onChange:e=>setPreference(e.target.value)})),
+      match.organizer_email&&h('a',{className:'btn btn-gold btn-full',href:'mailto:'+match.organizer_email+'?subject='+encodeURIComponent('Aanmelding '+match.organizer)+'&body='+encodeURIComponent(body)},'Aanmelden via e-mail'),
+      h('p',{className:'hint'},match.organizer_email||'Vraag de organisator om het inschrijfadres.',' · Verstuur de mail vanuit je eigen mailprogramma.')));
+};
+
 const PlannerMatchCard=({match})=>{
   const [expanded,setExpanded]=React.useState(false);
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Amsterdam'}).format(new Date());
@@ -257,7 +274,7 @@ const PlannerMatchCard=({match})=>{
 const MatchPlannerCatalog=({excludeIds=[]})=>{
   const [matches,setMatches]=React.useState([]),[status,setStatus]=React.useState('');
   React.useEffect(()=>{let active=true;const load=()=>eppCall('epp-planner',{clubId:CLUB_ID,action:'catalog'}).then(r=>{if(active){setMatches(r.matches);setStatus('');}}).catch(e=>{if(active)setStatus(plannerError(e));});load();const timer=eppPoll(load,10000);return()=>{active=false;clearInterval(timer);};},[]);
-  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.filter(m=>!excludeIds.includes(m.id)).map(m=>h(PlannerMatchCard,{key:m.id,match:m})));
+  return h('section',{style:{display:'grid',gap:16}},status&&h('p',{className:'hint',role:'status'},status),matches.filter(m=>!excludeIds.includes(m.id)).map(m=>h(m.registration_mode==='email'?EmailMatchCard:PlannerMatchCard,{key:m.id,match:m})));
 };
 
 const PendingMembershipNotice=({onReview})=>{

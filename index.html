@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-6nUjKzvr+xYg4q7PY712C49EliFM32mzMASboobkLEo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-43AonGwlKRRBi/LeHDuDbglmsP/baiWzHL6MKQju7cI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-6nUjKzvr+xYg4q7PY712C49EliFM32mzMASboobkLEo=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-89uL2QBJl008OYr6zWJ+QTvYAl5ZEjkBtHciEo1S6L8='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -125,7 +125,7 @@
 <script src="planner-capacity.js?v=consent-capacity-1"></script>
 <script src="payment-ui.js?v=prepared-payments-1"></script>
 <script src="planner-pdf.js?v=64ea91ba1d34"></script>
-<script src="match-planner-ui.js?v=9a1fa8e04a07"></script>
+<script src="match-planner-ui.js?v=76f832d29134"></script>
 <script src="head-view-ui.js?v=5be215eff9d0"></script>
 <script src="match-scoring-ui.js?v=707491eafbff"></script>
 <script src="club-teams-ui.js?v=d4d95835434e"></script>
@@ -2158,6 +2158,7 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
     !shooterName ? h("div",{className:"empty"},h("p",null,"Je account heeft geen actief schutterprofiel. Neem contact op met beheer.")) :
     !matches.length ? h(Empty,{msg:"Nog geen wedstrijden open",hint:"Zodra er een wedstrijd openstaat voor inschrijving, zie je hem hier."}) :
     matches.map(m=>{
+      if(m.registration_mode==='email')return h(EmailMatchCard,{key:m.id,match:m});
       if(m.planned)return h(PlannerMatchCard,{key:m.id,match:m});
       const d = draft[m.id] || {active:false,disciplines:{}};
       const closed = isClosed(m);
@@ -2202,7 +2203,7 @@ const TabInschrijvenLid = ({password, onAuthFail, flash}) => {
 };
 
 const EppMatchForm = ({initial, onSave, onCancel}) => {
-  const [f,setF] = React.useState(()=>({...({organizer:"",location:"",deadline:"",registration_opens_on:"",organizer_email:"",offered_disciplines:["pistool","optiek"],notes:""}),...initial,match_dates:initial?.match_dates?.length?initial.match_dates:[initial?.match_date||""]}));
+  const [f,setF] = React.useState(()=>({...({organizer:"",location:"",deadline:"",registration_opens_on:"",organizer_email:"",registration_mode:"planner",offered_disciplines:["pistool","optiek"],notes:""}),...initial,match_dates:initial?.match_dates?.length?initial.match_dates:[initial?.match_date||""]}));
   const [dateError,setDateError]=React.useState('');
   const toggleD = id => setF(p=>({...p,offered_disciplines:p.offered_disciplines.includes(id)?p.offered_disciplines.filter(x=>x!==id):[...p.offered_disciplines,id]}));
   return h("div",{className:"card"},
@@ -2219,7 +2220,9 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
       h('p',{className:'hint'},'Optioneel. Aanmelden kan vanaf 00:00 uur Nederlandse tijd op deze datum. Wedstrijddagen en locatie zijn vooraf zichtbaar.'),
       h("div",{className:"set-row"},h("div",{className:"set-lbl"},"Inschrijfdeadline"),h("input",{className:"txt-in",style:{maxWidth:160},type:"date",value:f.deadline||"",onChange:e=>setF(p=>({...p,deadline:e.target.value}))})),
       h("p",{className:"hint"},"Standaard 1 maand voor de wedstrijddatum, zelf aan te passen."),
-      h("input",{className:"txt-in",placeholder:"E-mailadres inschrijfbureau",value:f.organizer_email||"",onChange:e=>setF(p=>({...p,organizer_email:e.target.value}))}),
+      h('label',null,'Planning en aanmelden',h('select',{className:'sel-in','aria-label':'Planning en aanmelden',value:f.registration_mode||'planner',onChange:e=>setF(p=>({...p,registration_mode:e.target.value}))},h('option',{value:'planner'},'Plannen met de app'),h('option',{value:'email'},'Zelf plannen via e-mail'))),
+      f.registration_mode==='email'&&h('p',{className:'hint'},'De vereniging maakt zelf de planning. Deelnemers melden zich per e-mail aan met hun voorkeurstijd. Vul hieronder het inschrijfadres in.'),
+      h("input",{className:"txt-in",type:"email",placeholder:"E-mailadres inschrijfbureau",value:f.organizer_email||"",onChange:e=>setF(p=>({...p,organizer_email:e.target.value}))}),
       h("div",null,
         h("div",{className:"set-sub",style:{marginBottom:6}},"Aangeboden disciplines"),
         EPP_DISCIPLINES.map(d=>h("label",{key:d.id,className:"chk-row"},
@@ -2230,7 +2233,7 @@ const EppMatchForm = ({initial, onSave, onCancel}) => {
       h("input",{className:"txt-in",placeholder:"Notitie (optioneel)",value:f.notes||"",onChange:e=>setF(p=>({...p,notes:e.target.value}))}),
       h("div",{style:{display:"flex",gap:8}},
         h("button",{className:"btn btn-ghost",style:{flex:1},onClick:onCancel},"Annuleren"),
-        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>{if(f.match_dates.some(d=>!d)||new Set(f.match_dates).size!==f.match_dates.length){setDateError('Vul iedere wedstrijddag in en kies geen dubbele datum.');return;}const dates=[...f.match_dates].sort();onSave({...f,offered_disciplines:["pistool","optiek"],match_dates:dates,match_date:dates[0]});}},"Opslaan")
+        h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>{if(f.registration_mode==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((f.organizer_email||'').trim())){setDateError('Vul een geldig e-mailadres voor aanmeldingen in.');return;}if(f.match_dates.some(d=>!d)||new Set(f.match_dates).size!==f.match_dates.length){setDateError('Vul iedere wedstrijddag in en kies geen dubbele datum.');return;}const dates=[...f.match_dates].sort();onSave({...f,offered_disciplines:["pistool","optiek"],match_dates:dates,match_date:dates[0]});}},"Opslaan")
       )
     )
   );
@@ -2305,7 +2308,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
           ))
         )
       ),
-      !m.archived_at&&eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold btn-full',onClick:()=>{setOpenId(null);setGroup(null);setPlannerMatch(m);}},'Planning en deelnemers beheren')
+      !m.archived_at&&m.registration_mode!=='email'&&eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold btn-full',onClick:()=>{setOpenId(null);setGroup(null);setPlannerMatch(m);}},'Planning en deelnemers beheren')
     );
   }
 
@@ -2325,7 +2328,7 @@ const TabInschrijvenTrainer = ({password, onAuthFail, flash}) => {
         )
       ),
       h("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
-        eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold',onClick:()=>setPlannerMatch(m)},'Wedstrijdplanner'),
+        m.registration_mode!=='email'&&eppSession()?.account?.isAdmin&&h('button',{className:'btn btn-gold',onClick:()=>setPlannerMatch(m)},'Wedstrijdplanner'),
         h("button",{className:"btn btn-gold",style:{flex:1},onClick:()=>openGroup(m)},"Groepslijst"),
         h("button",{className:"btn btn-ghost",style:{flex:1},onClick:()=>setEditing({id:m.id,data:m})},"Bewerken"),
         h("button",{className:"btn btn-danger",style:{flex:1},onClick:()=>deleteMatch(m.id)},"Archiveren")
