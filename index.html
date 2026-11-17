@@ -88,7 +88,7 @@
       <span>Inloggen als</span>
       <select id="loginRole">
         <option value="schutter" selected>Schutter</option>
-        <option value="hoofdbeheer">Hoofdbeheer</option>
+        <option value="hoofdbeheer">Admin</option>
       </select>
     </label>
     <label id="loginFirstLabel" hidden><span>Voornaam</span><input id="loginFirstName" autocomplete="given-name" maxlength="70" /></label>
@@ -108,7 +108,7 @@
     <button class="login-submit" type="submit">Inloggen</button>
     <button class="login-personal-toggle" id="loginPersonalToggle" type="button">Ik heb nog geen account</button>
     <button class="login-personal-toggle" id="loginHelpToggle" type="button" aria-expanded="false" aria-controls="loginHelp">Wachtwoord vergeten?</button>
-    <p class="login-help" id="loginHelp" hidden>Neem contact op met je verenigingsbeheerder of hoofdbeheer voor hulp bij je account.</p>
+    <p class="login-help" id="loginHelp" hidden>Neem contact op met je verenigingsbeheerder of Admin voor hulp bij je account.</p>
     <p class="login-footer">EPP · Europees Praktijk Parcours</p>
   </form>
 </div>
@@ -252,7 +252,7 @@ document.getElementById('loginPasswordToggle').addEventListener('click',function
   pw.type=show?'text':'password';this.setAttribute('aria-pressed',String(show));
   this.setAttribute('aria-label',show?'Wachtwoord verbergen':'Wachtwoord tonen');this.title=show?'Wachtwoord verbergen':'Wachtwoord tonen';
 });
-function eppApplyLoginHelp(){document.getElementById('loginHelp').textContent=document.getElementById('loginRole').value==='hoofdbeheer'?'Neem contact op met de technisch beheerder van de EPP-app voor hulp bij het hoofdbeheeraccount.':'Neem contact op met je verenigingsbeheerder of hoofdbeheer voor hulp bij je account.';}
+function eppApplyLoginHelp(){document.getElementById('loginHelp').textContent=document.getElementById('loginRole').value==='hoofdbeheer'?'Neem contact op met de technisch beheerder van de EPP-app voor hulp bij het Admin-account.':'Neem contact op met je verenigingsbeheerder of Admin voor hulp bij je account.';}
 document.getElementById('loginHelpToggle').addEventListener('click',function(){
   if(document.getElementById('loginRole').value==='hoofdbeheer'){var help=document.getElementById('loginHelp');eppApplyLoginHelp();help.hidden=!help.hidden;this.setAttribute('aria-expanded',String(!help.hidden));return;}
   eppOpenPasswordRecovery();
@@ -2544,7 +2544,7 @@ const AccountManagement = () => {
       h("p",{className:"hint"},"Trainers voeren trainingsscores in voor alle schutters van deze vereniging. Verenigingsbeheerders beheren daarnaast accounts en rechten. Wedstrijdscores vereisen scoorderrechten voor de betreffende wedstrijd."),
       accounts.map(a=>h("div",{key:a.id,style:{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center",borderBottom:"1px solid "+C.border,paddingBottom:8}},
         h(MembershipApproval,{account:a,onApproved:load}),
-        h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+(a.is_platform_admin?"Hoofdbeheerder":a.is_admin?"Verenigingsbeheerder":a.role==="trainer"?"Trainer":"Schutter")+(a.active?"":" - geblokkeerd"))),
+        h("div",{style:{flex:1,overflowWrap:"anywhere"}},a.display_name,h("small",{style:{display:"block"}},a.username+" - "+(a.is_platform_admin?"Admin":a.is_admin?"Verenigingsbeheerder":a.role==="trainer"?"Trainer":"Schutter")+(a.active?"":" - geblokkeerd"))),
         a.active&&a.membership_approved!==false&&!a.is_admin&&!a.is_platform_admin&&!['kijker','beheer','hoofdbeheer'].includes(a.username)&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-ghost",disabled:busy,onClick:()=>toggleTrainer(a)},a.role==="trainer"?"Trainerrechten intrekken":"Trainerrechten geven"),
         a.active&&a.id!==eppSession()?.account?.id&&!a.is_platform_admin&&!['kijker','beheer','hoofdbeheer'].includes(a.username)&&(!a.is_admin||eppSession()?.account?.isPlatformAdmin)&&h('button',{className:'btn btn-ghost',disabled:busy,onClick:()=>{setResetAccount(a);setResetPassword('');setStatus('');}},'Wachtwoord herstellen'),
         a.active&&a.id!==eppSession()?.account?.id&&h("button",{className:"btn btn-danger",disabled:busy,onClick:()=>disable(a)},"Blokkeren"),
@@ -2581,7 +2581,7 @@ const TabInstellingen = ({isTrainer, stageShots, setStageShots, finishTraining, 
       h("div",{className:"account-avatar","aria-hidden":"true"},initials),
       h("div",{style:{minWidth:0}},
         h("div",{className:"account-name"},name),
-        h("div",{className:"account-sub"},(account.isPlatformAdmin?"Hoofdbeheerder":account.isAdmin?"Verenigingsbeheerder":isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
+        h("div",{className:"account-sub"},(account.isPlatformAdmin?"Admin":account.isAdmin?"Verenigingsbeheerder":isTrainer?"Trainer":"Schutter")+" · "+CLUB.label))),
     account.isAdmin&&h("div",{className:"card more-list"},
       h("h3",{className:"menu-group-title"},"Verenigingsbeheer"),
       h(MoreItem,{title:account.isPlatformAdmin?"Verenigingsrechten":"Scoorderrechten",sub:account.isPlatformAdmin?"Rechten en goedkeuringen per vereniging":"Wie per wedstrijd scores mag invoeren"},h(PlatformAccessManagement)),
