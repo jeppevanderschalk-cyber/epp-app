@@ -1,3 +1,4 @@
+import {trainingJournal} from '../_shared/training-journal.ts';
 import {trainingStandings} from '../_shared/training-standings.ts';
 import {corsHeaders,json,serviceClient} from '../_shared/epp.ts';
 import {requireAccount} from '../_shared/session.ts';
@@ -10,6 +11,7 @@ Deno.serve(async req=>{
   try{
     const actor=await requireAccount(body);
     const db=serviceClient();
+    if(['journal_load','journal_add'].includes(body.action))return json(await trainingJournal(db,actor,body));
     if(body.action==='standings'){
       const target=actor.is_platform_admin?String(body.targetClubId||actor.club_code):actor.club_code;
       if(!actor.is_platform_admin&&body.targetClubId&&body.targetClubId!==actor.club_code)throw new Error('geen_toegang');
@@ -30,7 +32,7 @@ Deno.serve(async req=>{
       }
       const standings=trainingStandings(sources,profiles);
       const visible=await publicationVisibility(db,standings.shooters.map(s=>s.id),actor.id);
-      return json({ok:true,...hideTrainingNames(standings,visible)});
+      return json({ok:true,ownShooterId:profiles.find(p=>p.linked_user_id===actor.id)?.id||null,...hideTrainingNames(standings,visible)});
     }
     const personal=actor.role==='schutter';
     let profile:any=null;
@@ -68,6 +70,7 @@ Deno.serve(async req=>{
         if(op.kind==='round' && op.value && (!Number.isInteger(op.value.score)||op.value.score<0||op.value.score>(op.value.type==='parcours'?250:['s1','s4','s7'].includes(op.value.stage)?50:25)))throw new Error('ongeldige_score');
         if(op.kind==='shot' && op.value && ![0,2,3,4,5].includes(op.value.score))throw new Error('ongeldige_score');
       }
+      for(const op of body.ops){if(op.kind==='round'&&op.value&&op.value.note!==undefined&&(typeof op.value.note!=='string'||op.value.note.length>2000))throw new Error('ongeldige_notitie');}
       const shooterOps=body.ops.filter(op=>op.kind==='shooter'&&op.value);
       if(shooterOps.length){
         const allowed=new Map((await registeredShooters()).map(s=>[s.id,s.display_name]));

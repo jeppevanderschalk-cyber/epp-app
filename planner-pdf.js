@@ -132,5 +132,5 @@
     const slug=clean(model.match.organizer).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,70)||'wedstrijd';
     return {bytes:await doc.save(),filename:'EPP-planning-'+slug+'-'+(model.days[0]?.date||day(now))+'.pdf',slotCount:model.slotCount};
   }
-  root.EppPlannerPdf={schedule,create};
+  root.EppPlannerPdf={schedule,create,dependencies};
 })(globalThis);

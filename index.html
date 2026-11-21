@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-gY56Yt/GMUiAdGqnTbIWV2ghQ9tBPkMaN7WrRRP01gw=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-3bDQNm+hB7b4eRsfMpuJXZTu3JJOFnPE81YOUYT6m4U='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-gY56Yt/GMUiAdGqnTbIWV2ghQ9tBPkMaN7WrRRP01gw=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-ALgS+5SeBsSa5ewW95fY25ksc/D2ndI7APgWO7+h8Gk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -124,7 +124,9 @@
 <script src="publication-ui.js?v=consent-capacity-1"></script>
 <script src="planner-capacity.js?v=consent-capacity-1"></script>
 <script src="payment-ui.js?v=prepared-payments-1"></script>
-<script src="planner-pdf.js?v=64ea91ba1d34"></script>
+<script src="planner-pdf.js?v=training-20261121"></script>
+<script src="training-results.js?v=20261121"></script>
+<script src="training-results-ui.js?v=20261121"></script>
 <script src="match-planner-ui.js?v=76f832d29134"></script>
 <script src="head-view-ui.js?v=5be215eff9d0"></script>
 <script src="match-scoring-ui.js?v=707491eafbff"></script>
@@ -1175,6 +1177,7 @@ const DraftStatus=()=>{
 };
 const RoundInput = ({maxV, stage, onAdd, autoFocus=false}) => {
   const [value,setValue] = useDraftField("score","");
+  const [note,setNote] = useDraftField("note","");
   const scope=React.useContext(DraftScope);
   const [saved,setSaved]=React.useState(false);
   const [details,setDetails]=React.useState(null);
@@ -1187,13 +1190,15 @@ const RoundInput = ({maxV, stage, onAdd, autoFocus=false}) => {
     if(!detailsValid){setError("Maak de kaarttelling en tijden compleet.");return;}
     const n=Number(value);
     if(!value.trim()||!Number.isInteger(n)||n<0||n>maxV){setError("Geheel getal van 0 tot "+maxV+" vereist.");return;}
-    setError("");onAdd(n,details);
+    setError("");onAdd(n,{...(details||{}),note:note.trim()});
+    setNote("");
     setSaved(true);
     setValue("");
     setDetails(null);setDetailsKey(k=>k+1);
     try{const key=EppUx.draftKey(eppSession()?.account,scope);localStorage.removeItem(key);window.dispatchEvent(new CustomEvent('epp-draft-status',{detail:{key,clear:true}}));}catch{}
   };
   return h("div",{className:"score-form",style:{flexBasis:'100%',minWidth:0}},h(DraftStatus),saved&&h("p",{className:"draft-note",role:"status"},"Ronde ingevoerd. Controleer de online opslagstatus bovenaan."),
+    h("label",null,"Notitie bij score (optioneel)",h("textarea",{className:"txt-in",maxLength:2000,rows:2,value:note,onChange:e=>setNote(e.target.value)})),
     maxV===250&&h(ParcoursDetails,{key:detailsKey,onValidity:setDetailsValid,onChange:data=>{setDetails(data);if(data)setValue(String(data.final_score));}}),
     stage&&h(StageDetails,{key:detailsKey,stage,maxV,onValidity:setDetailsValid,onChange:data=>{setDetails(data);if(data)setValue(String(data.final_score));}}),
     h("div",{className:"num-wrap",style:{marginTop:14,gap:12,alignItems:"stretch"}},
@@ -1263,7 +1268,7 @@ const ParcoursDetails=({onChange,onValidity})=>{
 
 const ShooterRounds = ({rounds}) => rounds?.length
   ? h("div",{className:"stage-badges",style:{marginTop:7}},
-      rounds.map((r,i)=>h("div",{key:r.id,className:"sbadge has-score"},"R",i+1,": ",r.score))
+      rounds.map((r,i)=>h("div",{key:r.id,className:"sbadge has-score"},"R",i+1,": ",r.score,r.note&&h("span",{style:{display:"block",fontWeight:400,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}},r.note)))
     )
   : h("div",{className:"score-prev"},"Nog geen rondes");
 
@@ -1497,7 +1502,7 @@ const TabTraining = ({shooters, currentTraining, finishTraining, isTrainer,archi
     ),
     archives.length>0&&h("section",null,h("h3",null,"Trainingsarchief"),archives.map(t=>h("details",{key:t.id,style:{padding:"12px 0",borderBottom:"1px solid "+C.border}},
       h("summary",null,new Date(t.closedAt).toLocaleDateString("nl-NL",{day:"numeric",month:"short",year:"numeric"})+" - "+(t.rounds||[]).length+((t.rounds||[]).length===1?" ronde":" rondes")+(t.excludedFromStand?" - niet meegenomen":"")),
-      (t.rounds||[]).filter(r=>!selected||r.sid===selected).map(r=>h("p",{key:r.id},(shooters.find(s=>s.id===r.sid)?.naam||r.sid)+" - "+(r.type==="parcours"?"Parcours":r.stage)+": "+r.score)))))
+      (t.rounds||[]).filter(r=>!selected||r.sid===selected).map(r=>h("p",{key:r.id},(shooters.find(s=>s.id===r.sid)?.naam||r.sid)+" - "+(r.type==="parcours"?"Parcours":r.stage)+": "+r.score+(r.note?" · "+r.note:""))))))
   );
 };
 
@@ -1508,7 +1513,7 @@ const TrainingHub = props => {
     props.canTrain&&h('div',{className:'sub-tab-row'},[['parcours','Parcours'],['stages','Stages'],['overview','Overzicht']].map(([id,label])=>h('button',{key:id,type:'button',className:'sub-tab','data-on':view===id?'1':'0',onClick:()=>setView(id)},label))),
     props.canTrain&&view!=='overview'
       ?h(TabInvoer,{...props,key:view,fixedMode:view==='stages'?'stage':'parcours',onOverview:()=>setView('overview')})
-      :h(TabTraining,{...props,isTrainer:props.canTrain,onInput:mode=>setView(mode==='stage'?'stages':'parcours')})
+      :h(React.Fragment,null,h(TabTraining,{...props,isTrainer:props.canTrain,onInput:mode=>setView(mode==='stage'?'stages':'parcours')}),h(SharedTrainingResults,{currentTraining:props.currentTraining}))
   );
 };
 
@@ -1558,6 +1563,7 @@ const SharedTrainingStand=({targetClubId,qualificationRecords}={})=>{
  React.useEffect(()=>{let active=true;const load=async()=>{try{const r=await eppCall('epp-training',{clubId:eppSession().account.clubId,action:'standings',targetClubId});if(active){setData(r);setStatus('');}}catch{if(active)setStatus('Stand bijwerken is niet gelukt.');}};load();const timer=eppPoll(load,10000);return()=>{active=false;clearInterval(timer);};},[targetClubId]);
  return h('div',null,status&&h('p',{className:'hint',role:'status'},status),data&&h(React.Fragment,null,
   h(TabRanglijst,{...data,qualificationRecords,maxOf:key=>({...DEFAULT_SHOTS,...data.stageShots}[key]||0)*5}),
+  h(TrainingResults,{data,targetClubId}),
   h('details',{style:{marginTop:16}},h('summary',null,'Alle ingevoerde rondes ('+data.rounds.length+')'),data.rounds.map(r=>h('p',{key:r.id,className:'hint'},r.naam+' · '+(r.type==='parcours'?'Parcours':r.stage)+' · '+r.score+' punten'+(r.ts?' · '+new Date(r.ts).toLocaleString('nl-NL'):''))))));
 };
 

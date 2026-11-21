@@ -4,6 +4,17 @@ Statische browser-app voor EPP-scoreregistratie.
 
 Publicatie: `epp-app.nl`
 
+## Trainingsresultaten en dagboek
+
+Bij handmatige scores kan een notitie worden opgeslagen. Onder Training > Overzicht
+en Stand zijn opgeslagen resultaten te filteren op training en schutter, met een
+PDF-download voor de selectie. Zonder trainingsfilter bevat de PDF de verenigingsstand;
+met trainingsfilter worden de standen voor die training berekend.
+Selecteer een training en schutter voor het dagboek. Eigen schuttersnotities zijn privé;
+traineradvies is zichtbaar voor de schutter en bevoegde trainers van de vereniging.
+Dagboekinhoud wordt alleen op verzoek toegevoegd aan een persoonlijke PDF.
+Verenigingsbeheerders herstellen ledenwachtwoorden via Meer > Accounts > Wachtwoord herstellen.
+
 Betaalde wedstrijdinschrijvingen zijn voorbereid met €12 per discipline en een
 eigen Mollie-account per organisator. Online betaling blijft uitgeschakeld tot
 aansluiting; zie [aansluiten en testen](supabase/README-payments.md).

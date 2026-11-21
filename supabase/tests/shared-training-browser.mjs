@@ -25,7 +25,7 @@ try{
   await page.getByText('Peter Kruisselbrink',{exact:true}).first().waitFor();
   assert.equal(await page.locator('.num-in').count(),0);
   await page.getByText('Alle ingevoerde rondes (2)',{exact:true}).click();
-  await page.getByText('Peter Kruisselbrink · Parcours · 190 punten',{exact:true}).waitFor();
+  await page.locator('details p.hint').filter({hasText:'Peter Kruisselbrink · Parcours · 190 punten'}).waitFor();
   assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.close();console.log('PASS '+width+': shooter sees shared club scores and all rounds without editing controls');
  }
