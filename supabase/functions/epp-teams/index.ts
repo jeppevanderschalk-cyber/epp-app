@@ -13,6 +13,14 @@ Deno.serve(async req=>{
       const {data,error}=await db.rpc('epp_team_context',{p_actor:actor.id,p_match:body.matchId||null,p_discipline:discipline});
       if(error)throw error;return json(await hideTeamIdentities(db,data,actor));
     }
+    if(body.action==='save_group_lineup'||body.action==='delete_group_lineup'){
+      const {data,error}=await db.rpc('epp_team_group_lineup_save',{p_actor:actor.id,p_group:body.groupId,p_match:body.matchId,p_discipline:discipline,p_members:body.members||[],p_expected:body.expectedRevision,p_delete:body.action==='delete_group_lineup'});
+      if(error)throw error;return json(data);
+    }
+    if(body.action==='link_group_member'){
+      const {data,error}=await db.rpc('epp_team_group_link',{p_actor:actor.id,p_group:body.groupId,p_member:body.memberId,p_shooter:body.shooterId,p_expected:body.expectedRevision});
+      if(error)throw error;return json(data);
+    }
     if(body.action==='save'||body.action==='delete'){
       if(!actor.is_admin||actor.role!=='trainer')throw new Error('geen_beheerrechten');
       const {data,error}=await db.rpc('epp_team_save',{p_actor:actor.id,p_match:body.matchId,p_discipline:discipline,p_team:body.teamId,p_number:body.number,p_members:body.members||[],p_expected:body.expectedRevision,p_delete:body.action==='delete'});

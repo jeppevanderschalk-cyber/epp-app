@@ -25,8 +25,15 @@ export function hideTrainingNames(data,visible){
   return {...data,bestParcours,bestStageAverages,shooters:data.shooters.map(s=>visible.has(s.id)?s:{...strip(s),naam:ANONYMOUS_NAME}),rounds:data.rounds.map(r=>visible.has(r.sid)?r:{...strip(r),naam:ANONYMOUS_NAME})};
 }
 export async function hideTeamIdentities(db,data,actor){
-  const ids=[...(data.shooters||[]).map(s=>s.id),...(data.teams||[]).flatMap(t=>(t.members||[]).map(m=>m.id))];
+  const groups=data.teamGroups||[];
+  const ids=[...(data.shooters||[]).map(s=>s.id),...(data.teams||[]).flatMap(t=>(t.members||[]).map(m=>m.id)),...groups.flatMap(g=>(g.members||[]).map(m=>m.id))];
   const visible=await publicationVisibility(db,ids,actor.id);
   const ownOperational=s=>actor.role==='trainer'&&actor.is_admin&&(actor.is_platform_admin||(s.clubs||[]).some(c=>c.code===actor.club_code));
-  return {...data,shooters:(data.shooters||[]).map(s=>visible.has(s.id)||ownOperational(s)?s:{...hideIdentity(s,false),clubs:[]}),teams:(data.teams||[]).map(t=>({...t,members:(t.members||[]).map(m=>hideIdentity(m,visible.has(m.id)||(actor.role==='trainer'&&actor.is_admin&&(actor.is_platform_admin||t.clubCode===actor.club_code))))}))};
+  const managedGroups=new Set(groups.filter(g=>g.canManage).map(g=>g.id));
+  const groupMembers=new Set(groups.filter(g=>g.canManage).flatMap(g=>(g.members||[]).map(m=>m.id).filter(Boolean)));
+  return {...data,
+    shooters:(data.shooters||[]).map(s=>visible.has(s.id)||ownOperational(s)||groupMembers.has(s.id)?s:{...hideIdentity(s,false),clubs:[]}),
+    teams:(data.teams||[]).map(t=>({...t,members:(t.members||[]).map(m=>hideIdentity(m,visible.has(m.id)||managedGroups.has(t.groupId)||(actor.role==='trainer'&&actor.is_admin&&(actor.is_platform_admin||t.clubCode===actor.club_code))))})),
+    teamGroups:groups.map(g=>({...g,members:(g.members||[]).map(m=>visible.has(m.id)||g.canManage?m:{...hideIdentity(m,false),clubs:[]})}))
+  };
 }

@@ -25,3 +25,10 @@ test('team directory and members respect consent; club administrators retain onl
   const member=await hideTeamIdentities(db,data,{id:'member',role:'schutter',club_code:'apgs'});assert.ok(!JSON.stringify(member).includes('Club Name'));assert.deepEqual(member.shooters[0].clubs,[]);
   const admin=await hideTeamIdentities(db,data,{id:'admin',role:'trainer',is_admin:true,club_code:'apgs'});assert.equal(admin.shooters[0].name,'Own Club Name');assert.equal(admin.shooters[1].name,'Anonieme schutter');assert.equal(admin.teams[0].members[0].name,'Own Club Name');assert.equal(admin.teams[1].members[0].name,'Anonieme schutter');
 });
+test('independent group names remain private except to their own operational managers',async()=>{
+  const db=dbFor([{shooter_id:first,allowed:false},{shooter_id:second,allowed:false}]);
+  const data={shooters:[],teams:[{groupId:'dreamteam',clubCode:null,members:[{id:first,name:'Private Active',club:'Private Club'}]}],teamGroups:[{id:'dreamteam',canManage:false,members:[{id:first,name:'Private Active',clubs:[{code:'apgs'}]},{id:null,name:'Private Pending',clubs:[]},{id:second,name:'Private Reserve',clubs:[]}]}]};
+  const viewer=await hideTeamIdentities(db,data,{id:'outsider',role:'schutter'});assert.ok(!JSON.stringify(viewer).includes('Private'));assert.equal(viewer.teamGroups[0].members[1].id,null);
+  const managed={...data,teamGroups:data.teamGroups.map(g=>({...g,canManage:true}))};
+  const manager=await hideTeamIdentities(db,managed,{id:'member',role:'schutter'});assert.equal(manager.teamGroups[0].members[0].name,'Private Active');assert.equal(manager.teamGroups[0].members[1].name,'Private Pending');assert.equal(manager.teamGroups[0].members[2].name,'Private Reserve');assert.equal(manager.teams[0].members[0].name,'Private Active');
+});
