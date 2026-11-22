@@ -58,7 +58,7 @@ const PlannerBooking=({view,target,onSaved,onReload,saveNotice='',onEdited})=>{
   };
   return h('section',{className:'booking-form',style:{display:'grid',gap:12}},
     h('ol',{className:'booking-steps','aria-label':'Inschrijfstappen'},h('li',{'aria-current':!selected?'step':undefined},'1 · Kies je tijdslot'),h('li',{'aria-current':selected&&changed?'step':undefined},'2 · Controleer en bevestig'),h('li',{'aria-current':mine.choices.length&&!changed?'step':undefined},'3 · Ingeschreven')),
-    h('h3',{style:{fontSize:18,margin:0}},target?'Inschrijving wijzigen: '+target.name:'Jouw inschrijving'),
+    h('h3',{style:{fontSize:18,margin:0}},target?(mine.choices.length?'Inschrijving wijzigen: ':'Schutter inschrijven: ')+target.name:'Jouw inschrijving'),
     view.match.payment_required&&h('p',{className:'hint'},'€12 per discipline. Kies Standaard, Optics of beide (€24). Je inschrijving is definitief na betaling aan de organiserende vereniging.'),
     order&&h(PaymentStatus,{order,matchId:view.match.id,onUpdated:onReload}),
     paidBooking&&h('p',{className:'hint'},'Je kunt de tijdsloten van je betaalde disciplines wijzigen. Neem voor een andere disciplinekeuze of terugbetaling contact op met de organisator.'),
@@ -219,7 +219,7 @@ const MatchPlanner=({matchId,manage=false})=>{
     const message=(cancel?'Online afgemeld':'Boeking online bevestigd')+(latest?'':'. De tijdsloten konden niet worden vernieuwd; laad de planning opnieuw.');
     setBookingNotice(message);return message;
   };
-  const reload=async()=>{const latest=await load();if(!latest)return;setVersion(v=>v+1);if(target)setTarget(latest.roster.find(r=>r.shooterId===target.shooterId)||null);};
+  const reload=async()=>{const latest=await load();if(!latest)return;setVersion(v=>v+1);if(target)setTarget([...(latest.clubShooters||[]),...latest.roster].find(r=>r.shooterId===target.shooterId)||null);};
   return h('section',{style:{display:'grid',gap:14}},
     status&&h('p',{className:'hint',role:'status'},status),
     !view?h('p',{className:'hint'},'Planner laden...'):h(React.Fragment,null,
@@ -229,6 +229,8 @@ const MatchPlanner=({matchId,manage=false})=>{
       view.planner&&h(React.Fragment,null,
         manage&&view.managing&&h(PlannerPdfExport,{key:matchId,matchId}),
         h(PlannerDayCapacity,{slots:view.slots}),
+        !!view.clubShooters?.length&&h('label',null,'Schutter van je vereniging',h('select',{className:'txt-in','aria-label':'Schutter van je vereniging',value:target?.shooterId||'',onChange:e=>{setTarget(view.clubShooters.find(s=>s.shooterId===e.target.value)||null);setBookingNotice('');}},h('option',{value:''},view.profile?'Mijn eigen inschrijving':'Kies een schutter'),view.clubShooters.map(s=>h('option',{key:s.shooterId,value:s.shooterId},s.name+' · '+s.publicId)))),
+        target&&view.match.payment_required&&!target.choices.length&&h('p',{className:'hint',role:'status'},'Voor deze wedstrijd moet de schutter zelf inschrijven en betalen met het persoonlijke account.'),
         (!manage||view.profile||target)&&h('div',{ref:bookingRef},h(PlannerBooking,{key:'booking-'+version+(target?.shooterId||''),view,target,onSaved:cancel=>saved(false,cancel),onReload:reload,saveNotice:bookingNotice,onEdited:()=>setBookingNotice('')})),
         manage&&!view.profile&&!target&&bookingNotice&&h('p',{className:'hint',role:'status'},bookingNotice),
         h('details',null,h('summary',{style:{fontWeight:700}},'Alle tijdsloten ('+view.slots.length+') · '+EppPlannerCapacity.summarize(view.slots).map(day=>eppFmtDate(day.day)+': max. '+day.maxShooters+' schutters').join(' · ')),

@@ -46,7 +46,7 @@ Deno.serve(async req=>{
       const {data:mine,error:mineError}=await db.from('epp_signups').select('id').eq('match_id',match.id).eq('shooter_id',profile?.id||'00000000-0000-0000-0000-000000000000').maybeSingle();if(mineError)throw mineError;if(!mine)throw new Error('planner_niet_beschikbaar');
     }
     if(body.action==='book'){
-      const shooterId=managing&&body.shooterId?body.shooterId:profile?.id;
+      const shooterId=body.shooterId||profile?.id;
       if(!shooterId)throw new Error('persoonlijk_schutterprofiel_verplicht');
       const {data,error}=await db.rpc('epp_planner_book',{p_actor:actor.id,p_match:match.id,p_shooter:shooterId,p_choices:body.choices,p_expected:body.expectedRevision,p_reason:body.reason||''});if(error)throw error;
       return json(data);
@@ -63,8 +63,14 @@ Deno.serve(async req=>{
         roster=signups.filter(s=>s.epp_signup_disciplines.length).map(s=>{const p=profiles.find(p=>p.id===s.shooter_id);return {shooterId:s.shooter_id,name:s.shooter_name,publicId:p?.public_id,clubs:[...new Set((p?.memberships||[]).map((m:any)=>m.club?.naam).filter(Boolean))],revision:s.planner_revision,preferences:s.epp_signup_disciplines.filter((d:any)=>!d.slot_id),choices:s.epp_signup_disciplines.map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))};});
         const {data,error}=await db.from('epp_planner_audit').select('id,action,actor_id,reason,created_at').eq('match_id',match.id).order('created_at',{ascending:false}).limit(20);if(error)throw error;audit=data;
       }
+      let clubShooters:any[]=[];
+      if(actor.role==='trainer'&&actor.is_admin){
+        const {data:club,error:clubError}=await db.from('clubs').select('id').eq('code',actor.club_code).single();if(clubError)throw clubError;
+        const members=await allRows(()=>db.from('shooters').select('id,display_name,public_id,memberships!inner(club_id)').eq('memberships.club_id',club.id).order('id'));
+        clubShooters=members.map(s=>{const signup=signups.find(r=>r.shooter_id===s.id);return {shooterId:s.id,name:s.display_name,publicId:s.public_id,payment:publicOrder(orders.find(o=>o.shooter_id===s.id)),revision:signup?.planner_revision||0,choices:(signup?.epp_signup_disciplines||[]).map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))};});
+      }
       const mine=signups.find(s=>s.shooter_id===profile?.id);
-      return json({ok:true,match:{id:match.id,organizer:match.organizer,location:match.location,match_date:match.match_date,match_dates:match.match_dates,registration_opens_on:match.registration_opens_on,deadline:match.deadline,offered_disciplines:match.offered_disciplines,payment_required:match.payment_required},planner,managing,profile,slots:slots.map(s=>({...s,booked:(counts.get(s.id)||0)+(pending.get(s.id)||0),pending:pending.get(s.id)||0})),paymentOrders:managing?orders.map(o=>({...publicOrder(o),shooterId:o.shooter_id,name:o.shooter?.display_name||signups.find(s=>s.shooter_id===o.shooter_id)?.shooter_name||'Schutter '+o.shooter_id.slice(0,8)})):[],mine:{payment:publicOrder(orders.find(o=>o.shooter_id===profile?.id)),revision:mine?.planner_revision||0,choices:(mine?.epp_signup_disciplines||[]).map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))},roster,audit});
+      return json({ok:true,match:{id:match.id,organizer:match.organizer,location:match.location,match_date:match.match_date,match_dates:match.match_dates,registration_opens_on:match.registration_opens_on,deadline:match.deadline,offered_disciplines:match.offered_disciplines,payment_required:match.payment_required},planner,managing,profile,clubShooters,slots:slots.map(s=>({...s,booked:(counts.get(s.id)||0)+(pending.get(s.id)||0),pending:pending.get(s.id)||0})),paymentOrders:managing?orders.map(o=>({...publicOrder(o),shooterId:o.shooter_id,name:o.shooter?.display_name||signups.find(s=>s.shooter_id===o.shooter_id)?.shooter_name||'Schutter '+o.shooter_id.slice(0,8)})):[],mine:{payment:publicOrder(orders.find(o=>o.shooter_id===profile?.id)),revision:mine?.planner_revision||0,choices:(mine?.epp_signup_disciplines||[]).map((d:any)=>({discipline:d.discipline,slotId:d.slot_id}))},roster,audit});
     }
     return json({ok:false,error:'onbekende_actie'},400);
   }catch(e){return json({ok:false,error:e.message||'server_fout'},['sessie_verlopen','geen_toegang','geen_beheerrechten','alleen_eigen_inschrijving'].includes(e.message)?401:400);}
