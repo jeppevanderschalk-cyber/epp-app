@@ -97,15 +97,15 @@ Deno.serve(async req=>{
       return json({ok:true,...await createSession(db,account)});
     }
     if(body.action==='register_member'){
-      if(!isKnownClub(body.registrationClubId)||['gast','eppnationaal'].includes(body.registrationClubId))throw new Error('vereniging_verplicht');
+      if(!isKnownClub(body.registrationClubId)||body.registrationClubId==='eppnationaal')throw new Error('vereniging_verplicht');
       const names=memberNames(body.firstName,body.lastName);
       if(typeof body.newPassword!=='string'||body.newPassword.length<10||body.newPassword.length>256)throw new Error('nieuw_wachtwoord_ongeldig');
       const email=memberEmail(body.email),username=await emailUsername(email),chosenUsername=body.username===undefined?null:loginUsername(body.username),salt=randomSalt();
       if(body.publicationConsent!==undefined&&typeof body.publicationConsent!=='boolean')throw new Error('publicatiekeuze_ongeldig');
       const {data:id,error}=await db.rpc('epp_register_member_with_consent',{p_consent:body.publicationConsent===true,p_login_username:chosenUsername,p_club:body.registrationClubId,p_username:username,p_first:names.firstName,p_last:names.lastName,p_email:email,p_salt:salt,p_hash:await passwordHash(body.newPassword,salt)});
       if(error)throw error;
-      const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin').eq('id',id).single();if(accountError)throw accountError;
-      return json({ok:true,pendingApproval:true,account:{clubId:account.club_code}});
+      const {data:account,error:accountError}=await db.from('app_accounts').select('id,club_code,username,display_name,role,is_admin,membership_approved').eq('id',id).single();if(accountError)throw accountError;
+      return json({ok:true,pendingApproval:account.membership_approved===false,account:{clubId:account.club_code}});
     }
     const actor=await requireAccount(body,false,true);
     if(body.action==='session')return json({ok:true,account:{id:actor.id,username:actor.username,displayName:actor.display_name,role:actor.role,clubId:actor.club_code,isAdmin:actor.is_admin,isPlatformAdmin:actor.is_platform_admin,mustChangePassword:actor.must_change_password,loginUsername:actor.login_username}});

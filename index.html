@@ -3,7 +3,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-UMxqt9Yvdwl31JljBPzii3D/yZe618m9OJINSFs9TBw=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-ALgS+5SeBsSa5ewW95fY25ksc/D2ndI7APgWO7+h8Gk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'sha256-DErUXmJD6jIbUEi6ZW8j5zP2cqiBaGZOpuOUefSJrX8=' 'sha256-sbGqt8rFB4aZRxYOmTbpFx2JX+W0IQe1PiorCFtrOuQ=' 'sha256-EEfA59rVaB6+sCnC2T73PWNA6XeRDgBXtG0QkBT3zaU=' 'sha256-fePTOm1gpoKiDMvLXfQHF1U2xbGhBBuWcbzcQUmNaYs=' 'sha256-sVLqZk36Uy3rznKUapbpZYxF9JZz6CKLFZhH4DjZu4Y='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://nnsozxjkltcnexqpnwia.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'" />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>EPP</title>
@@ -82,7 +82,7 @@
         <option value="devrijheidheemskerk">S.V. De Vrijheid Heemskerk</option>
         <option value="dsvmarine">S.V. DSV Marine</option>
         <option value="eppnationaal">EPP Nationaal</option>
-        <option value="gast">Gast</option>
+        <option value="gast">Solo-schutter — zonder vereniging</option>
       </select>
     </label>
     <label>
@@ -168,7 +168,7 @@ var EPP_CLUBS=[
   {id:"devrijheidheemskerk",label:"S.V. De Vrijheid Heemskerk",managedAuth:true,space:"epp-app-devrijheidheemskerk"},
   {id:"dsvmarine",label:"S.V. DSV Marine",managedAuth:true,space:"epp-app-dsvmarine"},
   {id:"eppnationaal", label:"EPP Nationaal", managedAuth:true, space:"epp-app-nationaal"},
-  {id:"gast", label:"Gast", managedAuth:true, space:"epp-app-gast"}
+  {id:"gast", label:"Solo-schutter", managedAuth:true, space:"epp-app-gast"}
 ];
 function eppSha256Hex(text){
   var bytes=new TextEncoder().encode(text);
@@ -2047,7 +2047,8 @@ const MemberRegistration = () => {
   return h("section",{className:"card"},
     h("div",{className:"card-head"},h("div",{className:"eyebrow"},"Eigen account aanmaken")),
     h("form",{className:"card-body",onSubmit:submit,style:{display:"grid",gap:12}},
-      h('label',null,'Vereniging',h('select',{className:'txt-in',required:true,disabled:busy,value:form.clubId,onChange:e=>setForm(p=>({...p,clubId:e.target.value}))},h('option',{value:''},'Kies je vereniging'),EPP_CLUBS.filter(c=>!['gast','eppnationaal'].includes(c.id)).map(c=>h('option',{key:c.id,value:c.id},c.label)))),
+      h('label',null,'Account voor',h('select',{className:'txt-in',required:true,disabled:busy,value:form.clubId,onChange:e=>setForm(p=>({...p,clubId:e.target.value}))},h('option',{value:''},'Kies solo-schutter of je vereniging'),h('option',{value:'gast'},'Solo-schutter — zonder vereniging'),EPP_CLUBS.filter(c=>!['gast','eppnationaal'].includes(c.id)).map(c=>h('option',{key:c.id,value:c.id},c.label)))),
+      form.clubId==='gast'&&h('p',{className:'hint'},'Je maakt een persoonlijk account aan zonder vereniging. Na registratie kun je direct inloggen; goedkeuring door een vereniging is niet nodig.'),
       h("label",null,"Voornaam",h("input",{className:"txt-in",autoComplete:"given-name",required:true,maxLength:70,value:form.firstName,disabled:busy,onChange:e=>setForm(p=>({...p,firstName:e.target.value}))})),
       h("label",null,"Achternaam",h("input",{className:"txt-in",autoComplete:"family-name",required:true,maxLength:70,value:form.lastName,disabled:busy,onChange:e=>setForm(p=>({...p,lastName:e.target.value}))})),
       h("label",null,"E-mailadres",h("input",{className:"txt-in",type:"email",autoComplete:"email",required:true,maxLength:254,value:form.email,disabled:busy,onChange:e=>setForm(p=>({...p,email:e.target.value}))})),
